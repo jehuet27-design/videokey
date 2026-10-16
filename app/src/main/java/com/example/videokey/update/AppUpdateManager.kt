@@ -39,6 +39,7 @@ class AppUpdateManager(private val context: Context) {
     sealed class UpdateState {
         object Idle : UpdateState()
         data class Checking(val message: String) : UpdateState()
+        data class UpToDate(val currentVersion: String) : UpdateState()
         data class UpdateAvailable(val info: AppUpdateInfo) : UpdateState()
         data class Downloading(
             val info: AppUpdateInfo,
@@ -153,7 +154,7 @@ class AppUpdateManager(private val context: Context) {
                         }
                     } else {
                         if (isManual) {
-                            _updateState.value = UpdateState.Error("Nasa pinakabagong bersyon na ang VideoKey! (v${getCurrentVersionName()})", canRetry = false)
+                            _updateState.value = UpdateState.UpToDate(getCurrentVersionName())
                         } else {
                             _updateState.value = UpdateState.Idle
                         }

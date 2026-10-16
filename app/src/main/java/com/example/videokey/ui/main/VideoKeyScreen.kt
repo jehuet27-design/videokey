@@ -6447,6 +6447,33 @@ fun ForceUpdateDialog(
                         )
                     }
 
+                    is com.example.videokey.update.AppUpdateManager.UpdateState.UpToDate -> {
+                        Text(text = "✅", fontSize = 42.sp)
+                        Text(
+                            text = "PINAKABAGONG BERSYON NA!",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp,
+                            color = Color(0xFF00FF88),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Nasa pinakabagong bersyon na ang iyong VideoKey (v${updateState.currentVersion}). Walang kailangang i-update sa ngayon.",
+                            fontSize = 12.sp,
+                            color = Color.LightGray,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                        ) {
+                            Text(text = "OK, SALAMAT", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+
                     is com.example.videokey.update.AppUpdateManager.UpdateState.UpdateAvailable -> {
                         Text(text = "🚀", fontSize = 38.sp)
                         Text(
