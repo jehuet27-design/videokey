@@ -132,12 +132,10 @@ data class VideoKeyUiState(
     val currentBackgroundFolder: String = "/storage/emulated/0/VideoKey/backgrounds",
     val isSongFolderPickerOpen: Boolean = false,
     val isBgFolderPickerOpen: Boolean = false,
-    val activeSoundFontName: String = "Platinum Major HD 10",
+    val activeSoundFontName: String = "Dream SAM2634 v2.1",
     val availableSoundFonts: List<String> = listOf(
-        "Platinum Major HD 10",
         "Dream SAM2634 v2.1",
-        "MegaPro Sound",
-        "Yamaha x Korg x Ketron"
+        "MegaPro Sound"
     ),
     val isSoundFontDialogOpen: Boolean = false,
     val isSongbookOpen: Boolean = false,
@@ -237,7 +235,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val savedLang = prefs.getString("app_language", "tl") ?: "tl"
         val initialLang = if (savedLang == "en") AppLanguage.ENGLISH else AppLanguage.TAGALOG
 
-        val savedSf = prefs.getString("active_soundfont", "platinum major. hd 10 soundbank sf2") ?: "platinum major. hd 10 soundbank sf2"
+        val rawSavedSf = prefs.getString("active_soundfont", "Dream SAM2634 v2.1") ?: "Dream SAM2634 v2.1"
+        val savedSf = if (rawSavedSf.contains("mega", ignoreCase = true)) "MegaPro Sound" else "Dream SAM2634 v2.1"
         soundEngine.setActiveSoundFont(savedSf)
         val initialMelody = prefs.getInt("melody_percent", 70) // Default 70% as requested!
         soundEngine.setMelodyVolume(initialMelody)
@@ -294,12 +293,58 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(downloadStatus = status) }
                 if (status is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Completed) {
                     refreshDownloadCatalog()
-                    scanSongFolder(File(_uiState.value.currentSongFolder))
-                    scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder))
+                    val baseDir = contentDownloadManager.getBaseStorageDir()
+                    if (status.itemId == "all_backgrounds") {
+                        val bgDir = File(baseDir, "backgrounds")
+                        if (bgDir.exists()) {
+                            prefs.edit().putString("background_folder", bgDir.absolutePath).apply()
+                            _uiState.update { it.copy(currentBackgroundFolder = bgDir.absolutePath) }
+                            scanBackgroundMedia(bgDir, forcePickVideo = true)
+                        } else {
+                            scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder), forcePickVideo = true)
+                        }
+                    } else if (status.itemId == "core_songs") {
+                        scanSongFolder(File(_uiState.value.currentSongFolder))
+                        // Automatic chain: download soundfonts if missing right after songs finish!
+                        if (!contentDownloadManager.isSoundFontInstalled()) {
+                            val sfItem = contentDownloadManager.getAvailableCatalog().find { it.id == "all_soundfonts" }
+                            if (sfItem != null) {
+                                contentDownloadManager.downloadItem(sfItem)
+                            }
+                        }
+                    } else if (status.itemId == "all_soundfonts") {
+                        scanSongFolder(File(_uiState.value.currentSongFolder))
+                    } else {
+                        scanSongFolder(File(_uiState.value.currentSongFolder))
+                        scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder))
+                    }
                 }
             }
         }
         refreshDownloadCatalog()
+
+        // Automated startup download: if no songs are installed, automatically download songs and then soundfonts!
+        viewModelScope.launch {
+            delay(2500)
+            val hasSongs = repository.getTotalSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()
+            val hasSf = contentDownloadManager.isSoundFontInstalled()
+            if (!hasSongs) {
+                Log.d("VideoKeyViewModel", "No songs detected on startup. Triggering automatic download...")
+                _uiState.update { it.copy(isDownloadCenterOpen = true) }
+                val songsItem = contentDownloadManager.getAvailableCatalog().find { it.id == "core_songs" }
+                if (songsItem != null) {
+                    contentDownloadManager.downloadItem(songsItem)
+                }
+            } else if (!hasSf) {
+                Log.d("VideoKeyViewModel", "SoundFont missing on startup. Triggering automatic download...")
+                _uiState.update { it.copy(isDownloadCenterOpen = true) }
+                val sfItem = contentDownloadManager.getAvailableCatalog().find { it.id == "all_soundfonts" }
+                if (sfItem != null) {
+                    contentDownloadManager.downloadItem(sfItem)
+                }
+            }
+        }
+
         // Background OTA Update Check across any internet connection (Wi-Fi, Data)
         appUpdateManager.checkForUpdates(autoDownloadIfNewer = true, isManual = false)
     }
@@ -1328,17 +1373,19 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             val count = repository.getTotalSongsCount()
             val sfCount = result.soundFonts.size
             val statusMsg = "Folder [${folder.name}]: ${count} songs, ${sfCount} SoundFonts"
+            val defaultSoundFonts = listOf("Dream SAM2634 v2.1", "MegaPro Sound")
             val sfNames = if (result.soundFonts.isNotEmpty()) {
-                result.soundFonts.map { it.nameWithoutExtension }
+                val scanned = result.soundFonts.map { it.nameWithoutExtension }
+                (defaultSoundFonts + scanned).distinct()
             } else {
-                _uiState.value.availableSoundFonts
+                defaultSoundFonts
             }
-            val savedSf = prefs.getString("active_soundfont", null)
+            val rawSavedSf = prefs.getString("active_soundfont", "Dream SAM2634 v2.1") ?: "Dream SAM2634 v2.1"
             val resolvedSf = when {
-                !savedSf.isNullOrBlank() && sfNames.any { it.equals(savedSf, ignoreCase = true) } ->
-                    sfNames.first { it.equals(savedSf, ignoreCase = true) }
-                result.soundFonts.isNotEmpty() -> result.soundFonts.first().nameWithoutExtension
-                else -> _uiState.value.activeSoundFontName
+                sfNames.any { it.equals(rawSavedSf, ignoreCase = true) } ->
+                    sfNames.first { it.equals(rawSavedSf, ignoreCase = true) }
+                rawSavedSf.contains("mega", ignoreCase = true) -> "MegaPro Sound"
+                else -> "Dream SAM2634 v2.1"
             }
             soundEngine.setActiveSoundFont(resolvedSf)
             val playables = soundEngine.getPlayableCodes()
@@ -1366,22 +1413,22 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     private val playlistLock = Any()
     private val backgroundPlaylist = mutableListOf<KaraokeBackground>()
 
-    fun scanBackgroundMedia(folder: File = File(_uiState.value.currentBackgroundFolder)) {
+    fun scanBackgroundMedia(folder: File = File(_uiState.value.currentBackgroundFolder), forcePickVideo: Boolean = false) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val backgrounds = mutableListOf<KaraokeBackground>()
             val seenPaths = HashSet<String>()
 
-            // Strictly scan ONLY the user-selected folder for mp4/video or image files!
-            if (folder.exists() && folder.isDirectory) {
+            fun scanDir(dir: File) {
+                if (!dir.exists() || !dir.isDirectory) return
                 val allFiles = try {
-                    folder.walkTopDown().maxDepth(6).filter { it.isFile && it.length() > 0L }.toList()
+                    dir.walkTopDown().maxDepth(6).filter { it.isFile && it.length() > 0L }.toList()
                 } catch (e: Exception) {
-                    folder.listFiles()?.filter { it.isFile && it.length() > 0L } ?: emptyList()
+                    dir.listFiles()?.filter { it.isFile && it.length() > 0L } ?: emptyList()
                 }
                 for (file in allFiles) {
                     if (!seenPaths.add(file.absolutePath)) continue
                     val ext = file.extension.lowercase()
-                    val folderTag = if (file.parentFile != null && file.parentFile != folder) "[${file.parentFile!!.name}] " else ""
+                    val folderTag = if (file.parentFile != null && file.parentFile != dir) "[${file.parentFile!!.name}] " else ""
                     when (ext) {
                         "mp4", "mkv", "webm", "3gp", "avi", "mov" -> {
                             backgrounds.add(
@@ -1407,18 +1454,33 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 }
             }
 
-            // Only include stage fallback if selected folder has no mp4 or image files
+            scanDir(folder)
+
+            // If selected folder has no media, also check default VideoKey backgrounds locations
+            if (backgrounds.isEmpty()) {
+                val base = contentDownloadManager.getBaseStorageDir()
+                scanDir(File(base, "backgrounds"))
+                scanDir(File("/storage/emulated/0/VideoKey/backgrounds"))
+                scanDir(File("/sdcard/VideoKey/backgrounds"))
+                scanDir(File("/storage/emulated/0/SongHub/bgv"))
+            }
+
+            // Only include stage fallback if no mp4 or image files were found anywhere
             if (backgrounds.isEmpty()) {
                 backgrounds.add(KaraokeBackground("stage_neon", "✨ Neon Videoke Stage", "", BackgroundType.STAGE))
             }
 
             val mediaOnly = backgrounds.filter { it.type == BackgroundType.VIDEO || it.type == BackgroundType.IMAGE }
+            val videoOnly = backgrounds.filter { it.type == BackgroundType.VIDEO }
             val savedId = prefs.getString("selected_bg", null)
             val savedBg = backgrounds.firstOrNull { b -> savedId != null && b.id == savedId }
-            val newSel = if (savedBg != null && (savedBg.type == BackgroundType.VIDEO || savedBg.type == BackgroundType.IMAGE)) {
+
+            val newSel = if (forcePickVideo && videoOnly.isNotEmpty()) {
+                videoOnly.shuffled().first()
+            } else if (savedBg != null && (savedBg.type == BackgroundType.VIDEO || (videoOnly.isEmpty() && savedBg.type == BackgroundType.IMAGE))) {
                 savedBg
             } else {
-                mediaOnly.shuffled().firstOrNull() ?: savedBg ?: backgrounds.firstOrNull()
+                videoOnly.shuffled().firstOrNull() ?: mediaOnly.shuffled().firstOrNull() ?: savedBg ?: backgrounds.firstOrNull()
             }
 
             synchronized(playlistLock) {

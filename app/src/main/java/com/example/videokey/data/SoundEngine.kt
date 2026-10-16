@@ -27,12 +27,6 @@ class SoundEngine(private val context: Context) {
 
     val availableSoundFonts = listOf(
         SoundFontPreset(
-            id = "platinum",
-            displayName = "Platinum Major HD 10",
-            fileName = "platinum major. hd 10 soundbank sf2 (custom made by jc).sf2",
-            description = "Classic authentic Philippine videoke tone"
-        ),
-        SoundFontPreset(
             id = "dreamsam",
             displayName = "Dream SAM2634 v2.1",
             fileName = "Dream SAM2634 (ver. 2.1).sf2",
@@ -43,12 +37,6 @@ class SoundEngine(private val context: Context) {
             displayName = "MegaPro Sound",
             fileName = "mega.sf2",
             description = "Megapro karaoke player soundfont"
-        ),
-        SoundFontPreset(
-            id = "yamaha_hybrid",
-            displayName = "Yamaha x Korg x Ketron",
-            fileName = "yamaha x korg x ketron x dream sam (custom made by jc).sf2",
-            description = "High definition hybrid soundbank"
         )
     )
 

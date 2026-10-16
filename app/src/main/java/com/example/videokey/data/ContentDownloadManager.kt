@@ -89,12 +89,12 @@ class ContentDownloadManager(private val context: Context) {
                 id = "all_soundfonts",
                 title = "🎛️ Complete SoundFont Bank",
                 category = ContentCategory.SOUNDFONT,
-                description = "Lahat ng SoundFonts (Platinum HD, Dream SAM, Yamaha, MegaPro) ay awtomatikong mado-download nang sabay-sabay.",
-                sizeFormatted = "1.2 GB",
+                description = "Lahat ng SoundFonts (Dream SAM2634 ver. 2.1 at MegaPro Sound) ay mabilis at magaan ma-download.",
+                sizeFormatted = "204 MB",
                 downloadUrl = "$releaseBase/soundfonts_all.zip",
                 relativeDestinationPath = "SoundFont",
                 isZip = true,
-                checkFileRelativePath = "SoundFont/songhub.sf2"
+                checkFileRelativePath = "SoundFont/Dream SAM2634 (ver. 2.1).sf2"
             ),
             // 3. Complete Video Backgrounds Pack (All-in-one single download)
             DownloadItem(
@@ -117,11 +117,13 @@ class ContentDownloadManager(private val context: Context) {
     fun isItemInstalled(item: DownloadItem): Boolean {
         val base = getBaseStorageDir()
         val target = File(base, item.checkFileRelativePath)
-        return target.exists() && target.length() > 0
+        if (target.exists() && target.length() > 0) return true
+        val altTarget = File("/storage/emulated/0/SongHub", item.checkFileRelativePath)
+        return altTarget.exists() && altTarget.length() > 0
     }
 
     /**
-     * Checks if any songs exist in the base folder.
+     * Checks if any songs exist in the base folder or SongHub directory.
      */
     fun hasAnySongsInstalled(): Boolean {
         val base = getBaseStorageDir()
@@ -129,7 +131,28 @@ class ContentDownloadManager(private val context: Context) {
         if (vkPack.exists() && vkPack.length() > 1024) return true
         val songsDir = File(base, "songs")
         if (songsDir.exists() && (songsDir.listFiles()?.isNotEmpty() == true)) return true
+        val songHubPack = File("/storage/emulated/0/SongHub/videokey_songs.vkpack")
+        if (songHubPack.exists() && songHubPack.length() > 1024) return true
+        val songHubBlob = File("/storage/emulated/0/SongHub/blob")
+        if (songHubBlob.exists() && (songHubBlob.listFiles()?.isNotEmpty() == true)) return true
         return false
+    }
+
+    /**
+     * Checks if Dream SAM2634 or MegaPro SoundFont is installed.
+     */
+    fun isSoundFontInstalled(): Boolean {
+        val base = getBaseStorageDir()
+        val dreamSf = File(base, "SoundFont/Dream SAM2634 (ver. 2.1).sf2")
+        val megaSf = File(base, "SoundFont/mega.sf2")
+        val altDream = File("/storage/emulated/0/SongHub/SoundFont/Dream SAM2634 (ver. 2.1).sf2")
+        val altMega = File("/storage/emulated/0/SongHub/SoundFont/mega.sf2")
+        val legacy = File(base, "SoundFont/songhub.sf2")
+        return (dreamSf.exists() && dreamSf.length() > 1024) ||
+               (megaSf.exists() && megaSf.length() > 1024) ||
+               (altDream.exists() && altDream.length() > 1024) ||
+               (altMega.exists() && altMega.length() > 1024) ||
+               (legacy.exists() && legacy.length() > 1024)
     }
 
     /**

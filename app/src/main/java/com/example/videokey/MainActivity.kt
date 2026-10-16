@@ -240,6 +240,9 @@ class MainActivity : ComponentActivity() {
                 "stop" -> viewModel.onStop()
                 "toggle_tv" -> viewModel.toggleTvMode()
                 "open_settings" -> viewModel.openSettingsDialog()
+                "open_mixer" -> viewModel.openAudioMixerDialog()
+                "open_soundfont" -> viewModel.openSoundFontDialog()
+                "open_download" -> viewModel.openDownloadCenter()
                 "open_lyric_style" -> viewModel.openLyricStyleDialog()
                 "open_bg_dialog" -> viewModel.openBackgroundDialog()
                 "set_language_en" -> viewModel.setAppLanguage(com.example.videokey.ui.main.AppLanguage.ENGLISH)
@@ -254,6 +257,8 @@ class MainActivity : ComponentActivity() {
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(android.Manifest.permission.READ_MEDIA_AUDIO)
+            permissions.add(android.Manifest.permission.READ_MEDIA_VIDEO)
+            permissions.add(android.Manifest.permission.READ_MEDIA_IMAGES)
         } else {
             permissions.add(android.Manifest.permission.READ_EXTERNAL_STORAGE)
         }

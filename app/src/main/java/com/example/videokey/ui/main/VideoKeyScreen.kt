@@ -2078,34 +2078,38 @@ fun AudioMixerDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF1E293B))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                         Text(
-                            text = if (isTagalog) "🎹 TONO (KEY TRANSPOSE)" else "🎹 KEY TRANSPOSE",
+                            text = if (isTagalog) "🎹 Tono (Key Transpose)" else "🎹 Key Transpose",
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
-                            color = Color.White
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (state.keyTranspose == 0) (if (isTagalog) "Normal (0)" else "Standard (0)") else if (state.keyTranspose > 0) "+${state.keyTranspose} Semitones" else "${state.keyTranspose} Semitones",
+                            text = if (state.keyTranspose == 0) "Standard (0)" else if (state.keyTranspose > 0) "+${state.keyTranspose} Semitones" else "${state.keyTranspose} Semitones",
                             fontSize = 11.sp,
                             color = Color(0xFFFFD54F),
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
                     }
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = { onAdjustKey(-1) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(38.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF334155))
+                                .clickable { onAdjustKey(-1) },
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
@@ -2114,16 +2118,17 @@ fun AudioMixerDialog(
                             color = Color(0xFFFFD54F),
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
+                            fontSize = 15.sp,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.widthIn(min = 36.dp)
+                            modifier = Modifier.width(38.dp)
                         )
-                        Button(
-                            onClick = { onAdjustKey(1) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(38.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFFFB300))
+                                .clickable { onAdjustKey(1) },
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
@@ -2136,34 +2141,38 @@ fun AudioMixerDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF1E293B))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                         Text(
-                            text = if (isTagalog) "⏱️ BILIS NG TUGTOG (TEMPO)" else "⏱️ SONG TEMPO (BPM)",
+                            text = if (isTagalog) "⏱️ Bilis (Song Tempo)" else "⏱️ Song Tempo",
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
-                            color = Color.White
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "${state.tempoPercent}% Speed",
                             fontSize = 11.sp,
                             color = Color(0xFF00FF88),
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
                     }
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = { onAdjustTempo(-5) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(38.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF334155))
+                                .clickable { onAdjustTempo(-5) },
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
@@ -2172,16 +2181,17 @@ fun AudioMixerDialog(
                             color = Color(0xFF00FF88),
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.widthIn(min = 46.dp)
+                            modifier = Modifier.width(46.dp)
                         )
-                        Button(
-                            onClick = { onAdjustTempo(5) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(38.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF00E676))
+                                .clickable { onAdjustTempo(5) },
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
@@ -2194,34 +2204,38 @@ fun AudioMixerDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF1E293B))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                         Text(
-                            text = if (isTagalog) "🎵 GABAY NA MELODY (VOCAL GUIDE)" else "🎵 MELODY GUIDE VOLUME",
+                            text = if (isTagalog) "🎵 Gabay na Melody (Guide)" else "🎵 Melody Guide",
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
-                            color = Color.White
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (state.melodyPercent == 0) "OFF (Minus-One)" else "${state.melodyPercent}% Volume",
+                            text = if (state.melodyPercent == 0) "OFF (Minus-One)" else "${state.melodyPercent}% Lakas",
                             fontSize = 11.sp,
                             color = if (state.melodyPercent == 0) Color(0xFFFF5252) else Color(0xFF00E5FF),
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
                     }
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = { onAdjustMelody(-10) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(38.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF334155))
+                                .clickable { onAdjustMelody(-10) },
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
@@ -2230,16 +2244,17 @@ fun AudioMixerDialog(
                             color = if (state.melodyPercent == 0) Color(0xFFFF5252) else Color(0xFF00E5FF),
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.widthIn(min = 46.dp)
+                            modifier = Modifier.width(46.dp)
                         )
-                        Button(
-                            onClick = { onAdjustMelody(10) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp),
-                            modifier = Modifier.size(38.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF00E5FF))
+                                .clickable { onAdjustMelody(10) },
+                            contentAlignment = Alignment.Center
                         ) {
                             Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
@@ -4349,7 +4364,9 @@ fun KaraokeVideoPlayer(
 
         val mp = MediaPlayer().apply {
             try {
-                setDataSource(videoPath)
+                java.io.FileInputStream(file).use { fis ->
+                    setDataSource(fis.fd)
+                }
                 setSurface(surface)
                 setVolume(0f, 0f) // Muted so it does not clash with karaoke music
                 setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
