@@ -172,7 +172,10 @@ data class VideoKeyUiState(
     val onlyShowPlayableSongs: Boolean = false,
     val playableCodes: Set<String> = emptySet(),
     val appLanguage: AppLanguage = AppLanguage.TAGALOG,
-    val updateState: com.example.videokey.update.AppUpdateManager.UpdateState = com.example.videokey.update.AppUpdateManager.UpdateState.Idle
+    val updateState: com.example.videokey.update.AppUpdateManager.UpdateState = com.example.videokey.update.AppUpdateManager.UpdateState.Idle,
+    val isDownloadCenterOpen: Boolean = false,
+    val downloadCatalog: List<com.example.videokey.data.ContentDownloadManager.DownloadItem> = emptyList(),
+    val downloadStatus: com.example.videokey.data.ContentDownloadManager.DownloadStatus = com.example.videokey.data.ContentDownloadManager.DownloadStatus.Idle
 )
 
 class VideoKeyViewModel(application: Application) : AndroidViewModel(application) {
@@ -183,6 +186,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     private val karaokeRecorder = com.example.videokey.data.KaraokeRecorder()
     private val micScorer = com.example.videokey.data.MicrophoneScorer(karaokeRecorder)
     val appUpdateManager = com.example.videokey.update.AppUpdateManager(application.applicationContext)
+    val contentDownloadManager = com.example.videokey.data.ContentDownloadManager(application.applicationContext)
     private val _uiState = MutableStateFlow(VideoKeyUiState())
     val uiState: StateFlow<VideoKeyUiState> = _uiState.asStateFlow()
 
@@ -278,6 +282,17 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(updateState = updState) }
             }
         }
+        viewModelScope.launch {
+            contentDownloadManager.downloadStatus.collect { status ->
+                _uiState.update { it.copy(downloadStatus = status) }
+                if (status is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Completed) {
+                    refreshDownloadCatalog()
+                    scanSongFolder(File(_uiState.value.currentSongFolder))
+                    scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder))
+                }
+            }
+        }
+        refreshDownloadCatalog()
         // Background OTA Update Check across any internet connection (Wi-Fi, Data)
         appUpdateManager.checkForUpdates(autoDownloadIfNewer = true, isManual = false)
     }
@@ -1249,6 +1264,36 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun dismissUpdateDialog() {
         appUpdateManager.dismiss()
+    }
+
+    fun refreshDownloadCatalog() {
+        val catalog = contentDownloadManager.getAvailableCatalog()
+        _uiState.update { it.copy(downloadCatalog = catalog) }
+    }
+
+    fun openDownloadCenter() {
+        refreshDownloadCatalog()
+        _uiState.update { it.copy(isDownloadCenterOpen = true) }
+    }
+
+    fun closeDownloadCenter() {
+        _uiState.update { it.copy(isDownloadCenterOpen = false) }
+    }
+
+    fun downloadContentItem(item: com.example.videokey.data.ContentDownloadManager.DownloadItem) {
+        contentDownloadManager.downloadItem(item) {
+            refreshDownloadCatalog()
+            scanSongFolder(File(_uiState.value.currentSongFolder))
+            scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder))
+        }
+    }
+
+    fun cancelContentDownload() {
+        contentDownloadManager.cancelCurrentDownload()
+    }
+
+    fun dismissDownloadStatus() {
+        contentDownloadManager.dismissStatus()
     }
 
     fun scanInternalStorage(context: android.content.Context) {

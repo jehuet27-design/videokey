@@ -247,6 +247,7 @@ fun VideoKeyScreen(
                 onAdjustMelody = { viewModel.adjustMelody(it) },
                 onSelectLanguage = { viewModel.setAppLanguage(it) },
                 onCheckForUpdates = { viewModel.checkForUpdates() },
+                onOpenDownloadCenter = { viewModel.openDownloadCenter() },
                 onDismiss = { viewModel.closeSettingsDialog() }
             )
         }
@@ -259,6 +260,17 @@ fun VideoKeyScreen(
                 onRetry = { viewModel.retryUpdate() },
                 onInstall = { file -> viewModel.promptInstallDownloadedApk(file) },
                 onDismiss = { viewModel.dismissUpdateDialog() }
+            )
+        }
+
+        // Download Center Modal (Songs, SoundFonts, and Selective Backgrounds)
+        if (state.isDownloadCenterOpen) {
+            DownloadCenterDialog(
+                state = state,
+                isLandscape = isLandscape,
+                onDownloadItem = { viewModel.downloadContentItem(it) },
+                onCancelDownload = { viewModel.cancelContentDownload() },
+                onDismiss = { viewModel.closeDownloadCenter() }
             )
         }
 
@@ -5289,6 +5301,7 @@ fun AppSettingsDialog(
     onAdjustMelody: (Int) -> Unit = {},
     onSelectLanguage: (com.example.videokey.ui.main.AppLanguage) -> Unit = {},
     onCheckForUpdates: () -> Unit = {},
+    onOpenDownloadCenter: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
@@ -5841,6 +5854,53 @@ fun AppSettingsDialog(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
                             color = Color.White
+                        )
+                    }
+                }
+
+                // OPTION 7: DOWNLOAD CENTER (MGA KANTA AT SELECTIVE BACKGROUNDS)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF1E293B))
+                        .border(1.5.dp, Color(0xFFFFD54F), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = "📦", fontSize = 16.sp)
+                        Text(
+                            text = if (isTagalog) "DOWNLOAD CENTER (KANTA & BACKGROUNDS)" else "DOWNLOAD CENTER (SONGS & BACKGROUNDS)",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            color = Color(0xFFFFD54F)
+                        )
+                    }
+                    Text(
+                        text = if (isTagalog)
+                            "Piliin ang nais mong i-download na mga kanta, SoundFont, o pumili ng mga paboritong video background (3D Sayaw, Motion, Nature) gamit ang Wi-Fi o mobile data nang hindi nauubos ang memory ng cellphone mo."
+                        else
+                            "Choose and download song packs, SoundFonts, and selective video backgrounds (3D Dance, Motion, Nature) over Wi-Fi or data.",
+                        fontSize = 10.sp,
+                        color = Color(0xFFCBD5E1)
+                    )
+                    Button(
+                        onClick = onOpenDownloadCenter,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAB308)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                    ) {
+                        Text(
+                            text = if (isTagalog) "📥 BUKSAN ANG DOWNLOAD CENTER" else "📥 OPEN DOWNLOAD CENTER",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            color = Color.Black
                         )
                     }
                 }
@@ -6649,5 +6709,345 @@ fun ForceUpdateDialog(
         }
     }
 }
+
+/**
+ * In-App Download Center Dialog:
+ * Allows user to selectively download song packs, SoundFonts, and choose which background videos to download.
+ */
+@Composable
+fun DownloadCenterDialog(
+    state: VideoKeyUiState,
+    isLandscape: Boolean = false,
+    onDownloadItem: (com.example.videokey.data.ContentDownloadManager.DownloadItem) -> Unit,
+    onCancelDownload: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
+    val currentStatus = state.downloadStatus
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = Color(0xFF0F172A),
+            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD54F)),
+            modifier = Modifier
+                .fillMaxWidth(if (isLandscape) 0.82f else 0.95f)
+                .fillMaxHeight(if (isLandscape) 0.92f else 0.88f)
+                .padding(if (isLandscape) 8.dp else 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(if (isLandscape) 12.dp else 16.dp)
+            ) {
+                // Header Bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "📦", fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = if (isTagalog) "VIDEOKEY DOWNLOAD CENTER" else "VIDEOKEY DOWNLOAD CENTER",
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFFFFD54F),
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (isTagalog)
+                                    "Piliin ang nais mong kanta at video background na i-download."
+                                else
+                                    "Select which songs and video backgrounds you want to download.",
+                                fontSize = 10.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = Color(0xFF334155),
+                    thickness = 1.dp
+                )
+
+                // List of Downloadable Packs
+                val songsPacks = state.downloadCatalog.filter {
+                    it.category == com.example.videokey.data.ContentDownloadManager.ContentCategory.SONGS ||
+                            it.category == com.example.videokey.data.ContentDownloadManager.ContentCategory.SOUNDFONT
+                }
+                val backgroundPacks = state.downloadCatalog.filter {
+                    it.category == com.example.videokey.data.ContentDownloadManager.ContentCategory.BACKGROUND_VIDEO ||
+                            it.category == com.example.videokey.data.ContentDownloadManager.ContentCategory.BACKGROUND_IMAGE
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Section 1: Songs & Audio
+                    item {
+                        Text(
+                            text = if (isTagalog) "🎵 MGA KANTA AT TUNOG (CORE AUDIO)" else "🎵 SONGS & AUDIO PACKS",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF00E5FF),
+                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                        )
+                    }
+
+                    items(songsPacks) { item ->
+                        DownloadItemCard(
+                            item = item,
+                            downloadStatus = currentStatus,
+                            onDownload = { onDownloadItem(item) },
+                            onCancel = onCancelDownload
+                        )
+                    }
+
+                    // Section 2: Selective Video Backgrounds
+                    item {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (isTagalog) "🎬 PUMILI NG MGA VIDEO BACKGROUND (SELECTABLE)" else "🎬 SELECTIVE VIDEO BACKGROUNDS",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.5.sp,
+                            color = Color(0xFFFFD54F),
+                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                        )
+                        Text(
+                            text = if (isTagalog)
+                                "Ikaw ang pipili kung aling background ang ida-download para makatipid sa storage:"
+                            else
+                                "Choose only the backgrounds you like to save device memory:",
+                            fontSize = 9.5.sp,
+                            color = Color(0xFF94A3B8),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+
+                    items(backgroundPacks) { item ->
+                        DownloadItemCard(
+                            item = item,
+                            downloadStatus = currentStatus,
+                            onDownload = { onDownloadItem(item) },
+                            onCancel = onCancelDownload
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                ) {
+                    Text(
+                        text = if (isTagalog) "ISARA ANG DOWNLOAD CENTER ✓" else "CLOSE DOWNLOAD CENTER ✓",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DownloadItemCard(
+    item: com.example.videokey.data.ContentDownloadManager.DownloadItem,
+    downloadStatus: com.example.videokey.data.ContentDownloadManager.DownloadStatus,
+    onDownload: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val isDownloadingThis = downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading && downloadStatus.itemId == item.id
+    val isExtractingThis = downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting && downloadStatus.itemId == item.id
+    val isAnyDownloading = downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading || downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting
+
+    // Check if already installed on disk
+    val isInstalled = remember(item, downloadStatus) {
+        val baseDir = File("/storage/emulated/0/VideoKey")
+        val checkFile = File(baseDir, item.checkFileRelativePath)
+        checkFile.exists() && checkFile.length() > 0
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF1E293B),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isDownloadingThis) 1.5.dp else 1.dp,
+            color = if (isDownloadingThis) Color(0xFF00E5FF) else if (isInstalled) Color(0xFF065F46) else Color(0xFF334155)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.title,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = item.description,
+                        fontSize = 10.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF0F172A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text(
+                        text = item.sizeFormatted,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFFD54F),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            // Status or Action Button
+            if (isDownloadingThis) {
+                val dl = downloadStatus as com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LinearProgressIndicator(
+                        progress = { dl.percent / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = Color(0xFF00FF88),
+                        trackColor = Color(0xFF334155)
+                    )
+                    val mbDownloaded = dl.downloadedBytes / (1024f * 1024f)
+                    val mbTotal = dl.totalBytes / (1024f * 1024f)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${dl.percent}%  (${String.format("%.1f", mbDownloaded)} MB / ${String.format("%.1f", mbTotal)} MB)",
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.5.sp,
+                            color = Color(0xFFFFD54F)
+                        )
+                        Button(
+                            onClick = onCancel,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text(text = "✕ KANSELAHIN", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+            } else if (isExtractingThis) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color(0xFF00FF88),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        text = "Ina-unpack at inaayos ang mga video files...",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF00FF88)
+                    )
+                }
+            } else if (isInstalled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF064E3B),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF059669))
+                    ) {
+                        Text(
+                            text = "✓ NAKA-INSTALL NA",
+                            color = Color(0xFF00FF88),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = onDownload,
+                        enabled = !isAnyDownloading,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                        shape = RoundedCornerShape(6.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text(text = "🔄 I-download Muli", fontSize = 9.sp, color = Color.LightGray)
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onDownload,
+                    enabled = !isAnyDownloading,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                ) {
+                    Text(
+                        text = "⬇️ I-DOWNLOAD ANG PACK NA ITO (${item.sizeFormatted})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.5.sp,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
 
 
