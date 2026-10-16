@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+*.zip
+*.vkpack
+*.apk
+backgrounds_device/

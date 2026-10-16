@@ -73,10 +73,10 @@ class ContentDownloadManager(private val context: Context) {
     fun getAvailableCatalog(): List<DownloadItem> {
         val releaseBase = "https://github.com/jehuet27-design/videokey/releases/download/v2.0"
         return listOf(
-            // 1. Core Song Pack
+            // 1. Videoke Songs Pack (Removed "Philippine")
             DownloadItem(
                 id = "core_songs",
-                title = "🎵 Philippine Videoke Songs Pack",
+                title = "🎵 Videoke Songs Pack",
                 category = ContentCategory.SONGS,
                 description = "Kumpletong koleksyon ng libu-libong OPM, Pop, Rock, at Classic videoke songs.",
                 sizeFormatted = "496 MB",
@@ -84,64 +84,29 @@ class ContentDownloadManager(private val context: Context) {
                 relativeDestinationPath = "videokey_songs.vkpack",
                 checkFileRelativePath = "videokey_songs.vkpack"
             ),
-            // 2. High-Definition SoundFont
+            // 2. Complete SoundFont Bank (All-in-one single download)
             DownloadItem(
-                id = "hd_soundfont",
-                title = "🎛️ Platinum Major HD SoundFont",
+                id = "all_soundfonts",
+                title = "🎛️ Complete SoundFont Bank",
                 category = ContentCategory.SOUNDFONT,
-                description = "High-definition videoke soundbank na may buong tunog ng gitara, drums, at percussions.",
-                sizeFormatted = "98 MB",
-                downloadUrl = "$releaseBase/songhub.sf2",
-                relativeDestinationPath = "SoundFont/songhub.sf2",
+                description = "Lahat ng SoundFonts (Platinum HD, Dream SAM, Yamaha, MegaPro) ay awtomatikong mado-download nang sabay-sabay.",
+                sizeFormatted = "1.2 GB",
+                downloadUrl = "$releaseBase/soundfonts_all.zip",
+                relativeDestinationPath = "SoundFont",
+                isZip = true,
                 checkFileRelativePath = "SoundFont/songhub.sf2"
             ),
-            // 3. Background Videos: 3D Dance Pack (User selectable)
+            // 3. Complete Video Backgrounds Pack (All-in-one single download)
             DownloadItem(
-                id = "bg_3d_dance",
-                title = "🕺 3D Dance Videoke Stage",
+                id = "all_backgrounds",
+                title = "🎬 Complete Video Backgrounds Pack",
                 category = ContentCategory.BACKGROUND_VIDEO,
-                description = "Sumasayaw na 3D animation videoke video backgrounds (sayaw1 & sayaw2).",
-                sizeFormatted = "56 MB",
-                downloadUrl = "$releaseBase/bg_3d_dance.zip",
-                relativeDestinationPath = "backgrounds/bgv/3D",
-                isZip = true,
-                checkFileRelativePath = "backgrounds/bgv/3D/sayaw1.mp4"
-            ),
-            // 4. Background Videos: Motion Graphics & Stage Lights (User selectable)
-            DownloadItem(
-                id = "bg_motion",
-                title = "🌀 Motion Graphics & Stage Lights",
-                category = ContentCategory.BACKGROUND_VIDEO,
-                description = "Modern motion loops, concert lights, at electronic stage effects (motion 1-4).",
-                sizeFormatted = "87 MB",
-                downloadUrl = "$releaseBase/bg_motion.zip",
-                relativeDestinationPath = "backgrounds/bgv/Motion",
-                isZip = true,
-                checkFileRelativePath = "backgrounds/bgv/Motion/motion1.mp4"
-            ),
-            // 5. Background Videos: Nature Landscapes & Scenic Pack (User selectable)
-            DownloadItem(
-                id = "bg_nature",
-                title = "🌊 Nature & Scenic Landscapes",
-                category = ContentCategory.BACKGROUND_VIDEO,
-                description = "Magagandang tanawin ng dagat, bundok, ulap, at kalikasan (Video 1-4).",
-                sizeFormatted = "228 MB",
-                downloadUrl = "$releaseBase/bg_nature.zip",
-                relativeDestinationPath = "backgrounds/bgv/Nature",
-                isZip = true,
-                checkFileRelativePath = "backgrounds/bgv/Nature/Video1.mp4"
-            ),
-            // 6. Background Wallpapers / HD Photos (User selectable)
-            DownloadItem(
-                id = "bg_photos",
-                title = "🖼️ Classic Photo Stage Wallpapers",
-                category = ContentCategory.BACKGROUND_IMAGE,
-                description = "Magaan at mabilis na classic videoke photo backgrounds.",
-                sizeFormatted = "2.6 MB",
-                downloadUrl = "$releaseBase/bg_photos.zip",
+                description = "Lahat ng video backgrounds (3D Sayaw, Motion Lights, Nature Landscapes, at Wallpapers) ay awtomatikong mado-download nang sabay-sabay.",
+                sizeFormatted = "383 MB",
+                downloadUrl = "$releaseBase/backgrounds_all.zip",
                 relativeDestinationPath = "backgrounds",
                 isZip = true,
-                checkFileRelativePath = "backgrounds/1.jpg"
+                checkFileRelativePath = "backgrounds/bgv/3D/sayaw1.mp4"
             )
         )
     }

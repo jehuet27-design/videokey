@@ -786,7 +786,7 @@ fun VideokeTvScreen(
 
                         val badgeLabel = when {
                             !state.isPlaying && hasReserve -> if (isTagalog) "SUSUNOD:" else "NEXT:"
-                            !state.isPlaying -> "★ VIDEOKEY:"
+                            !state.isPlaying -> "★ VIDEOKEY BY JEROME HUET:"
                             isShowingNext -> if (isTagalog) "SUSUNOD:" else "NEXT:"
                             else -> if (isTagalog) "TUMUTUGTOG:" else "PLAYING:"
                         }
@@ -810,7 +810,7 @@ fun VideokeTvScreen(
                             !state.isPlaying && hasReserve -> nextSongText
                             !state.isPlaying -> {
                                 val selectText = if (isTagalog) "PUMILI NG KANTA" else "SELECT A SONG"
-                                "PHILIPPINE VIDEOKEY SYSTEM • $selectText"
+                                "DEVELOPED BY JEROME HUET • VIDEOKEY SYSTEM • $selectText"
                             }
                             isShowingNext -> nextSongText
                             else -> {
@@ -5882,9 +5882,9 @@ fun AppSettingsDialog(
                     }
                     Text(
                         text = if (isTagalog)
-                            "Piliin ang nais mong i-download na mga kanta, SoundFont, o pumili ng mga paboritong video background (3D Sayaw, Motion, Nature) gamit ang Wi-Fi o mobile data nang hindi nauubos ang memory ng cellphone mo."
+                            "Mag-download ng mga kanta, lahat ng SoundFonts, at lahat ng video backgrounds (3D Sayaw, Motion, Nature) gamit ang Wi-Fi o data sa iisang pindutan lamang bawat isa."
                         else
-                            "Choose and download song packs, SoundFonts, and selective video backgrounds (3D Dance, Motion, Nature) over Wi-Fi or data.",
+                            "Download song packs, complete SoundFonts, and all video backgrounds (3D Dance, Motion, Nature) over Wi-Fi or data in a single tap.",
                         fontSize = 10.sp,
                         color = Color(0xFFCBD5E1)
                     )
@@ -6822,7 +6822,7 @@ fun DownloadCenterDialog(
                     item {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = if (isTagalog) "🎬 PUMILI NG MGA VIDEO BACKGROUND (SELECTABLE)" else "🎬 SELECTIVE VIDEO BACKGROUNDS",
+                            text = if (isTagalog) "🎬 MGA VIDEO BACKGROUND (ALL-IN-ONE)" else "🎬 ALL-IN-ONE VIDEO BACKGROUNDS",
                             fontWeight = FontWeight.Black,
                             fontSize = 11.5.sp,
                             color = Color(0xFFFFD54F),
@@ -6830,9 +6830,9 @@ fun DownloadCenterDialog(
                         )
                         Text(
                             text = if (isTagalog)
-                                "Ikaw ang pipili kung aling background ang ida-download para makatipid sa storage:"
+                                "Isang pindot lang, awtomatikong mado-download ang lahat ng video backgrounds (3D Sayaw, Motion, Nature, Wallpapers):"
                             else
-                                "Choose only the backgrounds you like to save device memory:",
+                                "One tap automatically downloads all background videos (3D Dance, Motion, Nature, Wallpapers):",
                             fontSize = 9.5.sp,
                             color = Color(0xFF94A3B8),
                             modifier = Modifier.padding(bottom = 4.dp)
