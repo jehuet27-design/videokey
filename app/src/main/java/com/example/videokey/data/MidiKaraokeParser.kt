@@ -183,18 +183,46 @@ object MidiKaraokeParser {
             }
         }
 
-        val effectiveMelodyNotes = if (melodyNoteSpans.isNotEmpty()) melodyNoteSpans else allNoteSpans
-        val effectiveRawMelody = if (rawMelodyNotes.isNotEmpty()) {
-            rawMelodyNotes
-        } else {
-            val ch0or3 = rawAllNotes.filter { it.channel == 0 || it.channel == 3 }
-            if (ch0or3.isNotEmpty()) ch0or3 else rawAllNotes.filter { it.channel != 9 }
+        // 1. Correlate note events with rawLyrics to detect true vocal melody channel
+        val channelLyricMatches = IntArray(16)
+        val correlationThreshold = (ppq / 2).coerceAtLeast(30)
+        for (ch in 0..15) {
+            if (ch == 9 || ch == 1) continue // Skip drums and bass
+            val chNotes = rawAllNotes.filter { it.channel == ch }
+            if (chNotes.isEmpty()) continue
+            var matches = 0
+            for (lyr in rawLyrics) {
+                val lt = lyr.first
+                if (chNotes.any { kotlin.math.abs(it.startTick - lt) <= correlationThreshold }) {
+                    matches++
+                }
+            }
+            channelLyricMatches[ch] = matches
         }
+
+        var bestLyricCh = -1
+        var bestMatches = 0
+        for (ch in 0..15) {
+            if (channelLyricMatches[ch] > bestMatches) {
+                bestMatches = channelLyricMatches[ch]
+                bestLyricCh = ch
+            }
+        }
+
+        val effectiveRawMelody = when {
+            rawMelodyNotes.isNotEmpty() -> rawMelodyNotes
+            bestLyricCh >= 0 && bestMatches >= 5 -> rawAllNotes.filter { it.channel == bestLyricCh }
+            else -> {
+                val ch0or3 = rawAllNotes.filter { it.channel == 0 || it.channel == 3 }
+                if (ch0or3.isNotEmpty()) ch0or3 else rawAllNotes.filter { it.channel != 9 }
+            }
+        }
+
+        val effectiveMelodyNotes = effectiveRawMelody.map { Pair(it.startTick, it.endTick) }.sortedBy { it.first }
 
         // Sort tempo and lyrics by tick
         tempoMap.sortBy { it.first }
         rawLyrics.sortBy { it.first }
-        effectiveMelodyNotes.sortBy { it.first }
 
         // Helper to convert ticks to milliseconds
         fun tickToMs(tick: Long): Long {
@@ -253,12 +281,17 @@ object MidiKaraokeParser {
 
         for (i in rawLyrics.indices) {
             val (tick, text) = rawLyrics[i]
-            val timestampMs = tickToMs(tick)
-            
-            // Sync syllable duration with the nearest melody note if available
+
+            // Sync syllable start and duration with the nearest melody note if available
             val matchedNote = effectiveMelodyNotes.minByOrNull { kotlin.math.abs(it.first - tick) }
-            val noteDurationMs = if (matchedNote != null && kotlin.math.abs(matchedNote.first - tick) <= ppq) {
-                (tickToMs(matchedNote.second) - tickToMs(matchedNote.first)).coerceIn(120L, 3500L)
+            val isNoteMatched = matchedNote != null && kotlin.math.abs(matchedNote.first - tick) <= (ppq / 2).coerceAtLeast(40)
+            
+            // Align start timestamp with the melody note start if note is within vocal lead-in threshold
+            val effectiveStartTick = if (isNoteMatched) matchedNote!!.first else tick
+            val timestampMs = tickToMs(effectiveStartTick)
+            
+            val noteDurationMs = if (isNoteMatched) {
+                (tickToMs(matchedNote!!.second) - tickToMs(matchedNote.first)).coerceIn(120L, 3500L)
             } else {
                 null
             }

@@ -241,6 +241,7 @@ fun VideoKeyScreen(
                 state = state,
                 isLandscape = isLandscape,
                 onToggleMicScoring = { viewModel.toggleMicScoring(it) },
+                onToggleScoringSound = { viewModel.toggleScoringSound(it) },
                 onAdjustMicSensitivity = { viewModel.setMicSensitivity(it) },
                 onToggleKeypadVoice = { viewModel.toggleKeypadVoice(it) },
                 onToggleTvMode = { viewModel.toggleTvMode(activity) },
@@ -786,7 +787,7 @@ fun VideokeTvScreen(
 
                         val badgeLabel = when {
                             !state.isPlaying && hasReserve -> if (isTagalog) "SUSUNOD:" else "NEXT:"
-                            !state.isPlaying -> "★ VIDEOKEY BY JEROME HUET:"
+                            !state.isPlaying -> "★ VIDEOKEY:"
                             isShowingNext -> if (isTagalog) "SUSUNOD:" else "NEXT:"
                             else -> if (isTagalog) "TUMUTUGTOG:" else "PLAYING:"
                         }
@@ -810,7 +811,7 @@ fun VideokeTvScreen(
                             !state.isPlaying && hasReserve -> nextSongText
                             !state.isPlaying -> {
                                 val selectText = if (isTagalog) "PUMILI NG KANTA" else "SELECT A SONG"
-                                "DEVELOPED BY JEROME HUET • VIDEOKEY SYSTEM • $selectText"
+                                "DEVELOPED BY JEROME HUET  ITO PO AY FREE PERO PWEDE MAG DONATE HAHAHAH • $selectText"
                             }
                             isShowingNext -> nextSongText
                             else -> {
@@ -1132,7 +1133,10 @@ fun VideokeTvScreen(
                         .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    InstrumentalDisplay(isLandscape = isLandscape)
+                    InstrumentalDisplay(
+                        isLandscape = isLandscape,
+                        modifier = if (isLandscape) Modifier.offset(y = (-45).dp) else Modifier
+                    )
                 }
             } else {
                 // PLAYING SCREEN WITH VOCALS / LYRICS
@@ -2100,10 +2104,10 @@ fun AudioMixerDialog(
                             onClick = { onAdjustKey(-1) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Text(text = "♭ -1", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
                         Text(
                             text = if (state.keyTranspose > 0) "+${state.keyTranspose}" else "${state.keyTranspose}",
@@ -2111,16 +2115,17 @@ fun AudioMixerDialog(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
                             fontSize = 16.sp,
-                            modifier = Modifier.padding(horizontal = 4.dp)
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.widthIn(min = 36.dp)
                         )
                         Button(
                             onClick = { onAdjustKey(1) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Text(text = "♯ +1", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
                     }
                 }
@@ -2157,10 +2162,10 @@ fun AudioMixerDialog(
                             onClick = { onAdjustTempo(-5) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Text(text = "-5%", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
                         Text(
                             text = "${state.tempoPercent}%",
@@ -2168,16 +2173,17 @@ fun AudioMixerDialog(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
                             fontSize = 15.sp,
-                            modifier = Modifier.padding(horizontal = 2.dp)
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.widthIn(min = 46.dp)
                         )
                         Button(
                             onClick = { onAdjustTempo(5) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676)),
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Text(text = "+5%", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
                     }
                 }
@@ -2214,10 +2220,10 @@ fun AudioMixerDialog(
                             onClick = { onAdjustMelody(-10) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Text(text = "-10%", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
                         Text(
                             text = if (state.melodyPercent == 0) "OFF" else "${state.melodyPercent}%",
@@ -2225,16 +2231,17 @@ fun AudioMixerDialog(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
                             fontSize = 15.sp,
-                            modifier = Modifier.padding(horizontal = 2.dp)
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.widthIn(min = 46.dp)
                         )
                         Button(
                             onClick = { onAdjustMelody(10) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
+                            contentPadding = PaddingValues(0.dp),
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Text(text = "+10%", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
                         }
                     }
                 }
@@ -5295,6 +5302,7 @@ fun AppSettingsDialog(
     state: VideoKeyUiState,
     isLandscape: Boolean = false,
     onToggleMicScoring: (Boolean) -> Unit,
+    onToggleScoringSound: (Boolean) -> Unit = {},
     onAdjustMicSensitivity: (Float) -> Unit,
     onToggleKeypadVoice: (Boolean) -> Unit,
     onToggleTvMode: () -> Unit,
@@ -5443,7 +5451,7 @@ fun AppSettingsDialog(
                     }
                 }
 
-                // OPTION 1: SCORING GAMIT ANG MIKROPONO & SENSITIVITY ADJUSTER
+                // OPTION 1: SCORING (PAG-ISKO) & SOUND EFFECTS
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -5459,13 +5467,16 @@ fun AppSettingsDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isTagalog) "🎤 SCORING GAMIT ANG MIKROPONO" else "🎤 MICROPHONE SCORING",
+                                text = if (isTagalog) "🏆 SCORING (PAG-ISKO PAGKATAPOS NG KANTA)" else "🏆 SONG SCORING SYSTEM",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 12.sp,
                                 color = Color.White
                             )
                             Text(
-                                text = if (state.isMicScoringEnabled) (if (isTagalog) "BUKAS (Naka-on ang Mic Scoring)" else "ON (Mic Scoring Enabled)") else (if (isTagalog) "SARADO (Naka-off ang Mic Scoring)" else "OFF (Mic Scoring Disabled)"),
+                                text = if (state.isMicScoringEnabled)
+                                    (if (isTagalog) "BUKAS (May score modal at fanfare sound effect)" else "ON (Show score modal)")
+                                else
+                                    (if (isTagalog) "SARADO (Diretso susunod na kanta, walang score at tunog)" else "OFF (No score modal, proceed to next song)"),
                                 fontSize = 10.sp,
                                 color = if (state.isMicScoringEnabled) Color(0xFF00FF88) else Color(0xFF94A3B8)
                             )
@@ -5480,8 +5491,43 @@ fun AppSettingsDialog(
                         )
                     }
 
-                    // Microphone Sensitivity Adjuster Controls
                     if (state.isMicScoringEnabled) {
+                        // Sub-option: Scoring Fanfare & Cheering Sound Effect
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (isTagalog) "🎉 CHEERING & FANFARE SOUND EFFECT" else "🎉 FANFARE & CHEERING AUDIO",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFFD54F)
+                                )
+                                Text(
+                                    text = if (state.isScoringSoundEnabled)
+                                        (if (isTagalog) "BUKAS (May palakpakan at fanfare)" else "ON (Cheering and applause)")
+                                    else
+                                        (if (isTagalog) "SARADO (Tahimik ang score modal)" else "OFF (Silent scoring)"),
+                                    fontSize = 9.sp,
+                                    color = if (state.isScoringSoundEnabled) Color(0xFF00FF88) else Color(0xFF94A3B8)
+                                )
+                            }
+                            Switch(
+                                checked = state.isScoringSoundEnabled,
+                                onCheckedChange = { onToggleScoringSound(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFFFFD54F),
+                                    checkedTrackColor = Color(0xFF78350F)
+                                )
+                            )
+                        }
+
+                        // Microphone Sensitivity Adjuster Controls
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()

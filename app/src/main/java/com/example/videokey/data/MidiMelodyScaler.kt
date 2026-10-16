@@ -197,6 +197,7 @@ object MidiMelodyScaler {
         val lyricTicks = HashSet<Long>()
         val namedMelodyTracks = HashSet<Int>()
         val channelNoteCounts = IntArray(16)
+        val channelVelSums = LongArray(16)
         val channelLyricMatchCounts = IntArray(16)
         val trackNoteCounts = HashMap<Int, Int>()
         val trackLyricMatchCounts = HashMap<Int, Int>()
@@ -261,9 +262,12 @@ object MidiMelodyScaler {
                                     val txt = String(copy, p, metaLen, Charsets.ISO_8859_1)
                                     if (txt.isNotEmpty() && !txt.startsWith("@")) {
                                         // Quantize tick to 16-tick bucket for fast O(1) correlation lookup
-                                        lyricTicks.add(curTick / 16L)
-                                        lyricTicks.add((curTick / 16L) - 1L)
-                                        lyricTicks.add((curTick / 16L) + 1L)
+                                        val baseBucket = curTick / 16L
+                                        lyricTicks.add(baseBucket)
+                                        lyricTicks.add(baseBucket - 1L)
+                                        lyricTicks.add(baseBucket + 1L)
+                                        lyricTicks.add(baseBucket - 2L)
+                                        lyricTicks.add(baseBucket + 2L)
                                     }
                                 }
                             }
@@ -327,6 +331,7 @@ object MidiMelodyScaler {
                             val vel = copy[p + 1].toInt() and 0xFF
                             if (vel > 0 && channel != 9) {
                                 channelNoteCounts[channel]++
+                                channelVelSums[channel] += vel.toLong()
                                 trackNoteCounts[tIdx] = (trackNoteCounts[tIdx] ?: 0) + 1
                                 if (lyricTicks.contains(curTick / 16L)) {
                                     channelLyricMatchCounts[channel]++
@@ -403,6 +408,17 @@ object MidiMelodyScaler {
             namedMelodyTracks.add(bestLyricTrack)
         }
 
+        // Calculate average melody velocity to auto-adjust and equalize volume across all songs!
+        var totalMelodyVel = 0L
+        var countMelodyNotes = 0
+        for (ch in melodyChannels) {
+            totalMelodyVel += channelVelSums[ch]
+            countMelodyNotes += channelNoteCounts[ch]
+        }
+        val avgMelodyVel = if (countMelodyNotes > 0) (totalMelodyVel.toFloat() / countMelodyNotes) else 80f
+        // Auto-scale factor: normalizes quiet songs (vel ~40-60) up and very loud songs down to target 96
+        val melodyAutoGain = (96.0f / avgMelodyVel.coerceAtLeast(35f)).coerceIn(0.75f, 2.2f)
+
         // PASS 2: Scale Melody Guide notes/volume & apply SoundFont profile
         var pos = 14
         var trackIndex = 0
@@ -448,7 +464,10 @@ object MidiMelodyScaler {
                             val vel = copy[p + 1].toInt() and 0xFF
                             if (vel > 0) {
                                 val newVel = if (isMelodyEvent) {
-                                    if (percent == 0) 0 else ((vel * percent) / 100).coerceIn(1, 127)
+                                    if (percent == 0) 0 else {
+                                        val normalizedVel = (vel * melodyAutoGain).coerceIn(35f, 127f)
+                                        ((normalizedVel * percent) / 100).toInt().coerceIn(1, 127)
+                                    }
                                 } else if (channel == 9) {
                                     // Drums channel
                                     (vel * profile.drumVelMultiplier).toInt().coerceIn(1, 127)
@@ -472,7 +491,8 @@ object MidiMelodyScaler {
                             when (ctrl) {
                                 7, 11 -> { // CC 7: Channel Volume, CC 11: Expression
                                     if (isMelodyEvent) {
-                                        copy[p + 1] = if (percent == 0) 0 else ((value * percent) / 100).coerceIn(1, 127).toByte()
+                                        val baseVol = if (value < 85) 105 else value
+                                        copy[p + 1] = if (percent == 0) 0 else ((baseVol * percent) / 100).coerceIn(1, 127).toByte()
                                     } else if (channel == 9 && ctrl == 7) {
                                         copy[p + 1] = (value * profile.drumVelMultiplier).toInt().coerceIn(0, 127).toByte()
                                     } else if (channel == 1 && ctrl == 7) {

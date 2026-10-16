@@ -116,11 +116,12 @@ data class VideoKeyUiState(
     val isInstrumental: Boolean = false,
     val keyTranspose: Int = 0,
     val tempoPercent: Int = 100,
-    val melodyPercent: Int = 50,
+    val melodyPercent: Int = 70,
     val micEchoPercent: Int = 50,
     val score: Int = 94,
     val showScoreModal: Boolean = false,
     val isMicScoringEnabled: Boolean = true,
+    val isScoringSoundEnabled: Boolean = true,
     val isKeypadVoiceEnabled: Boolean = true,
     val isSettingsDialogOpen: Boolean = false,
     val micLevel: Float = 0f,
@@ -238,10 +239,14 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         val savedSf = prefs.getString("active_soundfont", "platinum major. hd 10 soundbank sf2") ?: "platinum major. hd 10 soundbank sf2"
         soundEngine.setActiveSoundFont(savedSf)
-        soundEngine.setMelodyVolume(50) // Default 50%
+        val initialMelody = prefs.getInt("melody_percent", 70) // Default 70% as requested!
+        soundEngine.setMelodyVolume(initialMelody)
 
         val savedFavSet = prefs.getStringSet("favorite_song_codes", emptySet())?.toSet() ?: emptySet()
         val initialFavSongs = savedFavSet.mapNotNull { repository.findByCode(it) }
+
+        val savedScoring = prefs.getBoolean("mic_scoring_enabled", true)
+        val savedScoringSound = prefs.getBoolean("scoring_sound_enabled", true)
 
         _uiState.update {
             it.copy(
@@ -252,7 +257,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 micSensitivity = initialSensitivity,
                 appLanguage = initialLang,
                 activeSoundFontName = savedSf,
-                melodyPercent = 50,
+                melodyPercent = initialMelody,
+                isMicScoringEnabled = savedScoring,
+                isScoringSoundEnabled = savedScoringSound,
                 favoriteCodes = savedFavSet,
                 favoriteSongs = initialFavSongs,
                 savedRecordings = karaokeRecorder.listSavedRecordings()
@@ -701,6 +708,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             (92..99).random()
         }
 
+        if (showModal && _uiState.value.isScoringSoundEnabled) {
+            com.example.videokey.data.VideokeSoundEffects.playScoringFanfare(finalScore)
+        }
+
         _uiState.update {
             it.copy(
                 score = finalScore,
@@ -716,7 +727,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             if (showModal) {
-                delay(2500)
+                delay(2800)
                 closeScoreModal()
             } else {
                 delay(300)
@@ -1039,6 +1050,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         } else {
             soundEngine.stop()
             micScorer.stopScoring()
+            com.example.videokey.data.VideokeSoundEffects.stop()
             playbackJob?.cancel()
             _uiState.update {
                 it.copy(
@@ -1055,6 +1067,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     fun adjustMelody(delta: Int) {
         val newVol = (_uiState.value.melodyPercent + delta).coerceIn(0, 100)
         soundEngine.setMelodyVolume(newVol)
+        prefs.edit().putInt("melody_percent", newVol).apply()
         _uiState.update {
             it.copy(melodyPercent = newVol)
         }
@@ -1183,6 +1196,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun closeScoreModal() {
+        com.example.videokey.data.VideokeSoundEffects.stop()
         _uiState.update { it.copy(showScoreModal = false) }
     }
 
@@ -1522,11 +1536,21 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleMicScoring(enabled: Boolean) {
+        prefs.edit().putBoolean("mic_scoring_enabled", enabled).apply()
         _uiState.update { it.copy(isMicScoringEnabled = enabled) }
         if (!enabled) {
             micScorer.stopScoring()
+            com.example.videokey.data.VideokeSoundEffects.stop()
         } else if (_uiState.value.isPlaying) {
             micScorer.startScoring()
+        }
+    }
+
+    fun toggleScoringSound(enabled: Boolean) {
+        prefs.edit().putBoolean("scoring_sound_enabled", enabled).apply()
+        _uiState.update { it.copy(isScoringSoundEnabled = enabled) }
+        if (!enabled) {
+            com.example.videokey.data.VideokeSoundEffects.stop()
         }
     }
 
@@ -1640,6 +1664,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         super.onCleared()
         soundEngine.stop()
         micScorer.stopScoring()
+        com.example.videokey.data.VideokeSoundEffects.stop()
         voiceManager.shutdown()
         playbackJob?.cancel()
     }
