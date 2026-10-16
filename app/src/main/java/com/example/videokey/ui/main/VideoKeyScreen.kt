@@ -247,6 +247,7 @@ fun VideoKeyScreen(
                 onToggleTvMode = { viewModel.toggleTvMode(activity) },
                 onAdjustMelody = { viewModel.adjustMelody(it) },
                 onSelectLanguage = { viewModel.setAppLanguage(it) },
+                onSelectTheme = { viewModel.setAppTheme(it) },
                 onCheckForUpdates = { viewModel.checkForUpdates() },
                 onOpenDownloadCenter = { viewModel.openDownloadCenter() },
                 onDismiss = { viewModel.closeSettingsDialog() }
@@ -787,7 +788,7 @@ fun VideokeTvScreen(
 
                         val badgeLabel = when {
                             !state.isPlaying && hasReserve -> if (isTagalog) "SUSUNOD:" else "NEXT:"
-                            !state.isPlaying -> "★ VIDEOKEY:"
+                            !state.isPlaying -> "★ VIDEOKEY V1:"
                             isShowingNext -> if (isTagalog) "SUSUNOD:" else "NEXT:"
                             else -> if (isTagalog) "TUMUTUGTOG:" else "PLAYING:"
                         }
@@ -1893,100 +1894,89 @@ fun VideokeRemoteConsole(
             }
         }
 
-        // Bottom Icon-Only Bar: Forms appear ONLY when an icon is pressed!
+        // Bottom Icon-Only Bar: Uniform flat styling according to active theme
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .shadow(4.dp, RoundedCornerShape(14.dp))
                 .clip(RoundedCornerShape(14.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFF162032), Color(0xFF0B1120))
-                    )
-                )
-                .border(1.dp, Color(0xFF334155), RoundedCornerShape(14.dp))
+                .background(Color(state.appTheme.backgroundColor))
+                .border(1.dp, Color(state.appTheme.buttonBorderColor), RoundedCornerShape(14.dp))
                 .padding(horizontal = 4.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. Reserved Queue / Reserve Icon (R) - now in bottom bar as requested!
+            val theme = state.appTheme
+
+            // 1. Reserved Queue / Reserve Icon (R)
             ConsoleIconButton(
                 icon = if (state.reserveQueue.isNotEmpty()) "R (${state.reserveQueue.size})" else "R",
-                borderColor = Color(0xFFFFD54F),
-                bgColor = Color(0xFF2A2008),
                 isActive = state.isReserveQueueOpen,
+                theme = theme,
                 onClick = onReserve
             )
 
             // 2. Favorite Songs Icon (❤️)
             ConsoleIconButton(
                 icon = "❤️",
-                borderColor = Color(0xFFFF4081),
-                bgColor = Color(0xFF2D0A1B),
                 isActive = state.isFavoritesOpen,
+                theme = theme,
                 onClick = onToggleFavorites
             )
 
             // 3. Voice + Music Recording Icon (🎙️ / 🔴)
             ConsoleIconButton(
                 icon = if (state.isRecording) "🔴" else "🎙️",
-                borderColor = Color(0xFFFF5252),
-                bgColor = if (state.isRecording) Color(0xFF450A0A) else Color(0xFF260E14),
                 isActive = state.isRecording || state.isRecordingsDialogOpen,
+                theme = theme,
                 onClick = onOpenRecordingsDialog
             )
 
             // 4. SoundFont SF2 Selector Icon (🎛️)
             ConsoleIconButton(
                 icon = "🎛️",
-                borderColor = Color(0xFF00FF88),
-                bgColor = Color(0xFF062619),
                 isActive = state.isSoundFontDialogOpen,
+                theme = theme,
                 onClick = onOpenSoundFontDialog
             )
 
             // 5. Lyric Font & Style Icon (🔤)
             ConsoleIconButton(
                 icon = "🔤",
-                borderColor = Color(0xFF818CF8),
-                bgColor = Color(0xFF1E1B4B),
                 isActive = state.isLyricStyleDialogOpen,
+                theme = theme,
                 onClick = onOpenLyricStyleDialog
             )
 
             // 6. Audio Mixer (Key / Tempo / Melody) Icon (🎚️)
             ConsoleIconButton(
                 icon = "🎚️",
-                borderColor = Color(0xFF00E5FF),
-                bgColor = Color(0xFF06283D),
                 isActive = state.isAudioMixerDialogOpen,
+                theme = theme,
                 onClick = onOpenAudioMixerDialog
             )
 
             // 7. Backdrop Video/Image Folder Icon (🎬)
             ConsoleIconButton(
                 icon = "🎬",
-                borderColor = Color(0xFFFFB300),
-                bgColor = Color(0xFF281A05),
                 isActive = state.isBackgroundDialogOpen,
+                theme = theme,
                 onClick = onOpenBackgroundDialog
             )
 
             // 8. Landscape TV Mode Icon (📺)
             ConsoleIconButton(
                 icon = "📺",
-                borderColor = Color(0xFF4ADE80),
-                bgColor = Color(0xFF0F291E),
                 isActive = state.isTvMode,
+                theme = theme,
                 onClick = onToggleTvMode
             )
 
             // 9. Settings Icon (⚙️)
             ConsoleIconButton(
                 icon = "⚙️",
-                borderColor = Color(0xFF38BDF8),
-                bgColor = Color(0xFF0F172A),
                 isActive = state.isSettingsDialogOpen,
+                theme = theme,
                 onClick = onOpenSettingsDialog
             )
         }
@@ -1996,20 +1986,26 @@ fun VideokeRemoteConsole(
 @Composable
 fun ConsoleIconButton(
     icon: String,
-    borderColor: Color,
-    bgColor: Color,
     isActive: Boolean = false,
+    theme: com.example.videokey.ui.main.AppTheme = com.example.videokey.ui.main.AppTheme.SLATE_DARK,
+    customBorderColor: Color? = null,
+    customBgColor: Color? = null,
     onClick: () -> Unit
 ) {
+    val activeBorder = customBorderColor ?: Color(theme.primaryColor)
+    val defaultBorder = Color(theme.buttonBorderColor)
+    val activeBg = customBorderColor?.copy(alpha = 0.28f) ?: Color(theme.primaryColor).copy(alpha = 0.25f)
+    val defaultBg = customBgColor ?: Color(theme.buttonBgColor)
+
     Box(
         modifier = Modifier
             .size(34.dp)
-            .shadow(if (isActive) 8.dp else 3.dp, RoundedCornerShape(9.dp))
+            .shadow(if (isActive) 6.dp else 2.dp, RoundedCornerShape(9.dp))
             .clip(RoundedCornerShape(9.dp))
-            .background(if (isActive) borderColor.copy(alpha = 0.28f) else bgColor)
+            .background(if (isActive) activeBg else defaultBg)
             .border(
-                width = if (isActive) 2.dp else 1.2.dp,
-                color = borderColor,
+                width = if (isActive) 1.8.dp else 1.dp,
+                color = if (isActive) activeBorder else defaultBorder,
                 shape = RoundedCornerShape(9.dp)
             )
             .clickable { onClick() }
@@ -2964,29 +2960,52 @@ fun TvKeypadDialog(
                     }
                 }
 
-                // 6-digit display
+                // 6 Advancing Digit Slots: Starts from Right Side [ 0 ] [ 0 ] [ 0 ] [ 0 ] [ 0 ] [ 0 ]
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val code = state.enteredCode
+                    val paddedCode = if (code.isEmpty()) "000000" else code.padStart(6, '0')
                     for (i in 0 until 6) {
-                        val ch = state.enteredCode.getOrNull(i)
-                        val isCursor = i == state.enteredCode.length
+                        val distFromRight = 5 - i
+                        val isFilled = distFromRight < code.length
+                        val isActiveSlot = if (code.isEmpty()) (i == 5) else (distFromRight == code.length)
+                        val digitChar = paddedCode[i]
+
+                        val borderColor = when {
+                            isActiveSlot -> Color(0xFFFFD54F)
+                            isFilled -> Color(0xFF00FF88)
+                            else -> Color(0xFF334155)
+                        }
+
+                        val digitColor = when {
+                            isFilled -> Color(0xFF00FF88)
+                            isActiveSlot -> Color(0xFFFFD54F)
+                            else -> Color(0xFF1E293B) // Ghost unlit 0 segment
+                        }
+
+                        val boxBg = when {
+                            isActiveSlot -> Color(0xFF131D2E)
+                            isFilled -> Color(0xFF021E11)
+                            else -> Color.Black
+                        }
+
                         Box(
                             modifier = Modifier
                                 .size(40.dp, 48.dp)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color.Black)
+                                .background(boxBg)
                                 .border(
-                                    if (isCursor) 2.dp else 1.dp,
-                                    if (isCursor) Color(0xFFFFD54F) else Color(0xFF334155),
+                                    if (isActiveSlot) 2.dp else 1.dp,
+                                    borderColor,
                                     RoundedCornerShape(6.dp)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = ch?.toString() ?: if (isCursor) "_" else "",
-                                color = Color(0xFF00FF88),
+                                text = digitChar.toString(),
+                                color = digitColor,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 24.sp
@@ -4506,17 +4525,20 @@ fun BackgroundSelectionDialog(
         else -> backgrounds
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(18.dp),
             color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFC107)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFFC107)),
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.85f)
                 .padding(4.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(14.dp)) {
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -4527,10 +4549,10 @@ fun BackgroundSelectionDialog(
                         text = if (isTagalog) "🎬 BACKGROUND NG VIDEOKEY" else "🎬 VIDEOKEY BACKGROUND",
                         fontWeight = FontWeight.Black,
                         color = Color(0xFFFFC107),
-                        fontSize = 14.sp
+                        fontSize = 13.5.sp
                     )
-                    IconButton(onClick = onDismiss) {
-                        Text(text = "✕", color = Color.White, fontSize = 16.sp)
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -4550,9 +4572,9 @@ fun BackgroundSelectionDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Text(
-                                text = if (isTagalog) "📁 LOKASYON NG BACKGROUND FOLDER:" else "📁 BACKGROUND FOLDER LOCATOR:",
+                                text = if (isTagalog) "📁 BACKGROUND FOLDER:" else "📁 BACKGROUND FOLDER:",
                                 fontSize = 9.sp,
                                 color = Color(0xFFFFC107),
                                 fontWeight = FontWeight.Black
@@ -4567,7 +4589,7 @@ fun BackgroundSelectionDialog(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (isTagalog) "Nahanap: ${backgrounds.size} background media files" else "Found: ${backgrounds.size} background media files",
+                                text = if (isTagalog) "Nahanap: ${backgrounds.size} media files" else "Found: ${backgrounds.size} media files",
                                 fontSize = 9.sp,
                                 color = Color(0xFF94A3B8),
                                 maxLines = 1,
@@ -4617,10 +4639,12 @@ fun BackgroundSelectionDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (isTagalog) "🔀 Auto-Change (Bawat Kanta)" else "🔀 Auto-Change (Per Song)",
+                            text = if (isTagalog) "🔀 Bawat Kanta" else "🔀 Per Song",
                             color = if (isAuto) Color.Black else Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
+                            fontSize = 10.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -4637,10 +4661,12 @@ fun BackgroundSelectionDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (isTagalog) "🔁 Continuous (Tuloy-tuloy)" else "🔁 Continuous (Loop)",
+                            text = if (isTagalog) "🔁 Tuloy-tuloy" else "🔁 Continuous",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
+                            fontSize = 10.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -4678,6 +4704,8 @@ fun BackgroundSelectionDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(6.dp))
+
                 // Background List
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -4696,7 +4724,7 @@ fun BackgroundSelectionDialog(
                                     shape = RoundedCornerShape(10.dp)
                                 )
                                 .clickable { onSelectBackground(bg) }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 10.dp, vertical = 9.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -4713,7 +4741,7 @@ fun BackgroundSelectionDialog(
                                     },
                                     fontSize = 16.sp
                                 )
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = bg.name,
                                         color = if (isSelected) Color(0xFF00FF88) else Color.White,
@@ -4724,19 +4752,22 @@ fun BackgroundSelectionDialog(
                                     )
                                     Text(
                                         text = when (bg.type) {
-                                            BackgroundType.VIDEO -> if (isTagalog) "Video (MP4 / Media Loop)" else "Video (MP4 / Media Loop)"
-                                            BackgroundType.IMAGE -> if (isTagalog) "Larawan (Wallpaper / Photo)" else "Picture (Wallpaper / Photo)"
-                                            BackgroundType.STAGE -> if (isTagalog) "Stage Canvas na may Neon Effect" else "Animated Neon Stage Canvas"
+                                            BackgroundType.VIDEO -> if (isTagalog) "Video (MP4 Loop)" else "Video (MP4 Loop)"
+                                            BackgroundType.IMAGE -> if (isTagalog) "Larawan (Wallpaper)" else "Picture (Wallpaper)"
+                                            BackgroundType.STAGE -> if (isTagalog) "Stage Neon Canvas" else "Animated Stage Canvas"
                                         },
                                         color = Color.Gray,
-                                        fontSize = 9.sp
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
 
                             if (isSelected) {
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (isTagalog) "✓ GINAGAMIT" else "✓ ACTIVE",
+                                    text = if (isTagalog) "✓ GAMIT" else "✓ ACTIVE",
                                     color = Color(0xFF00FF88),
                                     fontWeight = FontWeight.Black,
                                     fontSize = 11.sp
@@ -5325,6 +5356,7 @@ fun AppSettingsDialog(
     onToggleTvMode: () -> Unit,
     onAdjustMelody: (Int) -> Unit = {},
     onSelectLanguage: (com.example.videokey.ui.main.AppLanguage) -> Unit = {},
+    onSelectTheme: (com.example.videokey.ui.main.AppTheme) -> Unit = {},
     onCheckForUpdates: () -> Unit = {},
     onOpenDownloadCenter: () -> Unit = {},
     onDismiss: () -> Unit
@@ -5464,6 +5496,86 @@ fun AppSettingsDialog(
                                 color = if (!isTagalog) Color.White else Color(0xFF94A3B8),
                                 fontSize = 11.sp
                             )
+                        }
+                    }
+                }
+
+                // OPTION 0.5: TEMA NG APPS / APP THEME (UNIFORM FLAT THEMES)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF1E293B))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = if (isTagalog) "🎨 TEMA NG APPS (UNIFORM FLAT THEMES)" else "🎨 APP THEMES & UNIFORM COLORS",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (isTagalog) "Pumili ng makinis at hindi masakit sa matang flat colors" else "Select smooth, eye-friendly flat theme colors",
+                                fontSize = 10.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+
+                    val themes = com.example.videokey.ui.main.AppTheme.values()
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        themes.forEach { themeItem ->
+                            val isSel = state.appTheme == themeItem
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSel) Color(themeItem.buttonBgColor) else Color(0xFF0F172A))
+                                    .border(
+                                        width = if (isSel) 1.8.dp else 1.dp,
+                                        color = if (isSel) Color(themeItem.primaryColor) else Color(0xFF334155),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { onSelectTheme(themeItem) }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Color swatch
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(themeItem.primaryColor))
+                                            .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                    )
+                                    Text(
+                                        text = themeItem.displayName,
+                                        fontWeight = if (isSel) FontWeight.Black else FontWeight.Bold,
+                                        color = if (isSel) Color.White else Color(0xFFCBD5E1),
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                if (isSel) {
+                                    Text(
+                                        text = if (isTagalog) "✓ GAMIT" else "✓ ACTIVE",
+                                        fontWeight = FontWeight.Black,
+                                        color = Color(themeItem.primaryColor),
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }

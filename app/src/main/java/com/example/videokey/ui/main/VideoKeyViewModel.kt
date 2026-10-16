@@ -89,6 +89,80 @@ data class LyricCustomization(
     val position: LyricScreenPosition = LyricScreenPosition.CENTER
 )
 
+enum class AppTheme(
+    val id: String,
+    val displayName: String,
+    val primaryColor: Long,       // Smooth flat accent
+    val secondaryColor: Long,     // Secondary accent
+    val surfaceColor: Long,       // Card / Dialog surface
+    val backgroundColor: Long,    // Deep base bg
+    val buttonBgColor: Long,      // Uniform button background
+    val buttonBorderColor: Long,  // Uniform button border
+    val textColor: Long,          // Primary text
+    val textMutedColor: Long      // Muted / secondary text
+) {
+    SLATE_DARK(
+        "slate_dark",
+        "Classic Slate",
+        primaryColor = 0xFF38BDF8,      // Flat Sky Blue
+        secondaryColor = 0xFF818CF8,    // Soft Indigo
+        surfaceColor = 0xFF1E293B,      // Deep Slate Card
+        backgroundColor = 0xFF0F172A,   // Smooth Dark Slate
+        buttonBgColor = 0xFF1E293B,     // Uniform Flat Slate
+        buttonBorderColor = 0xFF334155, // Crisp Subtle Border
+        textColor = 0xFFF8FAFC,
+        textMutedColor = 0xFF94A3B8
+    ),
+    EMERALD_STAGE(
+        "emerald_stage",
+        "Emerald Stage",
+        primaryColor = 0xFF10B981,      // Smooth Emerald
+        secondaryColor = 0xFF34D399,
+        surfaceColor = 0xFF064E3B,
+        backgroundColor = 0xFF022C22,
+        buttonBgColor = 0xFF064E3B,
+        buttonBorderColor = 0xFF047857,
+        textColor = 0xFFF0FDF4,
+        textMutedColor = 0xFFA7F3D0
+    ),
+    WARM_AMBER(
+        "warm_amber",
+        "Warm Gold",
+        primaryColor = 0xFFF59E0B,      // Flat Amber
+        secondaryColor = 0xFFFBBF24,
+        surfaceColor = 0xFF292524,
+        backgroundColor = 0xFF1C1917,
+        buttonBgColor = 0xFF292524,
+        buttonBorderColor = 0xFF44403C,
+        textColor = 0xFFFAFAF9,
+        textMutedColor = 0xFFD6D3D1
+    ),
+    ROYAL_INDIGO(
+        "royal_indigo",
+        "Royal Studio",
+        primaryColor = 0xFF6366F1,      // Smooth Indigo
+        secondaryColor = 0xFFA5B4FC,
+        surfaceColor = 0xFF1E1B4B,
+        backgroundColor = 0xFF0F0E2A,
+        buttonBgColor = 0xFF1E1B4B,
+        buttonBorderColor = 0xFF312E81,
+        textColor = 0xFFF5F3FF,
+        textMutedColor = 0xFFC7D2FE
+    ),
+    CHARCOAL_MINIMAL(
+        "charcoal_minimal",
+        "Minimal Charcoal",
+        primaryColor = 0xFFE2E8F0,      // Soft Silver/Slate
+        secondaryColor = 0xFF94A3B8,
+        surfaceColor = 0xFF18181B,      // Zinc 900
+        backgroundColor = 0xFF09090B,   // Zinc 950
+        buttonBgColor = 0xFF27272A,     // Zinc 800
+        buttonBorderColor = 0xFF3F3F46, // Zinc 700
+        textColor = 0xFFF4F4F5,
+        textMutedColor = 0xFFA1A1AA
+    )
+}
+
 enum class AppLanguage(val code: String, val displayName: String) {
     TAGALOG("tl", "🇵🇭 Tagalog (Default)"),
     ENGLISH("en", "🇺🇸 English")
@@ -116,8 +190,9 @@ data class VideoKeyUiState(
     val isInstrumental: Boolean = false,
     val keyTranspose: Int = 0,
     val tempoPercent: Int = 100,
-    val melodyPercent: Int = 70,
+    val melodyPercent: Int = 60,
     val micEchoPercent: Int = 50,
+    val appTheme: AppTheme = AppTheme.SLATE_DARK,
     val score: Int = 94,
     val showScoreModal: Boolean = false,
     val isMicScoringEnabled: Boolean = true,
@@ -238,8 +313,15 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val rawSavedSf = prefs.getString("active_soundfont", "Dream SAM2634 v2.1") ?: "Dream SAM2634 v2.1"
         val savedSf = if (rawSavedSf.contains("mega", ignoreCase = true)) "MegaPro Sound" else "Dream SAM2634 v2.1"
         soundEngine.setActiveSoundFont(savedSf)
-        val initialMelody = prefs.getInt("melody_percent", 70) // Default 70% as requested!
+        val initialMelody = prefs.getInt("melody_percent", 60) // Default 60% as requested!
         soundEngine.setMelodyVolume(initialMelody)
+
+        val savedThemeName = prefs.getString("app_theme", AppTheme.SLATE_DARK.name) ?: AppTheme.SLATE_DARK.name
+        val initialTheme = try {
+            AppTheme.valueOf(savedThemeName)
+        } catch (e: Exception) {
+            AppTheme.SLATE_DARK
+        }
 
         val savedFavSet = prefs.getStringSet("favorite_song_codes", emptySet())?.toSet() ?: emptySet()
         val initialFavSongs = savedFavSet.mapNotNull { repository.findByCode(it) }
@@ -257,6 +339,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 appLanguage = initialLang,
                 activeSoundFontName = savedSf,
                 melodyPercent = initialMelody,
+                appTheme = initialTheme,
                 isMicScoringEnabled = savedScoring,
                 isScoringSoundEnabled = savedScoringSound,
                 favoriteCodes = savedFavSet,
@@ -1660,6 +1743,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     fun setAppLanguage(language: AppLanguage) {
         prefs.edit().putString("app_language", language.code).apply()
         _uiState.update { it.copy(appLanguage = language) }
+    }
+
+    fun setAppTheme(theme: AppTheme) {
+        prefs.edit().putString("app_theme", theme.name).apply()
+        _uiState.update { it.copy(appTheme = theme) }
     }
 
     fun applyLyricPreset(presetName: String) {

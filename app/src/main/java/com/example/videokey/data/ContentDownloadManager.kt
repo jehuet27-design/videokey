@@ -99,14 +99,14 @@ class ContentDownloadManager(private val context: Context) {
             // 3. Complete Video Backgrounds Pack (All-in-one single download)
             DownloadItem(
                 id = "all_backgrounds",
-                title = "🎬 Complete Video Backgrounds Pack",
+                title = "🎬 Complete Drone Shoot Video Pack",
                 category = ContentCategory.BACKGROUND_VIDEO,
-                description = "Lahat ng video backgrounds (3D Sayaw, Motion Lights, Nature Landscapes, at Wallpapers) ay awtomatikong mado-download nang sabay-sabay.",
-                sizeFormatted = "383 MB",
+                description = "Magandang HD Drone Shoot nature background video para sa videoke stage.",
+                sizeFormatted = "204 MB",
                 downloadUrl = "$releaseBase/backgrounds_all.zip",
                 relativeDestinationPath = "backgrounds",
                 isZip = true,
-                checkFileRelativePath = "backgrounds/bgv/3D/sayaw1.mp4"
+                checkFileRelativePath = "backgrounds/DRONE_SHOOT.mp4"
             )
         )
     }

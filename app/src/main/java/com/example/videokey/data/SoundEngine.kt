@@ -51,7 +51,7 @@ class SoundEngine(private val context: Context) {
     private var keyTranspose: Int = 0 // semitones (-6 to +6)
     private var tempoPercent: Int = 100 // 70% to 130%
     private var micEchoPercent: Int = 50 // 0% to 100%
-    private var melodyPercent: Int = 50 // Default 50% (0% to 100%)
+    private var melodyPercent: Int = 60 // Default 60% (0% to 100%)
 
     private val midiIndexByCode = java.util.concurrent.ConcurrentHashMap<String, File>()
     private val midiIndexByTitle = java.util.concurrent.ConcurrentHashMap<String, File>()

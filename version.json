@@ -1,7 +1,7 @@
 {
-  "versionCode": 2,
-  "versionName": "2.0",
-  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.0/app-debug.apk",
-  "forceUpdate": true,
-  "releaseNotes": "🚀 Pagsubok sa Automatic Over-The-Air (OTA) Force Update:\n• Mas malinaw at bold na text sa TV mode\n• Mas tumpak na mic scoring ayon sa melody\n• Bagong QR Barcode para sa wireless remote"
+  "versionCode": 1,
+  "versionName": "1.0",
+  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.0/VideoKey-v1.0.apk",
+  "forceUpdate": false,
+  "releaseNotes": "🎉 VIDEOKEY V1 (Official First Release):\n• DRONE SHOOT HD Video Backgrounds\n• Concert Grand & Punchy Studio SoundFont (60% Melody Guide)\n• Uniform Flat Themes at malinis na mga pindutan\n• TV Keypad na nag-uumpisa sa kanan"
 }

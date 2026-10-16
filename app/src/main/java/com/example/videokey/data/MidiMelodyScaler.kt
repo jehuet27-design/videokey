@@ -55,21 +55,21 @@ object MidiMelodyScaler {
             )
             lower.contains("dream") || lower.contains("sam") || lower.contains("2634") -> SoundFontProfile(
                 name = soundFontName,
-                melodyProgram = 79,      // Ocarina / Dream SAM synth lead
-                pianoProgram = 5,        // DX7 Chorused Electric Piano
-                guitarProgram = 24,      // Warm Nylon Guitar
-                bassProgram = 35,        // Warm Fretless Bass
-                stringsProgram = 49,     // Warm Slow Strings
-                reverbCc91 = 98,
-                chorusCc93 = 105,
-                brightnessCc74 = 64,
-                drumVelMultiplier = 1.08f,
-                bassVelMultiplier = 1.25f,
-                accompVelMultiplier = 1.0f,
-                eqBandOffsetsMb = intArrayOf(800, 500, 150, -200, 250),
-                bassBoostPerMille = 800,
-                virtualizerPerMille = 750,
-                reverbPreset = 4 // PRESET_LARGEROOM
+                melodyProgram = 73,      // Sweet Acoustic Flute guide (clear and pleasant)
+                pianoProgram = 0,        // Acoustic Concert Grand Piano (full rich body)
+                guitarProgram = 25,      // Acoustic Steel String Guitar
+                bassProgram = 33,        // Electric Finger Bass (solid, deep, punchy)
+                stringsProgram = 48,     // Lush String Ensemble 1
+                reverbCc91 = 95,
+                chorusCc93 = 70,
+                brightnessCc74 = 85,
+                drumVelMultiplier = 1.25f,  // Punchy live kick and snare
+                bassVelMultiplier = 1.28f,  // Solid warm low-end
+                accompVelMultiplier = 1.12f, // Full rich accompaniment
+                eqBandOffsetsMb = intArrayOf(750, 450, 100, 200, 400),
+                bassBoostPerMille = 750,
+                virtualizerPerMille = 700,
+                reverbPreset = 6 // PRESET_LARGEHALL (Lush concert videoke acoustic)
             )
             lower.contains("mega") -> SoundFontProfile(
                 name = soundFontName,
