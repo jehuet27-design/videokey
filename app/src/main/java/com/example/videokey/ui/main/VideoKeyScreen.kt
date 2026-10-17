@@ -800,7 +800,12 @@ fun VideokeTvScreen(
     val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
     val isTvMode = state.isTvMode
     val effectiveLyricConfig = remember(state.isTvMode, state.lyricConfig) {
-        if (state.isTvMode) state.lyricConfig.copy(fontFamily = LyricFontFamily.ROUNDED_CLEAN) else state.lyricConfig
+        if (state.isTvMode) {
+            state.lyricConfig.copy(
+                fontFamily = LyricFontFamily.ROUNDED_CLEAN,
+                fontScale = state.lyricConfig.fontScale * 1.30f
+            )
+        } else state.lyricConfig
     }
     val shouldShowHeader = remember(state.isTvMode, state.isPlaying, state.reserveQueue.size) {
         if (state.isTvMode) (state.isPlaying || state.reserveQueue.isNotEmpty()) else true
@@ -1650,6 +1655,122 @@ fun VideokeTvScreen(
                 onPlay = onPlay,
                 onDismiss = { showTvKeypadModal = false }
             )
+        }
+
+        // TV MODE AUTOMATIC PERSISTENT REMOTE QR BARCODE
+        // Automatically visible on TV mode until a phone remote client connects!
+        // As long as no phone is connected, it stays on the screen. Once connected, it hides!
+        if (isTvMode && !state.isRemoteConnected) {
+            val deviceIp = remember { com.example.videokey.remote.VideokeRemoteServer.getLocalIpAddress() }
+            val qrBitmap = remember(deviceIp) {
+                com.example.videokey.remote.QrCodeGenerator.generateQrBitmap("http://$deviceIp:8080", 300)
+            }
+
+            if (!state.isPlaying) {
+                // In Standby Mode: Floating card at bottom right
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 16.dp)
+                        .shadow(12.dp, RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xF00A111E))
+                        .border(1.5.dp, Color(0xFF38BDF8), RoundedCornerShape(14.dp))
+                        .padding(10.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "📱", fontSize = 13.sp)
+                            Text(
+                                text = if (isTagalog) "CELLPHONE REMOTE" else "PHONE REMOTE",
+                                color = Color(0xFF38BDF8),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp
+                            )
+                        }
+                        if (qrBitmap != null) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color.White
+                            ) {
+                                Image(
+                                    bitmap = qrBitmap.asImageBitmap(),
+                                    contentDescription = "TV Remote QR Barcode",
+                                    modifier = Modifier.size(110.dp).padding(4.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "http://$deviceIp:8080",
+                            color = Color(0xFFFFD54F),
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp
+                        )
+                        Text(
+                            text = if (isTagalog) "I-scan para kumonekta ang remote" else "Scan to connect remote",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 8.5.sp
+                        )
+                    }
+                }
+            } else {
+                // In Playing Mode: Compact sleek floating badge in bottom-right corner (never covers lyrics!)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 12.dp, bottom = 8.dp)
+                        .shadow(8.dp, RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xD9050E1A))
+                        .border(1.dp, Color(0xFF00FF88), RoundedCornerShape(10.dp))
+                        .padding(6.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (qrBitmap != null) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color.White
+                            ) {
+                                Image(
+                                    bitmap = qrBitmap.asImageBitmap(),
+                                    contentDescription = "Mini TV Remote QR Barcode",
+                                    modifier = Modifier.size(64.dp).padding(3.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "📱 QR REMOTE",
+                                color = Color(0xFF00FF88),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 10.sp
+                            )
+                            Text(
+                                text = "$deviceIp:8080",
+                                color = Color(0xFFFFD54F),
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.sp
+                            )
+                            Text(
+                                text = if (isTagalog) "I-scan para maging remote" else "Scan with phone",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 8.sp
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

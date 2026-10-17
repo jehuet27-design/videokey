@@ -294,7 +294,8 @@ data class VideoKeyUiState(
     val updateState: com.example.videokey.update.AppUpdateManager.UpdateState = com.example.videokey.update.AppUpdateManager.UpdateState.Idle,
     val isDownloadCenterOpen: Boolean = false,
     val downloadCatalog: List<com.example.videokey.data.ContentDownloadManager.DownloadItem> = emptyList(),
-    val downloadStatus: com.example.videokey.data.ContentDownloadManager.DownloadStatus = com.example.videokey.data.ContentDownloadManager.DownloadStatus.Idle
+    val downloadStatus: com.example.videokey.data.ContentDownloadManager.DownloadStatus = com.example.videokey.data.ContentDownloadManager.DownloadStatus.Idle,
+    val isRemoteConnected: Boolean = false
 )
 
 class VideoKeyViewModel(application: Application) : AndroidViewModel(application) {
@@ -2065,6 +2066,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             position = current.position
         )
         _uiState.update { it.copy(lyricConfig = newConfig) }
+    }
+
+    fun setRemoteConnected(connected: Boolean) {
+        if (_uiState.value.isRemoteConnected != connected) {
+            _uiState.update { it.copy(isRemoteConnected = connected) }
+        }
     }
 
     override fun onCleared() {
