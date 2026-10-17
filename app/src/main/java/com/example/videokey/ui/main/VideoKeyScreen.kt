@@ -799,8 +799,12 @@ fun VideokeTvScreen(
 ) {
     val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
     val isTvMode = state.isTvMode
-    val effectiveLyricConfig = if (isTvMode) state.lyricConfig.copy(fontFamily = LyricFontFamily.ROUNDED_CLEAN) else state.lyricConfig
-    val shouldShowHeader = if (isTvMode) (state.isPlaying || state.reserveQueue.isNotEmpty()) else true
+    val effectiveLyricConfig = remember(state.isTvMode, state.lyricConfig) {
+        if (state.isTvMode) state.lyricConfig.copy(fontFamily = LyricFontFamily.ROUNDED_CLEAN) else state.lyricConfig
+    }
+    val shouldShowHeader = remember(state.isTvMode, state.isPlaying, state.reserveQueue.size) {
+        if (state.isTvMode) (state.isPlaying || state.reserveQueue.isNotEmpty()) else true
+    }
     var showTvKeypadModal by remember { mutableStateOf(false) }
 
     // Auto-hide top-right buttons in Landscape Mode after 3.8s of inactivity
@@ -846,14 +850,19 @@ fun VideokeTvScreen(
                 }
             }
     ) {
-        // LAYER 1: Background Video / Image / Stage
-        val mediaCount = state.availableBackgrounds.count { it.type == BackgroundType.VIDEO || it.type == BackgroundType.IMAGE }
-        VideokeBackgroundLayer(
-            background = state.selectedBackground,
-            hasMultipleMedia = mediaCount > 1,
-            onBackgroundCompleted = onAdvanceBackground,
-            modifier = Modifier.fillMaxSize()
-        )
+        // LAYER 1: Background Video / Image / Stage (Isolated to prevent recomposition during lyric wipe)
+        val mediaCount = remember(state.availableBackgrounds) {
+            state.availableBackgrounds.count { it.type == BackgroundType.VIDEO || it.type == BackgroundType.IMAGE }
+        }
+        val currentBg = state.selectedBackground
+        key(currentBg?.id, currentBg?.path) {
+            VideokeBackgroundLayer(
+                background = currentBg,
+                hasMultipleMedia = mediaCount > 1,
+                onBackgroundCompleted = onAdvanceBackground,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         // LAYER 2: Foreground UI (OSD Header, Songbook/Reserve/Favorites Overlay, Lyrics)
         Column(
@@ -3042,9 +3051,7 @@ fun KaraokeLyricLine(
             1.0f
         }
     }
-    var fitScale by remember(text, fontSize, lyricConfig.fontScale, lyricConfig.fontFamily, isLandscape) {
-        mutableStateOf(initialFitScale)
-    }
+    val fitScale = initialFitScale
     val scaledFontSize = (fontSize.value * lyricConfig.fontScale * fitScale).sp
     val outlineWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { scaledFontSize.toPx() * 0.095f }
 
@@ -3102,10 +3109,7 @@ fun KaraokeLyricLine(
                 text = annotatedString,
                 maxLines = 1,
                 softWrap = false,
-                style = fillStyle,
-                onTextLayout = { result ->
-                    if (result.didOverflowWidth && fitScale > 0.35f) fitScale *= 0.90f
-                }
+                style = fillStyle
             )
 
             // Single countdown number placed right above the first letter of lyrics!
@@ -5193,6 +5197,7 @@ fun KaraokeVideoPlayer(
     var activeSurface by remember { mutableStateOf<Surface?>(null) }
     var textureViewRef by remember { mutableStateOf<TextureView?>(null) }
     var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
+    var isPlayerPrepared by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner, mediaPlayerRef) {
@@ -5202,10 +5207,10 @@ fun KaraokeVideoPlayer(
                 try {
                     when (event) {
                         androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> {
-                            if (mp.isPlaying) mp.pause()
+                            if (isPlayerPrepared && mp.isPlaying) mp.pause()
                         }
                         androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
-                            if (!mp.isPlaying && videoPath.isNotBlank()) mp.start()
+                            if (isPlayerPrepared && !mp.isPlaying && videoPath.isNotBlank()) mp.start()
                         }
                         else -> {}
                     }
@@ -5243,14 +5248,12 @@ fun KaraokeVideoPlayer(
             return@DisposableEffect onDispose {}
         }
 
+        isPlayerPrepared = false
         val mp = MediaPlayer().apply {
             try {
-                java.io.FileInputStream(file).use { fis ->
-                    setDataSource(fis.fd)
-                }
+                setDataSource(file.absolutePath)
                 setSurface(surface)
                 setVolume(0f, 0f) // Muted so it does not clash with karaoke music
-                setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
                 isLooping = !hasMultipleMedia // Loop if single video, otherwise onCompletion advances
 
                 setOnVideoSizeChangedListener { _, vWidth, vHeight ->
@@ -5264,14 +5267,27 @@ fun KaraokeVideoPlayer(
                 }
                 setOnErrorListener { _, what, extra ->
                     Log.w("VideoPlayer", "MediaPlayer playback error: $what, extra: $extra")
-                    currentOnVideoCompleted()
+                    isPlayerPrepared = false
+                    if (what != -38) {
+                        currentOnVideoCompleted()
+                    }
                     true
                 }
                 setOnPreparedListener { preparedMp ->
+                    isPlayerPrepared = true
+                    try {
+                        preparedMp.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
+                    } catch (e: Exception) {
+                        Log.w("VideoPlayer", "Scaling mode warning", e)
+                    }
                     textureViewRef?.let { tv ->
                         adjustAspectMatrix(tv, tv.width, tv.height, preparedMp.videoWidth, preparedMp.videoHeight)
                     }
-                    preparedMp.start()
+                    try {
+                        preparedMp.start()
+                    } catch (e: Exception) {
+                        Log.w("VideoPlayer", "Error starting prepared video", e)
+                    }
                 }
                 prepareAsync()
             } catch (e: Exception) {
@@ -5324,12 +5340,7 @@ fun KaraokeVideoPlayer(
                 }
             }
         },
-        update = { view ->
-            textureViewRef = view
-            if (view.isAvailable && (activeSurface == null || !activeSurface!!.isValid) && view.surfaceTexture != null) {
-                activeSurface = Surface(view.surfaceTexture)
-            }
-        }
+        update = {}
     )
 }
 

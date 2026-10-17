@@ -316,6 +316,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     @Volatile
     private var currentRawMidiBytes: ByteArray? = null
     private var songStartTimeMs: Long = 0L
+    private val playlistLock = Any()
+    private val backgroundPlaylist = mutableListOf<KaraokeBackground>()
 
     init {
         // Detect initial song folder
@@ -688,9 +690,18 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     private fun startRealtimeLyricLoop() {
         playbackJob?.cancel()
-        playbackJob = viewModelScope.launch {
+        playbackJob = viewModelScope.launch(Dispatchers.Default) {
+            var cachedLineIdx = 0
+            var cachedMelodyIdx = 0
+            var lastEmittedWipe = -1f
+            var lastEmittedActiveIndex = -2
+            var lastEmittedDots = -1
+            var lastEmittedIntro = false
+            var lastEmittedInst = false
+            var lastRecSecs = -1
+
             while (true) {
-                delay(40)
+                delay(33)
                 if (!_uiState.value.isPlaying) continue
 
                 val isAudioPlaying = soundEngine.isPlaying()
@@ -702,9 +713,30 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 val firstLineStart = lines.firstOrNull()?.startMs ?: 10000L
                 val isTitleIntroActive = elapsedSinceStart in 0L..3500L && (lines.isEmpty() || posMs < firstLineStart)
 
-                // Update recorder & melody pitch target for accurate scoring
-                val activeMelodyNote = melodyNotes.firstOrNull { posMs in it.startMs..it.endMs }
-                val activeLyricLine = lines.firstOrNull { posMs in it.startMs..it.endMs }
+                // Fast pointer-based melody note search (O(1) amortized instead of scanning thousands of notes)
+                val activeMelodyNote = if (melodyNotes.isNotEmpty()) {
+                    if (cachedMelodyIdx >= melodyNotes.size || melodyNotes[cachedMelodyIdx].startMs > posMs) {
+                        cachedMelodyIdx = 0
+                    }
+                    while (cachedMelodyIdx < melodyNotes.size && melodyNotes[cachedMelodyIdx].endMs < posMs) {
+                        cachedMelodyIdx++
+                    }
+                    val cand = melodyNotes.getOrNull(cachedMelodyIdx)
+                    if (cand != null && posMs in cand.startMs..cand.endMs) cand else null
+                } else null
+
+                // Fast pointer-based line search for active vocal (O(1) amortized)
+                val activeLyricLine = if (lines.isNotEmpty()) {
+                    if (cachedLineIdx >= lines.size || lines[cachedLineIdx].startMs > posMs) {
+                        cachedLineIdx = 0
+                    }
+                    while (cachedLineIdx < lines.size && lines[cachedLineIdx].endMs < posMs) {
+                        cachedLineIdx++
+                    }
+                    val cand = lines.getOrNull(cachedLineIdx)
+                    if (cand != null && posMs in cand.startMs..cand.endMs) cand else null
+                } else null
+
                 val targetPitch = if (activeMelodyNote != null) {
                     (activeMelodyNote.midiNote + _uiState.value.keyTranspose).coerceIn(0, 127)
                 } else {
@@ -714,9 +746,14 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     isVocalActive = activeLyricLine != null || activeMelodyNote != null,
                     midiNote = targetPitch
                 )
+
                 if (karaokeRecorder.isRecording) {
                     karaokeRecorder.updatePlaybackState(posMs, _uiState.value.keyTranspose)
-                    _uiState.update { it.copy(recordingSeconds = karaokeRecorder.getRecordingDurationSeconds()) }
+                    val recSecs = karaokeRecorder.getRecordingDurationSeconds()
+                    if (recSecs != lastRecSecs) {
+                        lastRecSecs = recSecs
+                        _uiState.update { it.copy(recordingSeconds = recSecs) }
+                    }
                 }
 
                 // Auto-detect end of song for instant auto-play of reserve queue
@@ -728,51 +765,90 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 }
 
                 if (lines.isNotEmpty() && isAudioPlaying) {
-                    val activeIndex = lines.indexOfFirst { idxLine ->
-                        val idx = lines.indexOf(idxLine)
-                        val nextStart = lines.getOrNull(idx + 1)?.startMs ?: (idxLine.endMs + 500L)
-                        val holdEnd = minOf(idxLine.endMs + 420L, (nextStart - 60L).coerceAtLeast(idxLine.endMs))
-                        posMs in idxLine.startMs..holdEnd
+                    // Fast index lookup for active line with holdEnd
+                    var activeIndex = -1
+                    if (cachedLineIdx >= lines.size || lines[cachedLineIdx].startMs > posMs) {
+                        cachedLineIdx = 0
                     }
+                    for (i in cachedLineIdx until lines.size) {
+                        val cur = lines[i]
+                        val nextStart = lines.getOrNull(i + 1)?.startMs ?: (cur.endMs + 500L)
+                        val holdEnd = minOf(cur.endMs + 420L, (nextStart - 60L).coerceAtLeast(cur.endMs))
+                        if (posMs in cur.startMs..holdEnd) {
+                            activeIndex = i
+                            cachedLineIdx = i
+                            break
+                        } else if (cur.startMs > posMs) {
+                            break
+                        }
+                    }
+
                     if (activeIndex != -1) {
                         val currentLine = lines[activeIndex]
                         val nextLine = lines.getOrNull(activeIndex + 1)
-                        // Synchronize wipe highlight with exact melody notes and syllables
                         val wipe = computeMelodyWipe(currentLine, posMs)
 
-                        // 1. Portrait 4-line calculation (Page of 4 lines)
-                        val pageStart = (activeIndex / 4) * 4
-                        val p1 = lines.getOrNull(pageStart)?.fullText?.uppercase() ?: ""
-                        val p2 = lines.getOrNull(pageStart + 1)?.fullText?.uppercase() ?: ""
-                        val p3 = lines.getOrNull(pageStart + 2)?.fullText?.uppercase() ?: ""
-                        val p4 = lines.getOrNull(pageStart + 3)?.fullText?.uppercase() ?: ""
-                        val lineInPage = (activeIndex % 4) + 1
+                        val wipeDelta = kotlin.math.abs(wipe - lastEmittedWipe)
+                        val lineChanged = activeIndex != lastEmittedActiveIndex
+                        val introChanged = isTitleIntroActive != lastEmittedIntro
+                        val instChanged = lastEmittedInst
 
-                        // 2. Landscape 2-line alternating calculation
-                        val isEven = activeIndex % 2 == 0
-                        val land1 = if (isEven) currentLine.fullText.uppercase() else (nextLine?.fullText?.uppercase() ?: "")
-                        val land2 = if (isEven) (nextLine?.fullText?.uppercase() ?: "") else currentLine.fullText.uppercase()
-                        val landPos = if (isEven) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
+                        if (lineChanged || introChanged || instChanged || wipeDelta >= 0.003f) {
+                            lastEmittedWipe = wipe
+                            lastEmittedActiveIndex = activeIndex
+                            lastEmittedIntro = false
+                            lastEmittedInst = false
+                            lastEmittedDots = 0
 
-                        _uiState.update {
-                            it.copy(
-                                showSongTitleIntro = false,
-                                line1 = p1,
-                                line2 = p2,
-                                line3 = p3,
-                                line4 = p4,
-                                activeLineNumber = lineInPage,
-                                landscapeLine1 = land1,
-                                landscapeLine2 = land2,
-                                activeLyricPosition = landPos,
-                                wipePercent = wipe,
-                                countdownDots = 0,
-                                isInstrumental = false
-                            )
+                            // 1. Portrait 4-line calculation (Page of 4 lines)
+                            val pageStart = (activeIndex / 4) * 4
+                            val p1 = lines.getOrNull(pageStart)?.fullText?.uppercase() ?: ""
+                            val p2 = lines.getOrNull(pageStart + 1)?.fullText?.uppercase() ?: ""
+                            val p3 = lines.getOrNull(pageStart + 2)?.fullText?.uppercase() ?: ""
+                            val p4 = lines.getOrNull(pageStart + 3)?.fullText?.uppercase() ?: ""
+                            val lineInPage = (activeIndex % 4) + 1
+
+                            // 2. Landscape 2-line alternating calculation
+                            val isEven = activeIndex % 2 == 0
+                            val land1 = if (isEven) currentLine.fullText.uppercase() else (nextLine?.fullText?.uppercase() ?: "")
+                            val land2 = if (isEven) (nextLine?.fullText?.uppercase() ?: "") else currentLine.fullText.uppercase()
+                            val landPos = if (isEven) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
+
+                            _uiState.update {
+                                it.copy(
+                                    showSongTitleIntro = false,
+                                    line1 = p1,
+                                    line2 = p2,
+                                    line3 = p3,
+                                    line4 = p4,
+                                    activeLineNumber = lineInPage,
+                                    landscapeLine1 = land1,
+                                    landscapeLine2 = land2,
+                                    activeLyricPosition = landPos,
+                                    wipePercent = wipe,
+                                    countdownDots = 0,
+                                    isInstrumental = false
+                                )
+                            }
                         }
                     } else {
                         // Between lines or intro: find upcoming line
-                        val upcomingIndex = lines.indexOfFirst { it.startMs > posMs }
+                        var upcomingIndex = -1
+                        for (i in cachedLineIdx until lines.size) {
+                            if (lines[i].startMs > posMs) {
+                                upcomingIndex = i
+                                break
+                            }
+                        }
+                        if (upcomingIndex == -1) {
+                            for (i in 0 until cachedLineIdx) {
+                                if (lines[i].startMs > posMs) {
+                                    upcomingIndex = i
+                                    break
+                                }
+                            }
+                        }
+
                         if (upcomingIndex != -1) {
                             val upcoming = lines[upcomingIndex]
                             val nextUpcoming = lines.getOrNull(upcomingIndex + 1)
@@ -798,43 +874,65 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                             val showInstrumental = !isTitleIntroActive && dots == 0 && (timeUntilStart > 3500L) && isAfterLongInstrumental && elapsedSinceStart > 3500L
 
-                            val pageStart = (upcomingIndex / 4) * 4
-                            val p1 = lines.getOrNull(pageStart)?.fullText?.uppercase() ?: ""
-                            val p2 = lines.getOrNull(pageStart + 1)?.fullText?.uppercase() ?: ""
-                            val p3 = lines.getOrNull(pageStart + 2)?.fullText?.uppercase() ?: ""
-                            val p4 = lines.getOrNull(pageStart + 3)?.fullText?.uppercase() ?: ""
-                            val lineInPage = (upcomingIndex % 4) + 1
+                            val lineChanged = upcomingIndex != lastEmittedActiveIndex
+                            val dotsChanged = dots != lastEmittedDots
+                            val introChanged = isTitleIntroActive != lastEmittedIntro
+                            val instChanged = showInstrumental != lastEmittedInst
+                            val wipeChanged = lastEmittedWipe != 0f
 
-                            val isEven = upcomingIndex % 2 == 0
-                            val land1 = if (isEven) upcoming.fullText.uppercase() else (nextUpcoming?.fullText?.uppercase() ?: "")
-                            val land2 = if (isEven) (nextUpcoming?.fullText?.uppercase() ?: "") else upcoming.fullText.uppercase()
-                            val landPos = if (isEven) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
+                            if (lineChanged || dotsChanged || introChanged || instChanged || wipeChanged) {
+                                lastEmittedWipe = 0f
+                                lastEmittedActiveIndex = upcomingIndex
+                                lastEmittedDots = dots
+                                lastEmittedIntro = isTitleIntroActive
+                                lastEmittedInst = showInstrumental
 
-                            _uiState.update {
-                                it.copy(
-                                    showSongTitleIntro = isTitleIntroActive,
-                                    line1 = p1,
-                                    line2 = p2,
-                                    line3 = p3,
-                                    line4 = p4,
-                                    activeLineNumber = lineInPage,
-                                    landscapeLine1 = land1,
-                                    landscapeLine2 = land2,
-                                    activeLyricPosition = landPos,
-                                    wipePercent = 0f,
-                                    countdownDots = dots,
-                                    isInstrumental = showInstrumental
-                                )
+                                val pageStart = (upcomingIndex / 4) * 4
+                                val p1 = lines.getOrNull(pageStart)?.fullText?.uppercase() ?: ""
+                                val p2 = lines.getOrNull(pageStart + 1)?.fullText?.uppercase() ?: ""
+                                val p3 = lines.getOrNull(pageStart + 2)?.fullText?.uppercase() ?: ""
+                                val p4 = lines.getOrNull(pageStart + 3)?.fullText?.uppercase() ?: ""
+                                val lineInPage = (upcomingIndex % 4) + 1
+
+                                val isEven = upcomingIndex % 2 == 0
+                                val land1 = if (isEven) upcoming.fullText.uppercase() else (nextUpcoming?.fullText?.uppercase() ?: "")
+                                val land2 = if (isEven) (nextUpcoming?.fullText?.uppercase() ?: "") else upcoming.fullText.uppercase()
+                                val landPos = if (isEven) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
+
+                                _uiState.update {
+                                    it.copy(
+                                        showSongTitleIntro = isTitleIntroActive,
+                                        line1 = p1,
+                                        line2 = p2,
+                                        line3 = p3,
+                                        line4 = p4,
+                                        activeLineNumber = lineInPage,
+                                        landscapeLine1 = land1,
+                                        landscapeLine2 = land2,
+                                        activeLyricPosition = landPos,
+                                        wipePercent = 0f,
+                                        countdownDots = dots,
+                                        isInstrumental = showInstrumental
+                                    )
+                                }
                             }
                         } else {
                             // Song outro / after last lyric
-                            _uiState.update {
-                                it.copy(
-                                    showSongTitleIntro = false,
-                                    wipePercent = 0f,
-                                    countdownDots = 0,
-                                    isInstrumental = true
-                                )
+                            if (lastEmittedActiveIndex != -3 || !lastEmittedInst) {
+                                lastEmittedActiveIndex = -3
+                                lastEmittedWipe = 0f
+                                lastEmittedDots = 0
+                                lastEmittedIntro = false
+                                lastEmittedInst = true
+
+                                _uiState.update {
+                                    it.copy(
+                                        showSongTitleIntro = false,
+                                        wipePercent = 0f,
+                                        countdownDots = 0,
+                                        isInstrumental = true
+                                    )
+                                }
                             }
                         }
                     }
@@ -1648,9 +1746,6 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(currentBackgroundFolder = path, isBgFolderPickerOpen = false) }
         scanBackgroundMedia(File(path))
     }
-
-    private val playlistLock = Any()
-    private val backgroundPlaylist = mutableListOf<KaraokeBackground>()
 
     fun scanBackgroundMedia(folder: File = File(_uiState.value.currentBackgroundFolder), forcePickVideo: Boolean = false) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
