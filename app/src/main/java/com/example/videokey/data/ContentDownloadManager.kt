@@ -71,7 +71,7 @@ class ContentDownloadManager(private val context: Context) {
 
     // Catalog of available content packs
     fun getAvailableCatalog(): List<DownloadItem> {
-        val releaseBase = "https://github.com/jehuet27-design/videokey/releases/download/v2.0"
+        val releaseBase = "https://github.com/jehuet27-design/videokey/releases/download/content-packs"
         return listOf(
             // 1. Videoke Songs Pack (Removed "Philippine")
             DownloadItem(
