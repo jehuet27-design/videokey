@@ -69,6 +69,7 @@ class StorageScanner(private val context: Context) {
             // 2. Direct SoundFont checks
             val sfDirs = listOf(
                 File(root, "VideoKey/SoundFont"),
+                File(root, "VideoKey/soundfonts"),
                 File(root, "VideoKey"),
                 File(root, "SongHub/sound"),
                 File(root, "SongHub"),

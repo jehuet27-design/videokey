@@ -5,18 +5,28 @@ import android.media.MediaPlayer
 import android.media.PlaybackParams
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import com.un4seen.bass.BASS
+import com.un4seen.bass.BASSMIDI
+import com.un4seen.bass.BASS_FX
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.pow
 
 /**
- * High-performance Videoke Sound Engine:
- * - Real-time MIDI accompaniment playback via Android MediaPlayer (hardware GM wavetable)
- * - Pitch transpose (-6 to +6 semitones)
- * - Tempo scaling (70% to 130%)
- * - Millisecond synchronization for 2-line yellow lyric wipes
+ * Studio-Grade Videoke SoundFont (.sf2) Audio Engine powered by Un4seen BASS + BASSMIDI + BASS_FX:
+ * - True hardware-accelerated 32-bit floating-point SoundFont (.sf2) synthesis (256 voices, sinc interpolation)
+ * - Preserves 100% of the song's original arranged GM/GS/XG instruments and velocity layers
+ * - Real-time Instrument Mixer / Adjuster (Melody Guide, Drums, Bass, Guitar/Piano, Strings/Brass, Reverb)
+ * - Studio Mastering 10-band EQ + BASS_BFX_COMPRESSOR2 anti-clipping limiter ("hindi basag kahit malakas")
+ * - Zero-latency real-time Key Transpose (-6 to +6 semitones, melodic channels only) & Tempo (70% to 130%)
  */
-class SoundEngine(private val context: Context) {
+class SoundEngine(
+    private val context: Context,
+    private val karaokeRecorder: KaraokeRecorder? = null
+) {
 
     data class SoundFontPreset(
         val id: String,
@@ -27,39 +37,514 @@ class SoundEngine(private val context: Context) {
 
     val availableSoundFonts = listOf(
         SoundFontPreset(
+            id = "videokey_minus1",
+            displayName = "VideoKey Studio Minus-One",
+            fileName = "VideoKey_Studio_Minus1.sf2",
+            description = "Balanced Live Band Minus-One (Buo at Malinaw na Instrumento)"
+        ),
+        SoundFontPreset(
+            id = "yamaha_korg_ketron",
+            displayName = "Yamaha x Korg x Ketron Studio",
+            fileName = "yamaha x korg x ketron x dream sam (custom made by jc).sf2",
+            description = "905MB Multi-Sampled Live Acoustic & Electric Band"
+        ),
+        SoundFontPreset(
             id = "dreamsam",
             displayName = "Dream SAM2634 v2.1",
             fileName = "Dream SAM2634 (ver. 2.1).sf2",
-            description = "Dream hardware synthesizer soundchip"
+            description = "Dream Hardware Synthesizer Soundchip"
         ),
         SoundFontPreset(
             id = "mega",
             displayName = "MegaPro Sound",
             fileName = "mega.sf2",
-            description = "Megapro karaoke player soundfont"
+            description = "MegaPro Karaoke Player SoundFont"
+        ),
+        SoundFontPreset(
+            id = "songhub",
+            displayName = "SongHub Original Sound",
+            fileName = "songhub.sf2",
+            description = "Classic SongHub Videoke SoundFont"
         )
     )
 
+    companion object {
+        private const val TAG = "SoundEngine"
+        private const val SAMPLE_RATE = 48000
+        private val EQ_FREQUENCIES = floatArrayOf(31f, 62f, 125f, 250f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f)
+        @Volatile private var bassInitialized = false
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var activeSoundFont: SoundFontPreset = availableSoundFonts.first()
     private var activeSoundFontName: String = activeSoundFont.displayName
-    private var mediaPlayer: MediaPlayer? = null
-    private var equalizer: android.media.audiofx.Equalizer? = null
-    private var bassBoost: android.media.audiofx.BassBoost? = null
-    private var virtualizer: android.media.audiofx.Virtualizer? = null
-    private var presetReverb: android.media.audiofx.PresetReverb? = null
-    private var currentMidiFile: File? = null
-    private var keyTranspose: Int = 0 // semitones (-6 to +6)
-    private var tempoPercent: Int = 100 // 70% to 130%
-    private var micEchoPercent: Int = 50 // 0% to 100%
-    private var melodyPercent: Int = 60 // Default 60% (0% to 100%)
 
-    private val midiIndexByCode = java.util.concurrent.ConcurrentHashMap<String, File>()
-    private val midiIndexByTitle = java.util.concurrent.ConcurrentHashMap<String, File>()
+    // Native BASS / BASSMIDI handles
+    private var midiStream: Int = 0
+    private var primaryFontHandle: Int = 0
+    private var primaryFontPath: String = ""
+    private var fallbackFontHandle: Int = 0
+    private var fallbackFontPath: String = ""
+    private val eqFxHandles = IntArray(10)
+    private var compressorFxHandle: Int = 0
+    private var recordDspHandle: Int = 0
+    private var dspFloatArray = FloatArray(8192)
+    private var endSyncHandle: Int = 0
+
+    // Fallback MediaPlayer only if native library is ever unavailable
+    private var fallbackPlayer: MediaPlayer? = null
+
+    private var currentMidiFile: File? = null
+    private var currentAnalysis: MidiMelodyScaler.MidiAnalysis? = null
+    private val baseChannelVolumes = IntArray(16) { 100 }
+    private val liveChannelPrograms = IntArray(16) { 0 }
+    private val liveDrumChannels = BooleanArray(16) { it == 9 }
+
+    @Volatile private var lastKnownPositionMs: Long = 0L
+    @Volatile private var cachedDurationMs: Long = 0L
+    private var onCompletionCallback: (() -> Unit)? = null
+
+    // Real-time Playback & Instrument Mixer state
+    private var keyTranspose: Int = 0          // -6 to +6 semitones
+    private var tempoPercent: Int = 100        // 70% to 130%
+    private var micEchoPercent: Int = 50       // 0% to 100%
+    private var melodyPercent: Int = 60        // 0% to 100% (Vocal Guide)
+    private var drumsPercent: Int = 100        // 0% to 150% (Drums / Percussion)
+    private var bassPercent: Int = 100         // 0% to 150% (Bass Guitar)
+    private var guitarPianoPercent: Int = 100  // 0% to 150% (Guitar, Piano & Organ)
+    private var stringsBrassPercent: Int = 100 // 0% to 150% (Strings, Brass, Sax & Synth)
+    private var reverbPercent: Int = 50        // 0% to 100% (Studio Reverb / Ambience)
+
+    // Real-time BASSMIDI event filter to keep custom instrument mix & drum preset fallbacks locked
+    private val midiFilterProc = BASSMIDI.MIDIFILTERPROC { handle, track, event, _, _ ->
+        if (event == null) return@MIDIFILTERPROC true
+        val ch = event.chan
+        if (ch !in 0..15) return@MIDIFILTERPROC true
+
+        when (event.event) {
+            BASSMIDI.MIDI_EVENT_DRUMS -> {
+                liveDrumChannels[ch] = event.param > 0
+            }
+            BASSMIDI.MIDI_EVENT_PROGRAM -> {
+                val prog = event.param and 0x7F
+                liveChannelPrograms[ch] = prog
+                if (ch == 9 || liveDrumChannels[ch]) {
+                    // Ensure drum kit preset exists in the loaded SoundFont; if not, fallback to Standard Kit (0)
+                    val fontToCheck = if (primaryFontHandle != 0) primaryFontHandle else fallbackFontHandle
+                    if (fontToCheck != 0) {
+                        val has128 = BASSMIDI.BASS_MIDI_FontGetPreset(fontToCheck, prog, 128) != null
+                        val has127 = BASSMIDI.BASS_MIDI_FontGetPreset(fontToCheck, prog, 127) != null
+                        if (!has128 && !has127) {
+                            event.param = 0
+                        }
+                    }
+                }
+            }
+            BASSMIDI.MIDI_EVENT_VOLUME -> {
+                if (track != -1) {
+                    val rawVol = event.param.coerceIn(0, 127)
+                    baseChannelVolumes[ch] = if (rawVol > 0) rawVol else 100
+                    event.param = computeScaledChannelVolume(ch, baseChannelVolumes[ch])
+                }
+            }
+            BASSMIDI.MIDI_EVENT_NOTE -> {
+                if (track != -1) {
+                    val analysis = currentAnalysis
+                    // If melody shares a channel with accompaniment in a multi-track file, scale melody track notes
+                    if (analysis != null && analysis.numTracks > 1 && analysis.melodyTracks.contains(track)) {
+                        val key = event.param and 0xFF
+                        val vel = (event.param shr 8) and 0xFF
+                        if (vel in 1..127) {
+                            if (melodyPercent <= 0) {
+                                return@MIDIFILTERPROC false
+                            }
+                            val scaledVel = ((vel * melodyPercent) / 100).coerceIn(1, 127)
+                            event.param = key or (scaledVel shl 8)
+                        }
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    private val endSyncProc = BASS.SYNCPROC { _, _, _, _ ->
+        mainHandler.post {
+            onCompletionCallback?.invoke()
+        }
+    }
+
+    // Real-time DSP tap to stream mastered 48kHz 32-bit float BASSMIDI SoundFont PCM to KaraokeRecorder
+    private val recordDspProc = BASS.DSPPROC { _, _, buffer, length, _ ->
+        val recorder = karaokeRecorder ?: return@DSPPROC
+        if (!recorder.isRecording || buffer == null || length <= 0) return@DSPPROC
+        try {
+            buffer.order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            buffer.rewind()
+            val floatCount = length / 4
+            if (floatCount <= 0) return@DSPPROC
+            if (dspFloatArray.size < floatCount) {
+                dspFloatArray = FloatArray(floatCount)
+            }
+            buffer.asFloatBuffer().get(dspFloatArray, 0, floatCount)
+            recorder.onBassMusicPcm(dspFloatArray, floatCount)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in recordDspProc", e)
+        }
+    }
+
+    private val midiIndexByCode = ConcurrentHashMap<String, File>()
+    private val midiIndexByTitle = ConcurrentHashMap<String, File>()
     @Volatile private var isIndexingStarted = false
     @Volatile private var isIndexReady = false
 
     init {
+        initBassEngine()
         buildMidiIndexAsync()
+    }
+
+    @Synchronized
+    private fun initBassEngine(): Boolean {
+        if (bassInitialized) return true
+        return try {
+            var ok = BASS.BASS_Init(-1, SAMPLE_RATE, 0)
+            if (!ok) {
+                val err = BASS.BASS_ErrorGetCode()
+                if (err == 14) { // BASS_ERROR_ALREADY
+                    ok = true
+                } else {
+                    Log.e(TAG, "BASS_Init failed with error code: $err")
+                }
+            }
+            if (ok) {
+                BASS.BASS_PluginLoad("libbassmidi.so", 0)
+                BASS.BASS_PluginLoad("libbass_fx.so", 0)
+                BASS.BASS_SetConfig(BASS.BASS_CONFIG_BUFFER, 250)
+                BASS.BASS_SetConfig(BASS.BASS_CONFIG_ANDROID_AAUDIO, 1)
+                BASS.BASS_SetConfig(BASS.BASS_CONFIG_UPDATEPERIOD, 30)
+                BASS.BASS_SetConfig(BASS.BASS_CONFIG_UPDATETHREADS, 2)
+                BASS.BASS_SetConfig(BASS.BASS_CONFIG_SRC_SAMPLE, 2) // Sinc interpolation
+                BASS.BASS_SetConfig(BASS.BASS_CONFIG_DEV_PERIOD, 20)
+                BASS.BASS_SetConfig(BASS.BASS_CONFIG_DEV_BUFFER, 40)
+                BASS.BASS_SetConfig(BASSMIDI.BASS_CONFIG_MIDI_VOICES, 256)
+                BASS.BASS_SetConfig(BASSMIDI.BASS_CONFIG_MIDI_AUTOFONT, 1)
+                BASS.BASS_Start()
+                bassInitialized = true
+                Log.d(TAG, "BASS + BASSMIDI + BASS_FX initialized at ${SAMPLE_RATE}Hz (256 voices, 32-bit float)")
+                loadSoundFontHandles()
+            }
+            bassInitialized
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to initialize native BASSMIDI engine", t)
+            false
+        }
+    }
+
+    private fun getCandidateSoundFontDirs(): List<File> {
+        val root = Environment.getExternalStorageDirectory()
+        return listOf(
+            File(root, "VideoKey/soundfonts"),
+            File("/storage/emulated/0/VideoKey/soundfonts"),
+            File("/sdcard/VideoKey/soundfonts"),
+            File(root, "VideoKey/SoundFont"),
+            File(root, "VideoKey"),
+            File(root, "Download"),
+            File("/storage/emulated/0/Download"),
+            File("/sdcard/Download"),
+            context.filesDir
+        )
+    }
+
+    private fun findSoundFontFile(queryName: String): File? {
+        val trimmed = queryName.trim()
+        if (trimmed.isNotEmpty()) {
+            val direct = File(trimmed)
+            if (direct.exists() && direct.isFile && direct.length() > 1024L) return direct
+        }
+
+        val allSf2Files = ArrayList<File>()
+        val seenPaths = HashSet<String>()
+        for (dir in getCandidateSoundFontDirs()) {
+            if (dir.exists() && dir.isDirectory) {
+                val files = dir.listFiles() ?: continue
+                for (f in files) {
+                    if (f.isFile && f.extension.equals("sf2", ignoreCase = true) && f.length() > 1024L) {
+                        if (seenPaths.add(f.canonicalPath)) {
+                            allSf2Files.add(f)
+                        }
+                    }
+                }
+            }
+        }
+        if (allSf2Files.isEmpty()) return null
+
+        val lowerQuery = trimmed.lowercase()
+        val preset = availableSoundFonts.find {
+            it.id.equals(trimmed, ignoreCase = true) ||
+                it.displayName.equals(trimmed, ignoreCase = true) ||
+                it.fileName.equals(trimmed, ignoreCase = true)
+        }
+        val targetFileName = preset?.fileName?.lowercase() ?: lowerQuery
+
+        // 1. Exact file name match
+        allSf2Files.firstOrNull { it.name.equals(targetFileName, ignoreCase = true) || it.nameWithoutExtension.equals(targetFileName, ignoreCase = true) }?.let { return it }
+
+        // 2. Partial keyword match
+        if (lowerQuery.contains("yamaha") || lowerQuery.contains("korg") || lowerQuery.contains("ketron")) {
+            allSf2Files.firstOrNull { it.name.lowercase().contains("yamaha") || it.name.lowercase().contains("korg") }?.let { return it }
+        }
+        if (lowerQuery.contains("minus") || lowerQuery.contains("studio") || lowerQuery.contains("videokey")) {
+            allSf2Files.firstOrNull { it.name.lowercase().contains("minus1") || it.name.lowercase().contains("studio") }?.let { return it }
+        }
+        if (lowerQuery.contains("dream") || lowerQuery.contains("sam") || lowerQuery.contains("2634")) {
+            allSf2Files.firstOrNull { it.name.lowercase().contains("dream") || it.name.lowercase().contains("2634") }?.let { return it }
+        }
+        if (lowerQuery.contains("mega")) {
+            allSf2Files.firstOrNull { it.name.lowercase().contains("mega") }?.let { return it }
+        }
+        if (lowerQuery.contains("songhub")) {
+            allSf2Files.firstOrNull { it.name.lowercase().contains("songhub") }?.let { return it }
+        }
+
+        allSf2Files.firstOrNull {
+            it.name.lowercase().contains(lowerQuery) || lowerQuery.contains(it.nameWithoutExtension.lowercase())
+        }?.let { return it }
+
+        // Default to VideoKey_Studio_Minus1.sf2 or largest studio .sf2 available
+        return allSf2Files.firstOrNull { it.name.lowercase().contains("minus1") }
+            ?: allSf2Files.maxByOrNull { it.length() }
+    }
+
+    @Synchronized
+    private fun loadSoundFontHandles() {
+        if (!bassInitialized) return
+        val lowerActive = activeSoundFontName.lowercase()
+        val isDefaultStudio = lowerActive.contains("minus") || lowerActive.contains("videokey")
+
+        // When default "VideoKey Studio Minus-One" is selected, prefer the 904MB Yamaha x Korg x Ketron Studio SF2
+        // as primary if installed on device, stacked over VideoKey_Studio_Minus1.sf2 as complete GM/Drum base!
+        val primaryFile = if (isDefaultStudio) {
+            findSoundFontFile("yamaha x korg x ketron")
+                ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+                ?: findSoundFontFile(activeSoundFontName)
+        } else {
+            findSoundFontFile(activeSoundFontName) ?: findSoundFontFile(activeSoundFont.fileName)
+        }
+
+        if (primaryFile != null && primaryFile.exists()) {
+            if (primaryFontPath != primaryFile.absolutePath || primaryFontHandle == 0) {
+                if (primaryFontHandle != 0) {
+                    BASSMIDI.BASS_MIDI_FontFree(primaryFontHandle)
+                    primaryFontHandle = 0
+                }
+                val flags = BASSMIDI.BASS_MIDI_FONT_MMAP or BASSMIDI.BASS_MIDI_FONT_XGDRUMS
+                val handle = BASSMIDI.BASS_MIDI_FontInit(primaryFile.absolutePath, flags)
+                if (handle != 0) {
+                    primaryFontHandle = handle
+                    primaryFontPath = primaryFile.absolutePath
+                    val profile = MidiMelodyScaler.resolveProfile(activeSoundFontName)
+                    BASSMIDI.BASS_MIDI_FontSetVolume(handle, profile.fontGain)
+                    val info = BASSMIDI.BASS_MIDI_FONTINFO()
+                    if (BASSMIDI.BASS_MIDI_FontGetInfo(handle, info)) {
+                        Log.d(TAG, "Loaded Primary SoundFont: ${primaryFile.name} (internal='${info.name}', presets=${info.presets}, samsize=${info.samsize / (1024 * 1024)}MB, gain=${profile.fontGain})")
+                    } else {
+                        Log.d(TAG, "Loaded Primary SoundFont: ${primaryFile.name} (handle=$handle)")
+                    }
+                } else {
+                    Log.e(TAG, "BASS_MIDI_FontInit failed for ${primaryFile.absolutePath}, err=${BASS.BASS_ErrorGetCode()}")
+                }
+            }
+        }
+
+        // Load complete GM/Drum fallback SoundFont (VideoKey_Studio_Minus1.sf2 or songhub.sf2) so no preset is ever missing
+        val fallbackCandidate = findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+            ?.takeIf { it.absolutePath != primaryFontPath }
+            ?: findSoundFontFile("Dream SAM2634")?.takeIf { it.absolutePath != primaryFontPath }
+            ?: findSoundFontFile("songhub.sf2")?.takeIf { it.absolutePath != primaryFontPath }
+
+        if (fallbackCandidate != null && fallbackCandidate.exists()) {
+            if (fallbackFontPath != fallbackCandidate.absolutePath || fallbackFontHandle == 0) {
+                if (fallbackFontHandle != 0) {
+                    BASSMIDI.BASS_MIDI_FontFree(fallbackFontHandle)
+                    fallbackFontHandle = 0
+                }
+                val flags = BASSMIDI.BASS_MIDI_FONT_MMAP or BASSMIDI.BASS_MIDI_FONT_XGDRUMS
+                val handle = BASSMIDI.BASS_MIDI_FontInit(fallbackCandidate.absolutePath, flags)
+                if (handle != 0) {
+                    fallbackFontHandle = handle
+                    fallbackFontPath = fallbackCandidate.absolutePath
+                    BASSMIDI.BASS_MIDI_FontSetVolume(handle, 0.78f)
+                    Log.d(TAG, "Loaded Fallback SoundFont: ${fallbackCandidate.name} (handle=$handle)")
+                }
+            }
+        }
+
+        applyFontsToStream(midiStream)
+    }
+
+    private fun applyFontsToStream(streamHandle: Int) {
+        if (!bassInitialized) return
+        val fontList = ArrayList<BASSMIDI.BASS_MIDI_FONT>()
+
+        // In BASSMIDI, preset = -1 and bank = 0 maps ALL presets and ALL banks (0..128, including Drum Bank 128)
+        // with 0 bank offset. Never add bank = 128 when preset = -1 (which would shift Piano bank 0 onto Drum bank 128).
+        if (primaryFontHandle != 0) {
+            fontList.add(BASSMIDI.BASS_MIDI_FONT().apply {
+                font = primaryFontHandle
+                preset = -1
+                bank = 0
+            })
+        }
+        if (fallbackFontHandle != 0 && fallbackFontHandle != primaryFontHandle) {
+            fontList.add(BASSMIDI.BASS_MIDI_FONT().apply {
+                font = fallbackFontHandle
+                preset = -1
+                bank = 0
+            })
+        }
+
+        if (fontList.isNotEmpty()) {
+            val arr = fontList.toTypedArray()
+            if (streamHandle != 0) {
+                BASSMIDI.BASS_MIDI_StreamSetFonts(streamHandle, arr, arr.size)
+                BASSMIDI.BASS_MIDI_StreamLoadSamples(streamHandle)
+            }
+            BASSMIDI.BASS_MIDI_StreamSetFonts(0, arr, arr.size)
+        }
+    }
+
+    private fun applyMasteringChain(streamHandle: Int) {
+        if (streamHandle == 0 || !bassInitialized) return
+        val profile = MidiMelodyScaler.resolveProfile(activeSoundFontName)
+        if (primaryFontHandle != 0) {
+            BASSMIDI.BASS_MIDI_FontSetVolume(primaryFontHandle, profile.fontGain)
+        }
+
+        // 1. 10-Band 32-bit Float Studio Mastering Equalizer
+        for (i in 0 until 10) {
+            if (eqFxHandles[i] == 0) {
+                eqFxHandles[i] = BASS.BASS_ChannelSetFX(streamHandle, BASS_FX.BASS_FX_BFX_PEAKEQ, 10)
+            }
+            val fx = eqFxHandles[i]
+            if (fx != 0) {
+                val eq = BASS_FX.BASS_BFX_PEAKEQ().apply {
+                    lBand = i
+                    fBandwidth = 1.0f
+                    fQ = 0.0f
+                    fCenter = EQ_FREQUENCIES[i]
+                    fGain = profile.eqGainsDb.getOrElse(i) { 0.0f }
+                    lChannel = BASS_FX.BASS_BFX_CHANALL
+                }
+                BASS.BASS_FXSetParameters(fx, eq)
+            }
+        }
+
+        // 2. Studio Mastering Compressor / Anti-Clipping Limiter ("hindi basag kahit malakas")
+        if (compressorFxHandle == 0) {
+            compressorFxHandle = BASS.BASS_ChannelSetFX(streamHandle, BASS_FX.BASS_FX_BFX_COMPRESSOR2, 1)
+        }
+        if (compressorFxHandle != 0) {
+            val comp = BASS_FX.BASS_BFX_COMPRESSOR2().apply {
+                fThreshold = -4.5f
+                fRatio = 3.5f
+                fAttack = 6.0f
+                fRelease = 140.0f
+                fGain = 0.5f
+                lChannel = BASS_FX.BASS_BFX_CHANALL
+            }
+            BASS.BASS_FXSetParameters(compressorFxHandle, comp)
+        }
+
+        // 3. Studio Reverb Level
+        applyReverbToStream(streamHandle)
+
+        // 4. Real-time Recording Tap (Priority -50: runs after EQ & Compressor for 100% mastered SoundFont audio)
+        if (recordDspHandle == 0) {
+            recordDspHandle = BASS.BASS_ChannelSetDSP(streamHandle, recordDspProc, null, -50)
+        }
+    }
+
+    private fun applyReverbToStream(streamHandle: Int) {
+        if (streamHandle == 0 || !bassInitialized) return
+        val reverbFloat = ((reverbPercent.coerceIn(0, 100) / 100.0f) * 0.85f).coerceIn(0.0f, 1.0f)
+        BASS.BASS_ChannelSetAttribute(streamHandle, BASSMIDI.BASS_ATTRIB_MIDI_REVERB, reverbFloat)
+    }
+
+    private fun getPercentForCategory(category: MidiMelodyScaler.InstrumentCategory): Int {
+        return when (category) {
+            MidiMelodyScaler.InstrumentCategory.MELODY -> melodyPercent.coerceIn(0, 100)
+            MidiMelodyScaler.InstrumentCategory.DRUMS -> drumsPercent.coerceIn(0, 150)
+            MidiMelodyScaler.InstrumentCategory.BASS -> bassPercent.coerceIn(0, 150)
+            MidiMelodyScaler.InstrumentCategory.GUITAR_PIANO -> guitarPianoPercent.coerceIn(0, 150)
+            MidiMelodyScaler.InstrumentCategory.STRINGS_BRASS -> stringsBrassPercent.coerceIn(0, 150)
+        }
+    }
+
+    private fun computeScaledChannelVolume(channel: Int, baseVol: Int): Int {
+        val ch = channel.coerceIn(0, 15)
+        val analysis = currentAnalysis
+        val prog = liveChannelPrograms[ch]
+        val category = if (ch == 9 || liveDrumChannels[ch]) {
+            MidiMelodyScaler.InstrumentCategory.DRUMS
+        } else {
+            analysis?.getCategoryForChannel(ch, prog) ?: when (prog) {
+                in 32..39 -> MidiMelodyScaler.InstrumentCategory.BASS
+                in 0..31 -> MidiMelodyScaler.InstrumentCategory.GUITAR_PIANO
+                else -> MidiMelodyScaler.InstrumentCategory.STRINGS_BRASS
+            }
+        }
+        val pct = getPercentForCategory(category)
+        if (pct <= 0) return 0
+        return ((baseVol * pct) / 100).coerceIn(1, 127)
+    }
+
+    /**
+     * Applies real-time instrument volumes (Melody, Drums, Bass, Guitar/Piano, Strings/Brass)
+     * directly to the active BASSMIDI stream with zero latency or interruption.
+     */
+    fun applyInstrumentMix() {
+        val handle = midiStream
+        if (handle == 0 || !bassInitialized) return
+        val analysis = currentAnalysis
+
+        // 1. Scale dedicated Melody Track(s) via BASS_ATTRIB_MIDI_TRACK_VOL when multi-track
+        if (analysis != null && analysis.numTracks > 1 && analysis.melodyTracks.isNotEmpty()) {
+            val melodyGain = (melodyPercent.coerceIn(0, 100) / 100.0f)
+            for (trk in analysis.melodyTracks) {
+                BASS.BASS_ChannelSetAttribute(handle, BASSMIDI.BASS_ATTRIB_MIDI_TRACK_VOL + trk, melodyGain)
+            }
+        }
+
+        // 2. Scale all 16 MIDI channels according to their instrument category
+        for (ch in 0..15) {
+            val curProg = BASSMIDI.BASS_MIDI_StreamGetEvent(handle, ch, BASSMIDI.MIDI_EVENT_PROGRAM)
+            if (curProg in 0..127) {
+                liveChannelPrograms[ch] = curProg
+            }
+            val isDrum = (ch == 9) || (BASSMIDI.BASS_MIDI_StreamGetEvent(handle, ch, BASSMIDI.MIDI_EVENT_DRUMS) > 0)
+            liveDrumChannels[ch] = isDrum
+
+            val category = if (isDrum) {
+                MidiMelodyScaler.InstrumentCategory.DRUMS
+            } else {
+                analysis?.getCategoryForChannel(ch, liveChannelPrograms[ch]) ?: when (liveChannelPrograms[ch]) {
+                    in 32..39 -> MidiMelodyScaler.InstrumentCategory.BASS
+                    in 0..31 -> MidiMelodyScaler.InstrumentCategory.GUITAR_PIANO
+                    else -> MidiMelodyScaler.InstrumentCategory.STRINGS_BRASS
+                }
+            }
+            val pct = getPercentForCategory(category)
+            val baseVol = baseChannelVolumes[ch].coerceIn(1, 127)
+            val scaledVol = if (pct <= 0) 0 else ((baseVol * pct) / 100).coerceIn(1, 127)
+            BASSMIDI.BASS_MIDI_StreamEvent(handle, ch, BASSMIDI.MIDI_EVENT_VOLUME, scaledVol)
+
+            // Also apply BASSMIDI mixlevel boost for sliders set above 100% (101% .. 150%)
+            val mixLevel = if (pct <= 0) 0 else if (pct > 100) pct.coerceIn(100, 150) else 100
+            BASSMIDI.BASS_MIDI_StreamEvent(handle, ch, BASSMIDI.MIDI_EVENT_MIXLEVEL, mixLevel)
+        }
+
+        // 3. Update Reverb
+        applyReverbToStream(handle)
     }
 
     fun buildMidiIndexAsync() {
@@ -111,9 +596,9 @@ class SoundEngine(private val context: Context) {
                 }
             }
             isIndexReady = true
-            Log.d("SoundEngine", "MIDI Index built with ${midiIndexByCode.size} code entries and ${midiIndexByTitle.size} title entries")
+            Log.d(TAG, "MIDI Index built with ${midiIndexByCode.size} code entries and ${midiIndexByTitle.size} title entries")
         } catch (e: Exception) {
-            Log.e("SoundEngine", "Error building MIDI index", e)
+            Log.e(TAG, "Error building MIDI index", e)
         }
     }
 
@@ -142,9 +627,9 @@ class SoundEngine(private val context: Context) {
                     midiIndexByTitle[cleanTitle] = f
                 }
             }
-            Log.d("SoundEngine", "Indexed folder ${folder.absolutePath}: index has ${midiIndexByCode.size} code entries")
+            Log.d(TAG, "Indexed folder ${folder.absolutePath}: index has ${midiIndexByCode.size} code entries")
         } catch (e: Exception) {
-            Log.e("SoundEngine", "Error indexing folder MIDI", e)
+            Log.e(TAG, "Error indexing folder MIDI", e)
         }
     }
 
@@ -156,157 +641,209 @@ class SoundEngine(private val context: Context) {
     ): Boolean {
         val file = File(filePath)
         if (!file.exists() || !file.canRead()) {
-            Log.e("SoundEngine", "MIDI file not found or unreadable: $filePath")
+            Log.e(TAG, "MIDI file not found or unreadable: $filePath")
             return false
         }
 
+        stop()
+        currentMidiFile = file
+        onCompletionCallback = onCompletion
+        lastKnownPositionMs = resumePositionMs
+
+        // Analyze MIDI structure for accurate real-time instrument & melody mixing
         try {
-            stop()
-            currentMidiFile = file
-            mediaPlayer = MediaPlayer().apply {
+            val bytes = file.readBytes()
+            currentAnalysis = MidiMelodyScaler.analyzeMidi(bytes)
+            for (ch in 0..15) {
+                liveChannelPrograms[ch] = currentAnalysis?.channelPrograms?.get(ch) ?: 0
+                liveDrumChannels[ch] = (ch == 9) || (currentAnalysis?.drumChannels?.contains(ch) == true)
+                baseChannelVolumes[ch] = 100
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not pre-analyze MIDI bytes: ${e.message}")
+            currentAnalysis = null
+        }
+
+        if (initBassEngine()) {
+            try {
+                loadSoundFontHandles()
+                val streamFlags = BASS.BASS_SAMPLE_FLOAT or BASSMIDI.BASS_MIDI_SINCINTER or BASSMIDI.BASS_MIDI_DECAYEND
+                val handle = BASSMIDI.BASS_MIDI_StreamCreateFile(file.absolutePath, 0L, 0L, streamFlags, SAMPLE_RATE)
                 if (deleteAfterOpen) {
-                    // Open via file descriptor, then remove the decrypted file right away.
-                    // The player keeps reading from the open descriptor; nothing stays on disk.
+                    file.delete()
+                }
+                if (handle != 0) {
+                    midiStream = handle
+                    BASS.BASS_ChannelSetAttribute(handle, BASSMIDI.BASS_ATTRIB_MIDI_CHANS, 16.0f)
+                    BASS.BASS_ChannelSetAttribute(handle, BASSMIDI.BASS_ATTRIB_MIDI_VOL, 0.90f)
+
+                    // Apply .sf2 SoundFont banks (Bank 0 Melodic + Bank 128 Drums + Fallback)
+                    applyFontsToStream(handle)
+
+                    // Enable GS/GM drum & instrument system
+                    BASSMIDI.BASS_MIDI_StreamEvent(handle, 0, BASSMIDI.MIDI_EVENT_SYSTEM, BASSMIDI.MIDI_SYSTEM_GS)
+
+                    // Read initial channel volumes from stream
+                    for (ch in 0..15) {
+                        val initVol = BASSMIDI.BASS_MIDI_StreamGetEvent(handle, ch, BASSMIDI.MIDI_EVENT_VOLUME)
+                        baseChannelVolumes[ch] = if (initVol in 1..127) initVol else 100
+                        val initProg = BASSMIDI.BASS_MIDI_StreamGetEvent(handle, ch, BASSMIDI.MIDI_EVENT_PROGRAM)
+                        if (initProg in 0..127) {
+                            liveChannelPrograms[ch] = initProg
+                        }
+                    }
+
+                    // Register real-time MIDI event filter
+                    BASSMIDI.BASS_MIDI_StreamSetFilter(handle, false, midiFilterProc, null)
+
+                    // Apply Studio Mastering EQ + Anti-Clipping Compressor
+                    applyMasteringChain(handle)
+
+                    // Apply Key Transpose, Tempo, and Instrument Mixer levels
+                    applyPlaybackParams()
+                    applyInstrumentMix()
+
+                    // Compute duration
+                    val lenBytes = BASS.BASS_ChannelGetLength(handle, BASS.BASS_POS_BYTE)
+                    cachedDurationMs = if (lenBytes > 0) {
+                        (BASS.BASS_ChannelBytes2Seconds(handle, lenBytes) * 1000.0).toLong()
+                    } else 0L
+
+                    // Seek if resuming
+                    if (resumePositionMs > 0L && (cachedDurationMs <= 0L || resumePositionMs < cachedDurationMs - 200L)) {
+                        val targetBytes = BASS.BASS_ChannelSeconds2Bytes(handle, resumePositionMs / 1000.0)
+                        BASS.BASS_ChannelSetPosition(handle, targetBytes, BASS.BASS_POS_BYTE)
+                    }
+
+                    // Register end-of-stream callback
+                    endSyncHandle = BASS.BASS_ChannelSetSync(handle, BASS.BASS_SYNC_END, 0L, endSyncProc, null)
+
+                    // Start playback
+                    BASS.BASS_ChannelPlay(handle, false)
+                    Log.d(
+                        TAG,
+                        "BASSMIDI Playback started: song=${file.name}, sf2=${File(primaryFontPath).name}, duration=${cachedDurationMs}ms, melodyTracks=${currentAnalysis?.melodyTracks}, melodyChans=${currentAnalysis?.exclusiveMelodyChannels}"
+                    )
+                    return true
+                } else {
+                    Log.e(TAG, "BASS_MIDI_StreamCreateFile failed with error: ${BASS.BASS_ErrorGetCode()}")
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Error starting BASSMIDI playback, falling back to MediaPlayer", t)
+            }
+        }
+
+        // Fallback only if native BASS failed
+        return try {
+            fallbackPlayer = MediaPlayer().apply {
+                if (deleteAfterOpen && file.exists()) {
                     java.io.FileInputStream(file).use { fis -> setDataSource(fis.fd) }
                     file.delete()
                 } else {
                     setDataSource(file.absolutePath)
                 }
                 setOnPreparedListener { mp ->
-                    applySoundFontDsp(mp.audioSessionId)
                     applyPlaybackParams()
                     if (resumePositionMs > 0L && resumePositionMs < mp.duration - 200) {
                         mp.seekTo(resumePositionMs.toInt())
                     }
                     mp.start()
-                    Log.d("SoundEngine", "MIDI Playback started with SoundFont [$activeSoundFontName]: ${file.name}, duration=${mp.duration}ms, resumePos=${resumePositionMs}ms")
                 }
                 setOnCompletionListener {
-                    Log.d("SoundEngine", "MIDI Playback completed: ${file.name}")
                     onCompletion?.invoke()
                 }
-                setOnErrorListener { _, what, extra ->
-                    Log.e("SoundEngine", "MediaPlayer error: what=$what, extra=$extra")
-                    true // Consume error so onCompletionListener is not falsely triggered
-                }
+                setOnErrorListener { _, _, _ -> true }
                 prepareAsync()
             }
-            return true
+            true
         } catch (e: Exception) {
-            Log.e("SoundEngine", "Failed to start MIDI playback", e)
-            return false
-        }
-    }
-
-    private fun releaseAudioEffects() {
-        try {
-            equalizer?.release()
-        } catch (_: Exception) {}
-        equalizer = null
-        try {
-            bassBoost?.release()
-        } catch (_: Exception) {}
-        bassBoost = null
-        try {
-            virtualizer?.release()
-        } catch (_: Exception) {}
-        virtualizer = null
-        try {
-            presetReverb?.release()
-        } catch (_: Exception) {}
-        presetReverb = null
-    }
-
-    private fun applySoundFontDsp(audioSessionId: Int) {
-        if (audioSessionId <= 0) return
-        releaseAudioEffects()
-        val profile = MidiMelodyScaler.resolveProfile(activeSoundFontName)
-        try {
-            val eq = android.media.audiofx.Equalizer(0, audioSessionId)
-            eq.enabled = true
-            val numBands = eq.numberOfBands.toInt()
-            val range = eq.bandLevelRange
-            val minMb = range[0].toInt()
-            val maxMb = range[1].toInt()
-            for (b in 0 until numBands) {
-                val targetMb = profile.eqBandOffsetsMb.getOrElse(b) { 0 }.coerceIn(minMb, maxMb)
-                eq.setBandLevel(b.toShort(), targetMb.toShort())
-            }
-            equalizer = eq
-        } catch (e: Exception) {
-            Log.w("SoundEngine", "Equalizer DSP not supported on session $audioSessionId", e)
-        }
-        try {
-            val bb = android.media.audiofx.BassBoost(0, audioSessionId)
-            if (bb.strengthSupported) {
-                bb.setStrength(profile.bassBoostPerMille.coerceIn(0, 1000).toShort())
-            }
-            bb.enabled = true
-            bassBoost = bb
-        } catch (e: Exception) {
-            Log.w("SoundEngine", "BassBoost DSP not supported", e)
-        }
-        try {
-            val virt = android.media.audiofx.Virtualizer(0, audioSessionId)
-            if (virt.strengthSupported) {
-                virt.setStrength(profile.virtualizerPerMille.coerceIn(0, 1000).toShort())
-            }
-            virt.enabled = true
-            virtualizer = virt
-        } catch (e: Exception) {
-            Log.w("SoundEngine", "Virtualizer DSP not supported", e)
-        }
-        try {
-            val rev = android.media.audiofx.PresetReverb(0, audioSessionId)
-            rev.preset = profile.reverbPreset
-            rev.enabled = true
-            presetReverb = rev
-            Log.d("SoundEngine", "Applied PresetReverb preset ${profile.reverbPreset} for ${profile.name}")
-        } catch (e: Exception) {
-            Log.w("SoundEngine", "PresetReverb DSP not supported", e)
+            Log.e(TAG, "Fallback MediaPlayer also failed", e)
+            false
         }
     }
 
     fun pause() {
         try {
-            if (mediaPlayer?.isPlaying == true) {
-                mediaPlayer?.pause()
+            if (midiStream != 0) {
+                if (BASS.BASS_ChannelIsActive(midiStream) == BASS.BASS_ACTIVE_PLAYING) {
+                    BASS.BASS_ChannelPause(midiStream)
+                }
+                return
+            }
+            if (fallbackPlayer?.isPlaying == true) {
+                fallbackPlayer?.pause()
             }
         } catch (e: Exception) {
-            Log.e("SoundEngine", "Error pausing playback", e)
+            Log.e(TAG, "Error pausing playback", e)
         }
     }
 
     fun resume() {
         try {
-            if (mediaPlayer != null && !mediaPlayer!!.isPlaying) {
-                mediaPlayer?.start()
+            if (midiStream != 0) {
+                if (BASS.BASS_ChannelIsActive(midiStream) != BASS.BASS_ACTIVE_PLAYING) {
+                    BASS.BASS_ChannelPlay(midiStream, false)
+                }
+                return
+            }
+            if (fallbackPlayer != null && !fallbackPlayer!!.isPlaying) {
+                fallbackPlayer?.start()
             }
         } catch (e: Exception) {
-            Log.e("SoundEngine", "Error resuming playback", e)
+            Log.e(TAG, "Error resuming playback", e)
         }
     }
 
     fun stop() {
-        releaseAudioEffects()
+        onCompletionCallback = null
         try {
-            mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.stop()
+            if (midiStream != 0) {
+                for (i in eqFxHandles.indices) {
+                    if (eqFxHandles[i] != 0) {
+                        BASS.BASS_ChannelRemoveFX(midiStream, eqFxHandles[i])
+                        eqFxHandles[i] = 0
+                    }
                 }
+                if (compressorFxHandle != 0) {
+                    BASS.BASS_ChannelRemoveFX(midiStream, compressorFxHandle)
+                    compressorFxHandle = 0
+                }
+                if (recordDspHandle != 0) {
+                    BASS.BASS_ChannelRemoveDSP(midiStream, recordDspHandle)
+                    recordDspHandle = 0
+                }
+                if (endSyncHandle != 0) {
+                    BASS.BASS_ChannelRemoveSync(midiStream, endSyncHandle)
+                    endSyncHandle = 0
+                }
+                BASS.BASS_ChannelStop(midiStream)
+                BASS.BASS_StreamFree(midiStream)
+                midiStream = 0
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping BASSMIDI stream", e)
+            midiStream = 0
+        }
+
+        try {
+            fallbackPlayer?.let {
+                if (it.isPlaying) it.stop()
                 it.reset()
                 it.release()
             }
-        } catch (e: Exception) {
-            Log.e("SoundEngine", "Error stopping playback", e)
+        } catch (_: Exception) {
         } finally {
-            mediaPlayer = null
+            fallbackPlayer = null
         }
     }
 
     fun isPlaying(): Boolean {
         return try {
-            mediaPlayer?.isPlaying == true
+            if (midiStream != 0) {
+                BASS.BASS_ChannelIsActive(midiStream) == BASS.BASS_ACTIVE_PLAYING
+            } else {
+                fallbackPlayer?.isPlaying == true
+            }
         } catch (e: Exception) {
             false
         }
@@ -314,15 +851,39 @@ class SoundEngine(private val context: Context) {
 
     fun getCurrentPositionMs(): Long {
         return try {
-            mediaPlayer?.currentPosition?.toLong() ?: 0L
+            if (midiStream != 0) {
+                val active = BASS.BASS_ChannelIsActive(midiStream)
+                val posBytes = BASS.BASS_ChannelGetPosition(midiStream, BASS.BASS_POS_BYTE)
+                if (posBytes >= 0) {
+                    val posMs = (BASS.BASS_ChannelBytes2Seconds(midiStream, posBytes) * 1000.0).toLong()
+                    if (active == BASS.BASS_ACTIVE_PLAYING || posMs > 0L) {
+                        lastKnownPositionMs = posMs
+                    }
+                    lastKnownPositionMs
+                } else {
+                    lastKnownPositionMs
+                }
+            } else {
+                fallbackPlayer?.currentPosition?.toLong() ?: 0L
+            }
         } catch (e: Exception) {
-            0L
+            lastKnownPositionMs
         }
     }
 
     fun getDurationMs(): Long {
         return try {
-            mediaPlayer?.duration?.toLong() ?: 0L
+            if (midiStream != 0) {
+                if (cachedDurationMs <= 0L) {
+                    val lenBytes = BASS.BASS_ChannelGetLength(midiStream, BASS.BASS_POS_BYTE)
+                    if (lenBytes > 0) {
+                        cachedDurationMs = (BASS.BASS_ChannelBytes2Seconds(midiStream, lenBytes) * 1000.0).toLong()
+                    }
+                }
+                cachedDurationMs
+            } else {
+                fallbackPlayer?.duration?.toLong() ?: 0L
+            }
         } catch (e: Exception) {
             0L
         }
@@ -344,19 +905,33 @@ class SoundEngine(private val context: Context) {
 
     private fun applyPlaybackParams() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && mediaPlayer != null) {
-                // Pitch: 2^(semitones / 12)
+            val handle = midiStream
+            if (handle != 0 && bassInitialized) {
+                // 1. Key Transpose on non-drum channels only (100 = 0 semitones)
+                for (ch in 0..15) {
+                    val isDrum = (ch == 9) || liveDrumChannels[ch] ||
+                        (BASSMIDI.BASS_MIDI_StreamGetEvent(handle, ch, BASSMIDI.MIDI_EVENT_DRUMS) > 0)
+                    val transposeParam = if (isDrum) 100 else (100 + keyTranspose)
+                    BASSMIDI.BASS_MIDI_StreamEvent(handle, ch, BASSMIDI.MIDI_EVENT_TRANSPOSE, transposeParam)
+                }
+                // 2. MIDI Tempo Speed multiplier (1.0f = 100%)
+                val speed = tempoPercent / 100.0f
+                BASS.BASS_ChannelSetAttribute(handle, BASSMIDI.BASS_ATTRIB_MIDI_SPEED, speed)
+                Log.d(TAG, "Applied BASSMIDI params: keyTranspose=$keyTranspose semitones, speed=${tempoPercent}%")
+                return
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && fallbackPlayer != null) {
                 val pitch = 2.0f.pow(keyTranspose / 12.0f)
                 val speed = tempoPercent / 100.0f
                 val params = PlaybackParams().apply {
                     setPitch(pitch)
                     setSpeed(speed)
                 }
-                mediaPlayer?.playbackParams = params
-                Log.d("SoundEngine", "Applied PlaybackParams: pitch=$pitch ($keyTranspose semitones), speed=$speed")
+                fallbackPlayer?.playbackParams = params
             }
         } catch (e: Exception) {
-            Log.e("SoundEngine", "Error applying PlaybackParams", e)
+            Log.e(TAG, "Error applying PlaybackParams", e)
         }
     }
 
@@ -368,9 +943,55 @@ class SoundEngine(private val context: Context) {
 
     fun setMelodyVolume(percent: Int) {
         melodyPercent = percent.coerceIn(0, 100)
+        applyInstrumentMix()
     }
 
     fun getMelodyVolume(): Int = melodyPercent
+
+    fun setDrumsVolume(percent: Int) {
+        drumsPercent = percent.coerceIn(0, 150)
+        applyInstrumentMix()
+    }
+
+    fun getDrumsVolume(): Int = drumsPercent
+
+    fun setBassVolume(percent: Int) {
+        bassPercent = percent.coerceIn(0, 150)
+        applyInstrumentMix()
+    }
+
+    fun getBassVolume(): Int = bassPercent
+
+    fun setGuitarPianoVolume(percent: Int) {
+        guitarPianoPercent = percent.coerceIn(0, 150)
+        applyInstrumentMix()
+    }
+
+    fun getGuitarPianoVolume(): Int = guitarPianoPercent
+
+    fun setStringsBrassVolume(percent: Int) {
+        stringsBrassPercent = percent.coerceIn(0, 150)
+        applyInstrumentMix()
+    }
+
+    fun getStringsBrassVolume(): Int = stringsBrassPercent
+
+    fun setReverbVolume(percent: Int) {
+        reverbPercent = percent.coerceIn(0, 100)
+        applyReverbToStream(midiStream)
+    }
+
+    fun getReverbVolume(): Int = reverbPercent
+
+    fun resetInstrumentMix() {
+        melodyPercent = 60
+        drumsPercent = 100
+        bassPercent = 100
+        guitarPianoPercent = 100
+        stringsBrassPercent = 100
+        reverbPercent = 50
+        applyInstrumentMix()
+    }
 
     fun getActiveSoundFont(): SoundFontPreset = activeSoundFont
 
@@ -378,39 +999,37 @@ class SoundEngine(private val context: Context) {
         activeSoundFontName = presetId
         val found = availableSoundFonts.find {
             it.id.equals(presetId, ignoreCase = true) ||
-            presetId.lowercase().contains(it.id.lowercase()) ||
-            it.displayName.lowercase().contains(presetId.lowercase()) ||
-            it.fileName.lowercase().contains(presetId.lowercase())
+                presetId.lowercase().contains(it.id.lowercase()) ||
+                it.displayName.lowercase().contains(presetId.lowercase()) ||
+                it.fileName.lowercase().contains(presetId.lowercase())
         }
         if (found != null) {
             activeSoundFont = found
+        } else {
+            val customFile = findSoundFontFile(presetId)
+            if (customFile != null) {
+                activeSoundFont = SoundFontPreset(
+                    id = customFile.nameWithoutExtension,
+                    displayName = customFile.nameWithoutExtension,
+                    fileName = customFile.name,
+                    description = "Custom Studio SoundFont (${customFile.length() / (1024 * 1024)} MB)"
+                )
+            }
         }
         try {
-            mediaPlayer?.let { mp ->
-                if (mp.isPlaying) {
-                    applySoundFontDsp(mp.audioSessionId)
+            if (initBassEngine()) {
+                loadSoundFontHandles()
+                if (midiStream != 0) {
+                    applyMasteringChain(midiStream)
+                    applyInstrumentMix()
                 }
             }
         } catch (e: Exception) {
-            Log.w("SoundEngine", "Failed to hot-apply SoundFont DSP: ${e.message}")
+            Log.w(TAG, "Failed to hot-swap SoundFont: ${e.message}")
         }
     }
 
-    /**
-     * Resolves the best available MIDI file for playback:
-     * 1. Exact file path if it's a valid MIDI file
-     * 2. File matching song code in VideoKey/songs or Music
-     * 3. Fallback to any available MIDI in VideoKey/songs so music ALWAYS plays!
-     */
-    /**
-     * Resolves the exact MIDI file for playback:
-     * 1. Exact direct file path
-     * 2. Instant O(1) indexed lookup by song code
-     * 3. Instant O(1) indexed lookup by song title
-     * NEVER blocks the UI thread with directory walking!
-     */
     fun findMidiFileForSong(song: Song): File? {
-        // 1. Direct path check
         if (song.filePath.isNotBlank()) {
             val direct = File(song.filePath)
             if (direct.exists() && (direct.extension.equals("mid", true) || direct.extension.equals("kar", true))) {
@@ -418,7 +1037,6 @@ class SoundEngine(private val context: Context) {
             }
         }
 
-        // 2. Fast indexed lookup by code
         val trimmedCode = song.code.trim()
         midiIndexByCode[trimmedCode]?.let { return it }
 
@@ -433,7 +1051,6 @@ class SoundEngine(private val context: Context) {
             midiIndexByCode[padded]?.let { return it }
         }
 
-        // 3. Fast indexed lookup by clean title
         val cleanTitle = song.title.replace(Regex("""[^a-zA-Z0-9]"""), "").lowercase().take(15)
         if (cleanTitle.length >= 3) {
             midiIndexByTitle[cleanTitle]?.let { return it }
@@ -441,7 +1058,6 @@ class SoundEngine(private val context: Context) {
             if (partial != null) return partial.value
         }
 
-        // 4. If not yet indexed, index once synchronously (only if initial background index is still completing)
         if (!isIndexReady) {
             buildMidiIndexSync()
             midiIndexByCode[trimmedCode]?.let { return it }
@@ -453,8 +1069,7 @@ class SoundEngine(private val context: Context) {
             }
         }
 
-        // Do NOT use a random fallback so the user never hears the wrong song!
-        Log.w("SoundEngine", "No exact MIDI file found for song: ${song.code} - ${song.title}")
+        Log.w(TAG, "No exact MIDI file found for song: ${song.code} - ${song.title}")
         return null
     }
 
@@ -478,4 +1093,3 @@ class SoundEngine(private val context: Context) {
 
     fun getPlayableCodes(): Set<String> = midiIndexByCode.keys
 }
-

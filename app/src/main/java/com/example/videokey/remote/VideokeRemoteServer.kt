@@ -184,13 +184,50 @@ class VideokeRemoteServer(
                 "settings" -> viewModel.openSettingsDialog()
                 "settings_close" -> viewModel.closeSettingsDialog()
                 "songbook" -> if (viewModel.uiState.value.isSongbookOpen) viewModel.closeSongbook() else viewModel.openSongbook()
+                "songbook_close" -> viewModel.closeSongbook()
                 "reserve_list" -> viewModel.toggleReserveQueueOverlay()
                 "favorites" -> viewModel.toggleFavoritesOverlay()
                 "record" -> viewModel.toggleRecording()
                 "recordings_dialog" -> viewModel.openRecordingsDialog()
+                "lyrics" -> viewModel.openLyricStyleDialog()
+                "lyrics_close" -> viewModel.closeLyricStyleDialog()
+                "mixer" -> viewModel.openAudioMixerDialog()
+                "mixer_close" -> viewModel.closeAudioMixerDialog()
+                "soundfont_dialog" -> viewModel.openSoundFontDialog()
+                "soundfont_close" -> viewModel.closeSoundFontDialog()
+                "outline_color" -> {
+                    val colorName = params["color"]?.uppercase() ?: "BLACK"
+                    try {
+                        val oc = com.example.videokey.ui.main.LyricOutlineColor.valueOf(colorName)
+                        viewModel.setLyricOutlineColor(oc)
+                    } catch (e: Exception) {}
+                }
                 "soundfont" -> {
                     val sf = params["name"] ?: params["font"] ?: ""
                     if (sf.isNotBlank()) viewModel.selectSoundFont(sf)
+                }
+                "drums" -> {
+                    val delta = params["delta"]?.toIntOrNull() ?: 0
+                    viewModel.adjustDrums(delta)
+                }
+                "bass" -> {
+                    val delta = params["delta"]?.toIntOrNull() ?: 0
+                    viewModel.adjustBass(delta)
+                }
+                "guitar_piano" -> {
+                    val delta = params["delta"]?.toIntOrNull() ?: 0
+                    viewModel.adjustGuitarPiano(delta)
+                }
+                "strings_brass" -> {
+                    val delta = params["delta"]?.toIntOrNull() ?: 0
+                    viewModel.adjustStringsBrass(delta)
+                }
+                "reverb" -> {
+                    val delta = params["delta"]?.toIntOrNull() ?: 0
+                    viewModel.adjustReverb(delta)
+                }
+                "reset_mixer" -> {
+                    viewModel.resetInstrumentMixer()
                 }
             }
         }
@@ -210,6 +247,11 @@ class VideokeRemoteServer(
             put("keyTranspose", state.keyTranspose)
             put("tempoPercent", state.tempoPercent)
             put("melodyPercent", state.melodyPercent)
+            put("drumsPercent", state.drumsPercent)
+            put("bassPercent", state.bassPercent)
+            put("guitarPianoPercent", state.guitarPianoPercent)
+            put("stringsBrassPercent", state.stringsBrassPercent)
+            put("reverbPercent", state.reverbPercent)
             val currentSongObj = JSONObject().apply {
                 put("code", state.currentSong.code)
                 put("title", state.currentSong.title)

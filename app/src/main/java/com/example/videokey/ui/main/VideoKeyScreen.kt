@@ -48,12 +48,15 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
 import java.io.File
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.videokey.data.Song
+import com.example.videokey.R
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -211,7 +214,7 @@ fun VideoKeyScreen(
             }
         }
 
-        // Audio Mixer Modal (Key / Tempo / Melody Guide) - Appears when pressing 🎚️ icon
+        // Studio Instrument & Audio Mixer Modal - Appears when pressing 🎚️ icon
         if (state.isAudioMixerDialogOpen) {
             AudioMixerDialog(
                 state = state,
@@ -219,6 +222,22 @@ fun VideoKeyScreen(
                 onAdjustKey = { viewModel.adjustKey(it) },
                 onAdjustTempo = { viewModel.adjustTempo(it) },
                 onAdjustMelody = { viewModel.adjustMelody(it) },
+                onSetMelodyPercent = { viewModel.setMelodyPercent(it) },
+                onAdjustDrums = { viewModel.adjustDrums(it) },
+                onSetDrumsPercent = { viewModel.setDrumsPercent(it) },
+                onAdjustBass = { viewModel.adjustBass(it) },
+                onSetBassPercent = { viewModel.setBassPercent(it) },
+                onAdjustGuitarPiano = { viewModel.adjustGuitarPiano(it) },
+                onSetGuitarPianoPercent = { viewModel.setGuitarPianoPercent(it) },
+                onAdjustStringsBrass = { viewModel.adjustStringsBrass(it) },
+                onSetStringsBrassPercent = { viewModel.setStringsBrassPercent(it) },
+                onAdjustReverb = { viewModel.adjustReverb(it) },
+                onSetReverbPercent = { viewModel.setReverbPercent(it) },
+                onResetMixer = { viewModel.resetInstrumentMixer() },
+                onOpenSoundFontDialog = {
+                    viewModel.closeAudioMixerDialog()
+                    viewModel.openSoundFontDialog()
+                },
                 onDismiss = { viewModel.closeAudioMixerDialog() }
             )
         }
@@ -256,13 +275,27 @@ fun VideoKeyScreen(
 
         // Automatic Over-The-Air Force-Update Modal (Works over Wi-Fi, Mobile Data, any network)
         if (state.updateState !is com.example.videokey.update.AppUpdateManager.UpdateState.Idle) {
-            ForceUpdateDialog(
-                updateState = state.updateState,
-                isLandscape = isLandscape,
-                onRetry = { viewModel.retryUpdate() },
-                onInstall = { file -> viewModel.promptInstallDownloadedApk(file) },
-                onDismiss = { viewModel.dismissUpdateDialog() }
-            )
+            val currentCode = remember {
+                try {
+                    val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) pInfo.longVersionCode.toInt() else @Suppress("DEPRECATION") pInfo.versionCode
+                } catch (e: Exception) { 1 }
+            }
+            val targetCode = when (val s = state.updateState) {
+                is com.example.videokey.update.AppUpdateManager.UpdateState.ReadyToInstall -> s.info.versionCode
+                is com.example.videokey.update.AppUpdateManager.UpdateState.UpdateAvailable -> s.info.versionCode
+                is com.example.videokey.update.AppUpdateManager.UpdateState.Downloading -> s.info.versionCode
+                else -> 999
+            }
+            if (targetCode > currentCode || state.updateState is com.example.videokey.update.AppUpdateManager.UpdateState.UpToDate || state.updateState is com.example.videokey.update.AppUpdateManager.UpdateState.Checking || state.updateState is com.example.videokey.update.AppUpdateManager.UpdateState.Error) {
+                ForceUpdateDialog(
+                    updateState = state.updateState,
+                    isLandscape = isLandscape,
+                    onRetry = { viewModel.retryUpdate() },
+                    onInstall = { file -> viewModel.promptInstallDownloadedApk(file) },
+                    onDismiss = { viewModel.dismissUpdateDialog() }
+                )
+            }
         }
 
         // Download Center Modal (Songs, SoundFonts, and Selective Backgrounds)
@@ -280,9 +313,11 @@ fun VideoKeyScreen(
         if (state.isLyricStyleDialogOpen) {
             LyricStyleDialog(
                 config = state.lyricConfig,
+                isLandscape = isLandscape,
                 onSelectFontFamily = { viewModel.setLyricFontFamily(it) },
                 onSelectWipeColor = { viewModel.setLyricWipeColor(it) },
                 onSelectShadowStyle = { viewModel.setLyricShadowStyle(it) },
+                onSelectOutlineColor = { viewModel.setLyricOutlineColor(it) },
                 onToggleAllCaps = { viewModel.toggleLyricAllCaps() },
                 onToggleItalic = { viewModel.toggleLyricItalic() },
                 onAdjustFontScale = { viewModel.setLyricFontScale(it) },
@@ -513,6 +548,26 @@ fun SongIntroTitleSplash(
 
     val isTagalog = lang == com.example.videokey.ui.main.AppLanguage.TAGALOG
 
+    // Curated high-visibility vibrant colors for song titles (Clean, readable, dynamic per song):
+    val titleColors = remember {
+        listOf(
+            Color(0xFFFFEE58), // Vivid Golden Yellow
+            Color(0xFF00E5FF), // Electric Cyan
+            Color(0xFFFF4081), // Neon Pink
+            Color(0xFF00FF88), // Bright Spring Green
+            Color(0xFFFF9100), // Vibrant Amber
+            Color(0xFFE040FB), // Neon Purple/Violet
+            Color(0xFF69F0AE), // Bright Mint
+            Color(0xFFFF5252), // Bright Coral Red
+            Color(0xFF40C4FF), // Vivid Sky Blue
+            Color(0xFFFFD54F)  // Warm Gold
+        )
+    }
+    val songTitleColor = remember(song.code, song.title) {
+        val hash = kotlin.math.abs((song.code.hashCode() * 31) xor song.title.hashCode())
+        titleColors[hash % titleColors.size]
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -522,19 +577,19 @@ fun SongIntroTitleSplash(
     ) {
         Box(
             modifier = Modifier
-                .shadow(20.dp, RoundedCornerShape(22.dp))
-                .clip(RoundedCornerShape(22.dp))
+                .shadow(12.dp, RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(20.dp))
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Color(0xF50A0F1D),
-                            Color(0xF5131E33),
-                            Color(0xF5070B14)
+                            Color(0x700A0F1D),
+                            Color(0x85131E33),
+                            Color(0x70070B14)
                         )
                     )
                 )
                 .border(
-                    2.5.dp,
+                    2.dp,
                     Brush.horizontalGradient(
                         listOf(
                             Color(0xFFFFD54F).copy(alpha = glowAlpha),
@@ -570,55 +625,90 @@ fun SongIntroTitleSplash(
                     )
                 }
 
-                // Big Centered Auto-Adjusting Song Title
-                Text(
-                    text = song.title.uppercase(),
+                val sharedTitleStyle = TextStyle(
+                    fontSize = titleFontSize,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.SansSerif,
-                    fontSize = titleFontSize,
-                    color = Color.White,
                     textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    softWrap = true,
-                    onTextLayout = { result ->
-                        if ((result.didOverflowWidth || result.didOverflowHeight) && titleFitScale > 0.4f) {
-                            titleFitScale *= 0.90f
-                        }
-                    },
-                    style = TextStyle(
-                        shadow = Shadow(
-                            color = Color(0xFF00E5FF).copy(alpha = 0.95f),
-                            offset = Offset.Zero,
-                            blurRadius = 18f
-                        )
+                    lineHeight = titleFontSize * 1.15f,
+                    platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)
+                )
+                val outlineTitleStyle = sharedTitleStyle.copy(
+                    color = Color.Black,
+                    drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = if (isLandscape) 4.5f else 3.5f,
+                        join = androidx.compose.ui.graphics.StrokeJoin.Round
                     )
                 )
+                val fillTitleStyle = sharedTitleStyle.copy(
+                    color = songTitleColor,
+                    drawStyle = androidx.compose.ui.graphics.drawscope.Fill
+                )
 
-                // Big Centered Auto-Adjusting Artist
-                Text(
-                    text = song.artist.uppercase(),
-                    fontWeight = FontWeight.Bold,
+                // Big Centered Auto-Adjusting Song Title with Thin Black Outline & Clean Font Style
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = song.title.uppercase(),
+                        maxLines = 2,
+                        softWrap = true,
+                        style = outlineTitleStyle
+                    )
+                    Text(
+                        text = song.title.uppercase(),
+                        maxLines = 2,
+                        softWrap = true,
+                        style = fillTitleStyle,
+                        onTextLayout = { result ->
+                            if ((result.didOverflowWidth || result.didOverflowHeight) && titleFitScale > 0.4f) {
+                                titleFitScale *= 0.90f
+                            }
+                        }
+                    )
+                }
+
+                val sharedArtistStyle = TextStyle(
                     fontSize = artistFontSize,
-                    color = Color(0xFFFFD54F),
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.SansSerif,
                     textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
-                    onTextLayout = { result ->
-                        if (result.didOverflowWidth && artistFitScale > 0.5f) {
-                            artistFitScale *= 0.92f
-                        }
-                    },
-                    style = TextStyle(
-                        shadow = Shadow(
-                            color = Color(0xFFFF9100).copy(alpha = 0.85f),
-                            offset = Offset(2f, 2f),
-                            blurRadius = 6f
-                        )
+                    lineHeight = artistFontSize * 1.2f,
+                    platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)
+                )
+                val outlineArtistStyle = sharedArtistStyle.copy(
+                    color = Color.Black,
+                    drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = if (isLandscape) 3.5f else 2.5f,
+                        join = androidx.compose.ui.graphics.StrokeJoin.Round
                     )
                 )
+                val fillArtistStyle = sharedArtistStyle.copy(
+                    color = Color(0xFFFFD54F),
+                    drawStyle = androidx.compose.ui.graphics.drawscope.Fill
+                )
+
+                // Big Centered Auto-Adjusting Artist with Thin Black Outline
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = song.artist.uppercase(),
+                        maxLines = 1,
+                        softWrap = false,
+                        style = outlineArtistStyle
+                    )
+                    Text(
+                        text = song.artist.uppercase(),
+                        maxLines = 1,
+                        softWrap = false,
+                        style = fillArtistStyle,
+                        onTextLayout = { result ->
+                            if (result.didOverflowWidth && artistFitScale > 0.5f) {
+                                artistFitScale *= 0.92f
+                            }
+                        }
+                    )
+                }
 
                 Text(
-                    text = if (isTagalog) "PHILIPPINE VIDEOKEY • HUMANDA SA PAGKANTA" else "PHILIPPINE VIDEOKEY • GET READY TO SING",
+                    text = if (isTagalog) "HUMANDA SA PAGKANTA" else "GET READY TO SING",
                     fontWeight = FontWeight.Black,
                     fontSize = if (isLandscape) 11.sp else 9.sp,
                     color = Color(0xFF94A3B8),
@@ -788,7 +878,7 @@ fun VideokeTvScreen(
 
                         val badgeLabel = when {
                             !state.isPlaying && hasReserve -> if (isTagalog) "SUSUNOD:" else "NEXT:"
-                            !state.isPlaying -> "★ VIDEOKEY V1:"
+                            !state.isPlaying -> "VIDEOKEY V1:"
                             isShowingNext -> if (isTagalog) "SUSUNOD:" else "NEXT:"
                             else -> if (isTagalog) "TUMUTUGTOG:" else "PLAYING:"
                         }
@@ -799,7 +889,7 @@ fun VideokeTvScreen(
                             else -> Color(0xFFFFD54F)
                         }
 
-                        // Pure Text Badge (Bold + Black Outline in Landscape!)
+                        // Pure Text Badge
                         OutlinedHeaderText(
                             text = "$badgeLabel ",
                             color = badgeColor,
@@ -809,11 +899,8 @@ fun VideokeTvScreen(
                         )
 
                         val headerMarquee = when {
-                            !state.isPlaying && hasReserve -> nextSongText
-                            !state.isPlaying -> {
-                                val selectText = if (isTagalog) "PUMILI NG KANTA" else "SELECT A SONG"
-                                "DEVELOPED BY JEROME HUET  ITO PO AY FREE PERO PWEDE MAG DONATE HAHAHAH • $selectText"
-                            }
+                            !state.isPlaying && hasReserve -> "DEVELOPED BY JEROME HUET ITO PO AY FREE : $nextSongText"
+                            !state.isPlaying -> "DEVELOPED BY JEROME HUET ITO PO AY FREE : SELECT A SONG"
                             isShowingNext -> nextSongText
                             else -> {
                                 if (hasReserve) {
@@ -858,6 +945,7 @@ fun VideokeTvScreen(
 
                     // Top-Right Horizontal TV Mode Icon Controls in Landscape Mode (Auto-Hiding!)
                     if (isLandscape) {
+                        val uniformBorder = Color(state.appTheme.primaryColor)
                         AnimatedVisibility(visible = showLandscapeControls) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -866,7 +954,7 @@ fun VideokeTvScreen(
                             ) {
                                 TvHeaderIconButton(
                                     icon = "📖",
-                                    borderColor = Color(0xFFFFD54F),
+                                    borderColor = uniformBorder,
                                     isActive = state.isSongbookOpen,
                                     onClick = {
                                         interactionTick++
@@ -875,7 +963,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "R",
-                                    borderColor = Color(0xFFFFD54F),
+                                    borderColor = uniformBorder,
                                     isActive = state.isReserveQueueOpen,
                                     onClick = {
                                         interactionTick++
@@ -884,7 +972,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "❤️",
-                                    borderColor = Color(0xFFFF4081),
+                                    borderColor = uniformBorder,
                                     isActive = state.isFavoritesOpen,
                                     onClick = {
                                         interactionTick++
@@ -893,7 +981,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = if (state.isRecording) "🔴" else "🎙️",
-                                    borderColor = Color(0xFFFF5252),
+                                    borderColor = uniformBorder,
                                     isActive = state.isRecording || state.isRecordingsDialogOpen,
                                     onClick = {
                                         interactionTick++
@@ -902,7 +990,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "🎛️",
-                                    borderColor = Color(0xFF00E676),
+                                    borderColor = uniformBorder,
                                     isActive = state.isSoundFontDialogOpen,
                                     onClick = {
                                         interactionTick++
@@ -911,7 +999,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "🔤",
-                                    borderColor = Color(0xFF818CF8),
+                                    borderColor = uniformBorder,
                                     isActive = state.isLyricStyleDialogOpen,
                                     onClick = {
                                         interactionTick++
@@ -920,7 +1008,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "🎚️",
-                                    borderColor = Color(0xFF00E5FF),
+                                    borderColor = uniformBorder,
                                     isActive = state.isAudioMixerDialogOpen,
                                     onClick = {
                                         interactionTick++
@@ -929,7 +1017,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "🎬",
-                                    borderColor = Color(0xFFFFB300),
+                                    borderColor = uniformBorder,
                                     isActive = state.isBackgroundDialogOpen,
                                     onClick = {
                                         interactionTick++
@@ -938,7 +1026,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "📱",
-                                    borderColor = Color(0xFF00FF88),
+                                    borderColor = uniformBorder,
                                     isActive = showTvKeypadModal,
                                     onClick = {
                                         interactionTick++
@@ -947,7 +1035,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "⚙️",
-                                    borderColor = Color(0xFF38BDF8),
+                                    borderColor = uniformBorder,
                                     isActive = state.isSettingsDialogOpen,
                                     onClick = {
                                         interactionTick++
@@ -956,7 +1044,7 @@ fun VideokeTvScreen(
                                 )
                                 TvHeaderIconButton(
                                     icon = "◀",
-                                    borderColor = Color(0xFF94A3B8),
+                                    borderColor = uniformBorder,
                                     isActive = false,
                                     onClick = onToggleTvMode
                                 )
@@ -1024,6 +1112,7 @@ fun VideokeTvScreen(
             if (showUpperOverlay) {
                 SongbookSearchOverlay(
                     songs = state.searchResults,
+                    searchQuery = state.songbookQuery,
                     reserveQueue = state.reserveQueue,
                     favoriteSongs = state.favoriteSongs,
                     favoriteCodes = state.favoriteCodes,
@@ -1391,6 +1480,103 @@ fun VideokeTvScreen(
 }
 
 @Composable
+fun SongbookButtonGraphic(
+    showLabel: Boolean = true,
+    iconWidth: androidx.compose.ui.unit.Dp = 24.dp,
+    iconHeight: androidx.compose.ui.unit.Dp = 17.dp
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        androidx.compose.foundation.Canvas(
+            modifier = Modifier.size(width = iconWidth, height = iconHeight)
+        ) {
+            val w = size.width
+            val h = size.height
+            // 1. Bright Gold outer hardcover book base
+            drawRoundRect(
+                color = Color(0xFFFFB300),
+                topLeft = Offset(0f, h * 0.08f),
+                size = androidx.compose.ui.geometry.Size(w, h * 0.88f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.14f, w * 0.14f)
+            )
+            // 2. Crisp Pure White left page
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(w * 0.08f, h * 0.02f),
+                size = androidx.compose.ui.geometry.Size(w * 0.40f, h * 0.80f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f)
+            )
+            // 3. Crisp Pure White right page
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(w * 0.52f, h * 0.02f),
+                size = androidx.compose.ui.geometry.Size(w * 0.40f, h * 0.80f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f)
+            )
+            // 4. Center book spine in dark slate + glowing cyan accent
+            drawLine(
+                color = Color(0xFF0F172A),
+                start = Offset(w * 0.50f, h * 0.02f),
+                end = Offset(w * 0.50f, h * 0.92f),
+                strokeWidth = w * 0.06f
+            )
+            // 5. High-contrast text lines on left page
+            val lineStroke = (h * 0.09f).coerceAtLeast(1.5f)
+            drawLine(
+                color = Color(0xFF0284C7),
+                start = Offset(w * 0.15f, h * 0.25f),
+                end = Offset(w * 0.41f, h * 0.25f),
+                strokeWidth = lineStroke
+            )
+            drawLine(
+                color = Color(0xFF1E293B),
+                start = Offset(w * 0.15f, h * 0.46f),
+                end = Offset(w * 0.41f, h * 0.46f),
+                strokeWidth = lineStroke
+            )
+            drawLine(
+                color = Color(0xFF1E293B),
+                start = Offset(w * 0.15f, h * 0.66f),
+                end = Offset(w * 0.36f, h * 0.66f),
+                strokeWidth = lineStroke
+            )
+            // 6. High-contrast text lines / music note on right page
+            drawLine(
+                color = Color(0xFF0284C7),
+                start = Offset(w * 0.59f, h * 0.25f),
+                end = Offset(w * 0.85f, h * 0.25f),
+                strokeWidth = lineStroke
+            )
+            drawLine(
+                color = Color(0xFF1E293B),
+                start = Offset(w * 0.59f, h * 0.46f),
+                end = Offset(w * 0.85f, h * 0.46f),
+                strokeWidth = lineStroke
+            )
+            drawLine(
+                color = Color(0xFF1E293B),
+                start = Offset(w * 0.59f, h * 0.66f),
+                end = Offset(w * 0.80f, h * 0.66f),
+                strokeWidth = lineStroke
+            )
+        }
+        if (showLabel) {
+            Spacer(modifier = Modifier.height(1.dp))
+            Text(
+                text = "SONGBOOK",
+                color = Color(0xFFFFD54F),
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.5.sp,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
 fun TvHeaderIconButton(
     icon: String,
     borderColor: Color,
@@ -1411,12 +1597,16 @@ fun TvHeaderIconButton(
             .focusable()
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = icon,
-                color = if (icon == "R") Color(0xFFFFD54F) else Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Black
-            )
+            if (icon == "📖") {
+                SongbookButtonGraphic(showLabel = false, iconWidth = 19.dp, iconHeight = 14.dp)
+            } else {
+                Text(
+                    text = icon,
+                    color = if (icon == "R") Color(0xFFFFD54F) else Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
         }
     }
 }
@@ -1768,6 +1958,14 @@ fun VideokeRemoteConsole(
     onOpenSettingsDialog: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val theme = state.appTheme
+    val uniformBtnBrush = Brush.verticalGradient(
+        listOf(Color(theme.buttonBgColor), Color(theme.buttonBgColor))
+    )
+    val uniformBorderBrush = Brush.verticalGradient(
+        listOf(Color(theme.buttonBorderColor), Color(theme.buttonBorderColor))
+    )
+
     Column(
         modifier = modifier
             .background(
@@ -1783,7 +1981,7 @@ fun VideokeRemoteConsole(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Main Area: Numeric 0-9 Keypad Grid + Transport Action Buttons
+        // Main Area: Numeric 0-9 Keypad Grid + Transport Action Buttons (Single Uniform Color)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1807,6 +2005,9 @@ fun VideokeRemoteConsole(
                         row.forEach { digit ->
                             RemoteKey(
                                 text = "$digit",
+                                textColor = Color.White,
+                                bgBrush = uniformBtnBrush,
+                                borderBrush = uniformBorderBrush,
                                 onClick = { onDigit(digit) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -1814,7 +2015,7 @@ fun VideokeRemoteConsole(
                     }
                 }
 
-                // Bottom row: CLR, 0, DEL
+                // Bottom row: CLR, 0, DEL (Same uniform color as all buttons)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1822,23 +2023,24 @@ fun VideokeRemoteConsole(
                     RemoteKey(
                         text = "✕",
                         textColor = Color.White,
-                        bgBrush = Brush.verticalGradient(
-                            listOf(Color(0xFFEF4444), Color(0xFF991B1B))
-                        ),
+                        bgBrush = uniformBtnBrush,
+                        borderBrush = uniformBorderBrush,
                         onClick = onClear,
                         modifier = Modifier.weight(1f)
                     )
                     RemoteKey(
                         text = "0",
+                        textColor = Color.White,
+                        bgBrush = uniformBtnBrush,
+                        borderBrush = uniformBorderBrush,
                         onClick = { onDigit('0') },
                         modifier = Modifier.weight(1f)
                     )
                     RemoteKey(
                         text = "⌫",
                         textColor = Color.White,
-                        bgBrush = Brush.verticalGradient(
-                            listOf(Color(0xFFF59E0B), Color(0xFFB45309))
-                        ),
+                        bgBrush = uniformBtnBrush,
+                        borderBrush = uniformBorderBrush,
                         onClick = onDelete,
                         modifier = Modifier.weight(1f)
                     )
@@ -1846,7 +2048,7 @@ fun VideokeRemoteConsole(
             }
 
             // Right Column: Transport Action Buttons (📖 Songbook, ▶ Play, ⏭ Next, ⏹ Stop)
-            // Songbook is now at the top as requested!
+            // Single uniform button color as requested!
             Column(
                 modifier = Modifier.weight(1.05f),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -1854,29 +2056,26 @@ fun VideokeRemoteConsole(
                 ActionButton(
                     text = "",
                     icon = "📖",
-                    bgBrush = Brush.verticalGradient(
-                        listOf(Color(0xFFFFD54F), Color(0xFFFFB300), Color(0xFFE65100))
-                    ),
-                    textColor = Color.Black,
+                    bgBrush = uniformBtnBrush,
+                    borderBrush = uniformBorderBrush,
+                    textColor = Color.White,
                     onClick = onOpenSongbook,
                     modifier = Modifier.height(40.dp)
                 )
                 ActionButton(
                     text = "",
                     icon = "▶",
-                    bgBrush = Brush.verticalGradient(
-                        listOf(Color(0xFF00FF88), Color(0xFF00E676), Color(0xFF00701A))
-                    ),
-                    textColor = Color.Black,
+                    bgBrush = uniformBtnBrush,
+                    borderBrush = uniformBorderBrush,
+                    textColor = Color.White,
                     onClick = onPlay,
                     modifier = Modifier.height(40.dp)
                 )
                 ActionButton(
                     text = "",
                     icon = "⏭",
-                    bgBrush = Brush.verticalGradient(
-                        listOf(Color(0xFF448AFF), Color(0xFF2979FF), Color(0xFF1565C0))
-                    ),
+                    bgBrush = uniformBtnBrush,
+                    borderBrush = uniformBorderBrush,
                     textColor = Color.White,
                     onClick = onNext,
                     modifier = Modifier.height(40.dp)
@@ -1884,9 +2083,8 @@ fun VideokeRemoteConsole(
                 ActionButton(
                     text = "",
                     icon = "⏹",
-                    bgBrush = Brush.verticalGradient(
-                        listOf(Color(0xFFFF5252), Color(0xFFFF1744), Color(0xFFB71C1C))
-                    ),
+                    bgBrush = uniformBtnBrush,
+                    borderBrush = uniformBorderBrush,
                     textColor = Color.White,
                     onClick = onStop,
                     modifier = Modifier.height(40.dp)
@@ -1906,8 +2104,6 @@ fun VideokeRemoteConsole(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val theme = state.appTheme
-
             // 1. Reserved Queue / Reserve Icon (R)
             ConsoleIconButton(
                 icon = if (state.reserveQueue.isNotEmpty()) "R (${state.reserveQueue.size})" else "R",
@@ -1948,7 +2144,7 @@ fun VideokeRemoteConsole(
                 onClick = onOpenLyricStyleDialog
             )
 
-            // 6. Audio Mixer (Key / Tempo / Melody) Icon (🎚️)
+            // 6. Audio & Instrument Mixer Icon (🎚️)
             ConsoleIconButton(
                 icon = "🎚️",
                 isActive = state.isAudioMixerDialogOpen,
@@ -2014,14 +2210,24 @@ fun ConsoleIconButton(
     ) {
         Text(
             text = icon,
-            fontSize = 15.sp
+            fontSize = 15.sp,
+            color = Color.White
         )
     }
 }
 
 /**
- * Audio Mixer Popup Modal (Key Transpose, Tempo BPM, Melody Guide Volume)
- * Appears only when pressing the 🎚️ Audio Mixer icon!
+ * Studio Instrument & Audio Mixer Modal (🎚️)
+ * Real-time BASSMIDI SoundFont synthesizer mixer:
+ * - Key Transpose (-12 to +12 semitones)
+ * - Tempo Speed (50% to 150%)
+ * - Individual Instrument Adjusters (0% to 150%):
+ *   1. Melody Guide (Gabay na Melody)
+ *   2. Drums & Percussion (Tambol / Drums)
+ *   3. Bass Guitar (Baho / Bass)
+ *   4. Guitar & Piano (Gitara at Piano)
+ *   5. Strings, Brass & Synth (Strings / Brass / Sax)
+ *   6. Studio Reverb (Echo ng Tugtog)
  */
 @Composable
 fun AudioMixerDialog(
@@ -2030,249 +2236,525 @@ fun AudioMixerDialog(
     onAdjustKey: (Int) -> Unit,
     onAdjustTempo: (Int) -> Unit,
     onAdjustMelody: (Int) -> Unit,
+    onSetMelodyPercent: (Int) -> Unit = {},
+    onAdjustDrums: (Int) -> Unit = {},
+    onSetDrumsPercent: (Int) -> Unit = {},
+    onAdjustBass: (Int) -> Unit = {},
+    onSetBassPercent: (Int) -> Unit = {},
+    onAdjustGuitarPiano: (Int) -> Unit = {},
+    onSetGuitarPianoPercent: (Int) -> Unit = {},
+    onAdjustStringsBrass: (Int) -> Unit = {},
+    onSetStringsBrassPercent: (Int) -> Unit = {},
+    onAdjustReverb: (Int) -> Unit = {},
+    onSetReverbPercent: (Int) -> Unit = {},
+    onResetMixer: () -> Unit = {},
+    onOpenSoundFontDialog: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
+    val uniformBtnBg = Color(state.appTheme.buttonBgColor)
+    val uniformBtnBorder = Color(state.appTheme.buttonBorderColor)
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(16.dp),
             color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF00E5FF)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
             modifier = Modifier
-                .fillMaxWidth(if (isLandscape) 0.72f else 0.92f)
-                .padding(8.dp)
+                .fillMaxWidth(if (isLandscape) 0.85f else 0.96f)
+                .fillMaxHeight(if (isLandscape) 0.94f else 0.93f)
+                .padding(4.dp)
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (isTagalog) "🎚️ TIMPLA NG TUNOG (KEY • TEMPO • MELODY)" else "🎚️ AUDIO MIXER (KEY • TEMPO • MELODY)",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 14.sp,
-                        color = Color(0xFF00E5FF)
-                    )
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                // 1. Key Transpose
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1E293B))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isTagalog) "🎹 Tono (Key Transpose)" else "🎹 Key Transpose",
+                            text = if (isTagalog) "🎚️ TIMPLA NG MGA INSTRUMENTO AT TUNOG" else "🎚️ STUDIO INSTRUMENT & AUDIO MIXER",
                             fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
-                            color = Color.White,
+                            fontSize = 13.sp,
+                            color = Color(0xFF38BDF8),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (state.keyTranspose == 0) "Standard (0)" else if (state.keyTranspose > 0) "+${state.keyTranspose} Semitones" else "${state.keyTranspose} Semitones",
-                            fontSize = 11.sp,
-                            color = Color(0xFFFFD54F),
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF334155))
-                                .clickable { onAdjustKey(-1) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                        }
-                        Text(
-                            text = if (state.keyTranspose > 0) "+${state.keyTranspose}" else "${state.keyTranspose}",
-                            color = Color(0xFFFFD54F),
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 15.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.width(38.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFFFB300))
-                                .clickable { onAdjustKey(1) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                        }
-                    }
-                }
-
-                // 2. Tempo BPM
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1E293B))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
-                        Text(
-                            text = if (isTagalog) "⏱️ Bilis (Song Tempo)" else "⏱️ Song Tempo",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
-                            color = Color.White,
+                            text = if (isTagalog)
+                                "BASSMIDI 32-Bit Studio SoundFont • Walang Basag Kahit Malakas"
+                            else
+                                "BASSMIDI 32-Bit Studio SoundFont • Anti-Clip Studio Mastering",
+                            fontSize = 9.5.sp,
+                            color = Color(0xFF94A3B8),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = "${state.tempoPercent}% Speed",
-                            fontSize = 11.sp,
-                            color = Color(0xFF00FF88),
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
                     }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF334155))
-                                .clickable { onAdjustTempo(-5) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                        }
-                        Text(
-                            text = "${state.tempoPercent}%",
-                            color = Color(0xFF00FF88),
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.width(46.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF00E676))
-                                .clickable { onAdjustTempo(5) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                        }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(26.dp)) {
+                        Text(text = "✕", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                // 3. Melody Guide Volume
+                // Active SoundFont Quick Bar + Reset Button
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(Color(0xFF1E293B))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .border(1.dp, uniformBtnBorder, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                    Row(
+                        modifier = Modifier.weight(1f).padding(end = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text(
-                            text = if (isTagalog) "🎵 Gabay na Melody (Guide)" else "🎵 Melody Guide",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
+                            text = "🎛️ SF2:",
+                            fontSize = 10.sp,
+                            color = Color(0xFF38BDF8),
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            text = state.activeSoundFontName,
+                            fontSize = 10.5.sp,
                             color = Color.White,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(
-                            text = if (state.melodyPercent == 0) "OFF (Minus-One)" else "${state.melodyPercent}% Lakas",
-                            fontSize = 11.sp,
-                            color = if (state.melodyPercent == 0) Color(0xFFFF5252) else Color(0xFF00E5FF),
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
                     }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = uniformBtnBg,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, uniformBtnBorder),
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF334155))
-                                .clickable { onAdjustMelody(-10) },
-                            contentAlignment = Alignment.Center
+                                .height(26.dp)
+                                .clickable { onOpenSoundFontDialog() }
                         ) {
-                            Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                            Box(modifier = Modifier.padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = if (isTagalog) "Palitan SF2" else "Change SF2",
+                                    color = Color.White,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
-                        Text(
-                            text = if (state.melodyPercent == 0) "OFF" else "${state.melodyPercent}%",
-                            color = if (state.melodyPercent == 0) Color(0xFFFF5252) else Color(0xFF00E5FF),
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.width(46.dp)
-                        )
-                        Box(
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = uniformBtnBg,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, uniformBtnBorder),
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF00E5FF))
-                                .clickable { onAdjustMelody(10) },
-                            contentAlignment = Alignment.Center
+                                .height(26.dp)
+                                .clickable { onResetMixer() }
                         ) {
-                            Text(text = "+", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                            Box(modifier = Modifier.padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = if (isTagalog) "🔄 Reset" else "🔄 Reset",
+                                    color = Color.White,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
 
+                // Key Transpose & Tempo Compact Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // 1. Key Transpose Card
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E293B))
+                            .border(1.dp, uniformBtnBorder, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🎹 KEY",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 10.5.sp,
+                            color = Color.White
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(uniformBtnBg)
+                                    .border(1.dp, uniformBtnBorder, RoundedCornerShape(6.dp))
+                                    .clickable { onAdjustKey(-1) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            }
+                            Text(
+                                text = if (state.keyTranspose > 0) "+${state.keyTranspose}" else "${state.keyTranspose}",
+                                color = Color(0xFFFFD54F),
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.width(26.dp)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(uniformBtnBg)
+                                    .border(1.dp, uniformBtnBorder, RoundedCornerShape(6.dp))
+                                    .clickable { onAdjustKey(1) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "+", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            }
+                        }
+                    }
+
+                    // 2. Tempo Speed Card
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E293B))
+                            .border(1.dp, uniformBtnBorder, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⏱️ BPM",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 10.5.sp,
+                            color = Color.White
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(uniformBtnBg)
+                                    .border(1.dp, uniformBtnBorder, RoundedCornerShape(6.dp))
+                                    .clickable { onAdjustTempo(-5) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            }
+                            Text(
+                                text = "${state.tempoPercent}%",
+                                color = Color(0xFF00FF88),
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.5.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.width(36.dp)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(uniformBtnBg)
+                                    .border(1.dp, uniformBtnBorder, RoundedCornerShape(6.dp))
+                                    .clickable { onAdjustTempo(5) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = "+", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                            }
+                        }
+                    }
+                }
+
+                // Scrollable list of 6 Individual Instrument Adjusters
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    // 3. Drums & Percussion (Tambol)
+                    item {
+                        InstrumentSliderRow(
+                            title = if (isTagalog) "🥁 Drums at Percussion (Tambol)" else "🥁 Drums & Percussion",
+                            percent = state.drumsPercent,
+                            maxPercent = 150,
+                            accentColor = Color(0xFF38BDF8),
+                            btnBg = uniformBtnBg,
+                            btnBorder = uniformBtnBorder,
+                            onStep = onAdjustDrums,
+                            onSlide = onSetDrumsPercent
+                        )
+                    }
+
+                    // 4. Bass Guitar (Baho)
+                    item {
+                        InstrumentSliderRow(
+                            title = if (isTagalog) "🎸 Bass Guitar (Baho)" else "🎸 Bass Guitar",
+                            percent = state.bassPercent,
+                            maxPercent = 150,
+                            accentColor = Color(0xFF00E676),
+                            btnBg = uniformBtnBg,
+                            btnBorder = uniformBtnBorder,
+                            onStep = onAdjustBass,
+                            onSlide = onSetBassPercent
+                        )
+                    }
+
+                    // 5. Guitar & Piano
+                    item {
+                        InstrumentSliderRow(
+                            title = if (isTagalog) "🎹 Gitara, Piano at Organ" else "🎹 Guitar, Piano & Keys",
+                            percent = state.guitarPianoPercent,
+                            maxPercent = 150,
+                            accentColor = Color(0xFFFFD54F),
+                            btnBg = uniformBtnBg,
+                            btnBorder = uniformBtnBorder,
+                            onStep = onAdjustGuitarPiano,
+                            onSlide = onSetGuitarPianoPercent
+                        )
+                    }
+
+                    // 6. Strings, Brass & Sax
+                    item {
+                        InstrumentSliderRow(
+                            title = if (isTagalog) "🎷 Strings, Brass at Saxophone" else "🎷 Strings, Brass & Winds",
+                            percent = state.stringsBrassPercent,
+                            maxPercent = 150,
+                            accentColor = Color(0xFFF472B6),
+                            btnBg = uniformBtnBg,
+                            btnBorder = uniformBtnBorder,
+                            onStep = onAdjustStringsBrass,
+                            onSlide = onSetStringsBrassPercent
+                        )
+                    }
+
+                    // 7. Melody Guide (Gabay sa Kanta)
+                    item {
+                        InstrumentSliderRow(
+                            title = if (isTagalog) "🎵 Gabay na Melody (Vocal Guide)" else "🎵 Vocal Melody Guide",
+                            percent = state.melodyPercent,
+                            maxPercent = 100,
+                            accentColor = Color(0xFF00E5FF),
+                            btnBg = uniformBtnBg,
+                            btnBorder = uniformBtnBorder,
+                            onStep = onAdjustMelody,
+                            onSlide = onSetMelodyPercent
+                        )
+                    }
+
+                    // 8. Studio Reverb & Ambience
+                    item {
+                        InstrumentSliderRow(
+                            title = if (isTagalog) "🏛️ Studio Reverb (Echo ng Tugtog)" else "🏛️ Studio Reverb & Warmth",
+                            percent = state.reverbPercent,
+                            maxPercent = 150,
+                            accentColor = Color(0xFFA78BFA),
+                            btnBg = uniformBtnBg,
+                            btnBorder = uniformBtnBorder,
+                            onStep = onAdjustReverb,
+                            onSlide = onSetReverbPercent
+                        )
+                    }
+                }
+
+                // Close Button
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    colors = ButtonDefaults.buttonColors(containerColor = uniformBtnBg),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, uniformBtnBorder),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .height(38.dp)
                 ) {
                     Text(
                         text = if (isTagalog) "TAPOS NA / ISARA ✓" else "DONE / CLOSE ✓",
                         color = Color.White,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun InstrumentSliderRow(
+    title: String,
+    percent: Int,
+    maxPercent: Int,
+    accentColor: Color,
+    btnBg: Color,
+    btnBorder: Color,
+    onStep: (Int) -> Unit,
+    onSlide: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF1E293B))
+            .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(end = 4.dp)
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(btnBg)
+                        .border(1.dp, btnBorder, RoundedCornerShape(5.dp))
+                        .clickable { onStep(-10) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                }
+                Text(
+                    text = if (percent == 0) "OFF" else "$percent%",
+                    color = if (percent == 0) Color(0xFFFF5252) else accentColor,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.5.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.width(38.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(btnBg)
+                        .border(1.dp, btnBorder, RoundedCornerShape(5.dp))
+                        .clickable { onStep(10) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "+", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                }
+            }
+        }
+        Slider(
+            value = percent.toFloat(),
+            onValueChange = { onSlide(it.toInt()) },
+            valueRange = 0f..maxPercent.toFloat(),
+            colors = SliderDefaults.colors(
+                thumbColor = accentColor,
+                activeTrackColor = accentColor,
+                inactiveTrackColor = Color(0xFF0F172A)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(18.dp)
+        )
+    }
+}
+
+fun resolveLyricFontParams(
+    family: LyricFontFamily
+): Triple<FontFamily, FontWeight, androidx.compose.ui.unit.TextUnit> {
+    return when (family) {
+        LyricFontFamily.SAN_SERIF -> Triple(
+            FontFamily.SansSerif,
+            FontWeight.Bold,
+            0.sp
+        )
+        LyricFontFamily.IMPACT_HEAVY -> Triple(
+            FontFamily(android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.BOLD)),
+            FontWeight.Black,
+            0.6.sp
+        )
+        LyricFontFamily.CONDENSED_TALL -> Triple(
+            FontFamily(android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)),
+            FontWeight.Bold,
+            0.3.sp
+        )
+        LyricFontFamily.GEOMETRIC_POP -> Triple(
+            FontFamily(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD)),
+            FontWeight.ExtraBold,
+            0.8.sp
+        )
+        LyricFontFamily.ROUNDED_CLEAN -> Triple(
+            FontFamily(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)),
+            FontWeight.ExtraBold,
+            1.2.sp
+        )
+        LyricFontFamily.SMALL_CAPS -> Triple(
+            FontFamily(android.graphics.Typeface.create("sans-serif-smallcaps", android.graphics.Typeface.BOLD)),
+            FontWeight.Bold,
+            0.5.sp
+        )
+        LyricFontFamily.SERIF -> Triple(
+            FontFamily.Serif,
+            FontWeight.Bold,
+            0.sp
+        )
+        LyricFontFamily.SERIF_MONOSPACE -> Triple(
+            FontFamily(android.graphics.Typeface.create("serif-monospace", android.graphics.Typeface.BOLD)),
+            FontWeight.Bold,
+            0.sp
+        )
+        LyricFontFamily.MONOSPACE -> Triple(
+            FontFamily.Monospace,
+            FontWeight.Bold,
+            0.sp
+        )
+        LyricFontFamily.CASUAL_FUN -> Triple(
+            FontFamily(android.graphics.Typeface.create("casual", android.graphics.Typeface.BOLD)),
+            FontWeight.Bold,
+            0.sp
+        )
+        LyricFontFamily.CURSIVE -> Triple(
+            FontFamily.Cursive,
+            FontWeight.Bold,
+            0.4.sp
+        )
+        LyricFontFamily.LIGHT_MODERN -> Triple(
+            FontFamily(android.graphics.Typeface.create("sans-serif-light", android.graphics.Typeface.NORMAL)),
+            FontWeight.Light,
+            0.5.sp
+        )
     }
 }
 
@@ -2295,11 +2777,8 @@ fun KaraokeLyricLine(
     val activeColor = Color(lyricConfig.wipeColor.activeColor)
     val inactiveBaseColor = Color(lyricConfig.inactiveColor)
 
-    val composeFontFamily = when (lyricConfig.fontFamily) {
-        LyricFontFamily.SAN_SERIF -> FontFamily.SansSerif
-        LyricFontFamily.MONOSPACE -> FontFamily.Monospace
-        LyricFontFamily.SERIF -> FontFamily.Serif
-        LyricFontFamily.CURSIVE -> FontFamily.Cursive
+    val (composeFontFamily, composeFontWeight, composeLetterSpacing) = remember(lyricConfig.fontFamily) {
+        resolveLyricFontParams(lyricConfig.fontFamily)
     }
 
     val shadow = when (lyricConfig.shadowStyle) {
@@ -2327,13 +2806,17 @@ fun KaraokeLyricLine(
         )
     } else null
 
-    // Outer outline brush: wipes from Crisp White (highlighted portion) to Crisp Black (unhighlighted portion)
-    val outlineBrush = if (isActive && wipeClamped > 0f) {
+    val unhighlightedOutlineColor = Color(lyricConfig.outlineColor.colorLong)
+    val useOutline = lyricConfig.outlineColor != LyricOutlineColor.NONE && (lyricConfig.shadowStyle == LyricShadowStyle.HEAVY_OUTLINE || lyricConfig.outlineColor != LyricOutlineColor.BLACK)
+
+    // Outer outline brush: wipes from Crisp White (highlighted portion) to chosen outline color (unhighlighted portion)
+    val outlineBrush = if (isActive && wipeClamped > 0f && useOutline) {
+        val highlightedOutline = if (lyricConfig.outlineColor == LyricOutlineColor.WHITE) Color.Black else Color.White
         Brush.horizontalGradient(
-            0.0f to Color.White,
-            wipeClamped to Color.White,
-            (wipeClamped + 0.001f).coerceAtMost(1f) to Color.Black,
-            1.0f to Color.Black
+            0.0f to highlightedOutline,
+            wipeClamped to highlightedOutline,
+            (wipeClamped + 0.001f).coerceAtMost(1f) to unhighlightedOutlineColor,
+            1.0f to unhighlightedOutlineColor
         )
     } else null
 
@@ -2342,7 +2825,7 @@ fun KaraokeLyricLine(
             withStyle(
                 SpanStyle(
                     brush = brush,
-                    letterSpacing = 0.sp,
+                    letterSpacing = composeLetterSpacing,
                     shadow = shadow
                 )
             ) {
@@ -2353,7 +2836,7 @@ fun KaraokeLyricLine(
             withStyle(
                 SpanStyle(
                     color = textColor,
-                    letterSpacing = 0.sp,
+                    letterSpacing = composeLetterSpacing,
                     shadow = shadow
                 )
             ) {
@@ -2363,19 +2846,18 @@ fun KaraokeLyricLine(
     }
 
     // Shrink-to-fit: if the line is wider than the screen, reduce the size step by step
-    var fitScale by remember(text, fontSize, lyricConfig.fontScale) { mutableStateOf(1f) }
+    var fitScale by remember(text, fontSize, lyricConfig.fontScale, lyricConfig.fontFamily) { mutableStateOf(1f) }
     val scaledFontSize = (fontSize.value * lyricConfig.fontScale * fitScale).sp
-    val useOutline = lyricConfig.shadowStyle == LyricShadowStyle.HEAVY_OUTLINE
     val outlineWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { scaledFontSize.toPx() * 0.095f }
 
     // Shared unified TextStyle to guarantee 100% identical glyph layout, metrics and spacing:
     val sharedLyricStyle = TextStyle(
         fontSize = scaledFontSize,
-        fontWeight = FontWeight.Bold,
+        fontWeight = composeFontWeight,
         fontStyle = if (lyricConfig.isItalic) FontStyle.Italic else FontStyle.Normal,
         fontFamily = composeFontFamily,
         textAlign = TextAlign.Center,
-        letterSpacing = 0.sp
+        letterSpacing = composeLetterSpacing
     )
 
     val outlineStyle = if (outlineBrush != null) {
@@ -2388,7 +2870,7 @@ fun KaraokeLyricLine(
         )
     } else {
         sharedLyricStyle.copy(
-            color = Color.Black,
+            color = unhighlightedOutlineColor,
             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
                 width = outlineWidthPx,
                 join = androidx.compose.ui.graphics.StrokeJoin.Round
@@ -2495,12 +2977,19 @@ fun RemoteKey(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     textColor: Color = Color.White,
-    bgBrush: Brush? = null
+    bgBrush: Brush? = null,
+    borderBrush: Brush? = null
 ) {
     val defaultBrush = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF27354A),
-            Color(0xFF151D2A)
+            Color(0xFF1E293B),
+            Color(0xFF1E293B)
+        )
+    )
+    val defaultBorder = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF334155),
+            Color(0xFF334155)
         )
     )
     Box(
@@ -2511,7 +3000,7 @@ fun RemoteKey(
             .background(bgBrush ?: defaultBrush)
             .border(
                 1.dp,
-                Brush.verticalGradient(listOf(Color(0xFF475569), Color(0xFF1E293B))),
+                borderBrush ?: defaultBorder,
                 RoundedCornerShape(10.dp)
             )
             .clickable { onClick() }
@@ -2542,37 +3031,45 @@ fun ActionButton(
     textColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    icon: String = ""
+    icon: String = "",
+    borderBrush: Brush? = null
 ) {
+    val defaultBorder = Brush.verticalGradient(
+        listOf(Color(0xFF334155), Color(0xFF334155))
+    )
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp))
+            .shadow(4.dp, RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(bgBrush)
             .border(
-                1.5.dp,
-                Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent)),
-                RoundedCornerShape(12.dp)
+                1.dp,
+                borderBrush ?: defaultBorder,
+                RoundedCornerShape(10.dp)
             )
             .clickable { onClick() }
             .focusable(),
         contentAlignment = Alignment.Center
     ) {
         if (text.isEmpty()) {
-            Text(
-                text = icon,
-                color = textColor,
-                fontWeight = FontWeight.Black,
-                fontSize = 18.sp,
-                style = TextStyle(
-                    shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.4f),
-                        offset = Offset(1f, 1f),
-                        blurRadius = 2f
+            if (icon == "📖") {
+                SongbookButtonGraphic(showLabel = true, iconWidth = 24.dp, iconHeight = 16.dp)
+            } else {
+                Text(
+                    text = icon,
+                    color = textColor,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
+                    style = TextStyle(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.4f),
+                            offset = Offset(1f, 1f),
+                            blurRadius = 2f
+                        )
                     )
                 )
-            )
+            }
         } else {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -2612,12 +3109,8 @@ fun MiniCircleButton(text: String, size: androidx.compose.ui.unit.Dp = 21.dp, on
             .size(size)
             .shadow(2.dp, CircleShape)
             .clip(CircleShape)
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF2E3E56), Color(0xFF182233))
-                )
-            )
-            .border(1.dp, Color(0xFF475569), CircleShape)
+            .background(Color(0xFF1E293B))
+            .border(1.dp, Color(0xFF334155), CircleShape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
@@ -2645,6 +3138,9 @@ fun TvControlDock(
     onToggleTvMode: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val btnBg = Color(state.appTheme.buttonBgColor)
+    val btnBorder = Color(state.appTheme.buttonBorderColor)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -2668,15 +3164,15 @@ fun TvControlDock(
                 modifier = Modifier
                     .height(32.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF261C05))
-                    .border(1.5.dp, Color(0xFFFFC107), RoundedCornerShape(8.dp))
+                    .background(btnBg)
+                    .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
                     .clickable { onOpenSongbook() }
                     .padding(horizontal = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "📖 SONGBOOK",
-                    color = Color(0xFFFFD54F),
+                    color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Black
                 )
@@ -2687,15 +3183,15 @@ fun TvControlDock(
                 modifier = Modifier
                     .height(32.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF002738))
-                    .border(1.5.dp, Color(0xFF00E5FF), RoundedCornerShape(8.dp))
+                    .background(btnBg)
+                    .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
                     .clickable { onOpenKeypad() }
                     .padding(horizontal = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "🔢 DIAL NO.",
-                    color = Color(0xFF00E5FF),
+                    color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Black
                 )
@@ -2712,8 +3208,8 @@ fun TvControlDock(
                 modifier = Modifier
                     .height(32.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Brush.verticalGradient(listOf(Color(0xFF00C853), Color(0xFF009624))))
-                    .border(1.dp, Color(0xFF69F0AE), RoundedCornerShape(8.dp))
+                    .background(btnBg)
+                    .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
                     .clickable { onPlay() }
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center
@@ -2726,8 +3222,8 @@ fun TvControlDock(
                 modifier = Modifier
                     .height(32.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Brush.verticalGradient(listOf(Color(0xFF2979FF), Color(0xFF1565C0))))
-                    .border(1.dp, Color(0xFF82B1FF), RoundedCornerShape(8.dp))
+                    .background(btnBg)
+                    .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
                     .clickable { onNext() }
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center
@@ -2740,8 +3236,8 @@ fun TvControlDock(
                 modifier = Modifier
                     .height(32.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Brush.verticalGradient(listOf(Color(0xFFD50000), Color(0xFFB71C1C))))
-                    .border(1.dp, Color(0xFFFF8A80), RoundedCornerShape(8.dp))
+                    .background(btnBg)
+                    .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
                     .clickable { onStop() }
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center
@@ -2808,13 +3304,13 @@ fun TvControlDock(
                 modifier = Modifier
                     .height(28.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF261C05))
-                    .border(1.dp, Color(0xFFFFC107), RoundedCornerShape(6.dp))
+                    .background(btnBg)
+                    .border(1.dp, btnBorder, RoundedCornerShape(6.dp))
                     .clickable { onOpenBackgroundDialog() }
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "🎬 BG", fontSize = 10.sp, color = Color(0xFFFFD54F), fontWeight = FontWeight.Black)
+                Text(text = "🎬 BG", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Black)
             }
 
             // Settings
@@ -2822,12 +3318,12 @@ fun TvControlDock(
                 modifier = Modifier
                     .size(28.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF0F172A))
-                    .border(1.dp, Color(0xFF475569), RoundedCornerShape(6.dp))
+                    .background(btnBg)
+                    .border(1.dp, btnBorder, RoundedCornerShape(6.dp))
                     .clickable { onOpenSettingsDialog() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "⚙️", fontSize = 13.sp)
+                Text(text = "⚙️", fontSize = 13.sp, color = Color.White)
             }
 
             // Phone Split-screen Toggle
@@ -2835,8 +3331,8 @@ fun TvControlDock(
                 modifier = Modifier
                     .height(28.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF1E293B))
-                    .border(1.dp, Color(0xFF64748B), RoundedCornerShape(6.dp))
+                    .background(btnBg)
+                    .border(1.dp, btnBorder, RoundedCornerShape(6.dp))
                     .clickable { onToggleTvMode() }
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center
@@ -2861,6 +3357,9 @@ fun TvKeypadDialog(
     onPlay: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val btnBg = Color(state.appTheme.buttonBgColor)
+    val btnBorder = Color(state.appTheme.buttonBorderColor)
+
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
@@ -2871,7 +3370,7 @@ fun TvKeypadDialog(
                         listOf(Color(0xFF1E293B), Color(0xFF0F172A))
                     )
                 )
-                .border(2.dp, Color(0xFFFFD54F), RoundedCornerShape(16.dp))
+                .border(2.dp, btnBorder, RoundedCornerShape(16.dp))
                 .padding(16.dp)
         ) {
             Column(
@@ -2897,17 +3396,17 @@ fun TvKeypadDialog(
                             text = if (isTagalog) "🔢 KEYPAD NG TV" else "🔢 TV KEYPAD",
                             fontWeight = FontWeight.Black,
                             fontSize = 15.sp,
-                            color = Color(0xFFFFD54F)
+                            color = Color.White
                         )
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (showQrRemoteInTv) Color(0xFF00E676) else Color(0xFF1E293B),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E676)),
+                            color = btnBg,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, btnBorder),
                             modifier = Modifier.clickable { showQrRemoteInTv = !showQrRemoteInTv }
                         ) {
                             Text(
                                 text = "📱 QR REMOTE",
-                                color = if (showQrRemoteInTv) Color.Black else Color(0xFF00FF88),
+                                color = Color.White,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Black,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
@@ -3025,7 +3524,7 @@ fun TvKeypadDialog(
                     )
                 }
 
-                // Keypad grid (1-9, CLR, 0, DEL)
+                // Keypad grid (1-9, CLR, 0, DEL) - Single Uniform Button Color
                 val rows = listOf(
                     listOf("1", "2", "3"),
                     listOf("4", "5", "6"),
@@ -3055,12 +3554,9 @@ fun TvKeypadDialog(
                                     .weight(1f)
                                     .height(44.dp),
                                 shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, btnBorder),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = when (key) {
-                                        "CLR" -> Color(0xFFB71C1C)
-                                        "DEL" -> Color(0xFFD97706)
-                                        else -> Color(0xFF334155)
-                                    }
+                                    containerColor = btnBg
                                 )
                             ) {
                                 Text(
@@ -3074,7 +3570,7 @@ fun TvKeypadDialog(
                     }
                 }
 
-                // Action Row: RESERVE & PLAY
+                // Action Row: RESERVE & PLAY (Single Uniform Color)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -3088,13 +3584,14 @@ fun TvKeypadDialog(
                             .weight(1f)
                             .height(44.dp),
                         shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, btnBorder),
+                        colors = ButtonDefaults.buttonColors(containerColor = btnBg)
                     ) {
                         Text(
                             text = if (isTagalog) "R IRESERBA" else "R RESERVE",
                             fontWeight = FontWeight.Black,
                             fontSize = 14.sp,
-                            color = Color.Black
+                            color = Color.White
                         )
                     }
 
@@ -3107,7 +3604,8 @@ fun TvKeypadDialog(
                             .weight(1f)
                             .height(44.dp),
                         shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C853))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, btnBorder),
+                        colors = ButtonDefaults.buttonColors(containerColor = btnBg)
                     ) {
                         Text(
                             text = if (isTagalog) "▶ TUGTUGIN" else "▶ PLAY",
@@ -3132,6 +3630,7 @@ fun TvKeypadDialog(
 @Composable
 fun SongbookSearchOverlay(
     songs: List<Song>,
+    searchQuery: String = "",
     reserveQueue: List<Song> = emptyList(),
     favoriteSongs: List<Song> = emptyList(),
     favoriteCodes: Set<String> = emptySet(),
@@ -3155,7 +3654,12 @@ fun SongbookSearchOverlay(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(searchQuery) }
+    LaunchedEffect(searchQuery) {
+        if (query != searchQuery) {
+            query = searchQuery
+        }
+    }
     val reservedCodes = remember { mutableStateMapOf<String, Boolean>() }
 
     Surface(
@@ -3342,12 +3846,12 @@ fun SongbookSearchOverlay(
                         }
                     }
 
-                    // Compact Search Input Bar
+                    // Compact Search Input Bar with inline Backspace (⌫) and Clear (✕) buttons
                     OutlinedTextField(
                         value = query,
-                        onValueChange = {
-                            query = it
-                            onQueryChange(it)
+                        onValueChange = { newText ->
+                            query = newText
+                            onQueryChange(newText)
                         },
                         placeholder = {
                             Text(
@@ -3356,6 +3860,63 @@ fun SongbookSearchOverlay(
                                 color = Color(0xFF94A3B8)
                             )
                         },
+                        trailingIcon = {
+                            if (query.isNotEmpty()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.padding(end = 6.dp)
+                                ) {
+                                    // Delete 1 mistyped character (⌫)
+                                    Box(
+                                        modifier = Modifier
+                                            .height(26.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Color(0xFF334155))
+                                            .border(1.dp, Color(0xFFFFD54F), RoundedCornerShape(6.dp))
+                                            .clickable {
+                                                if (query.isNotEmpty()) {
+                                                    val updated = query.dropLast(1)
+                                                    query = updated
+                                                    onQueryChange(updated)
+                                                }
+                                            }
+                                            .padding(horizontal = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "⌫",
+                                            color = Color(0xFFFFD54F),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
+                                    // Clear all text (✕)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Color(0xFF475569))
+                                            .clickable {
+                                                query = ""
+                                                onQueryChange("")
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "✕",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            autoCorrect = false,
+                            imeAction = androidx.compose.ui.text.input.ImeAction.Search
+                        ),
                         textStyle = TextStyle(
                             color = Color.White,
                             fontSize = 12.sp,
@@ -3444,54 +4005,72 @@ fun SongbookSearchOverlay(
 
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     // 1. Favorite Toggle (❤️)
                                     Surface(
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         color = if (isFav) Color(0xFF831843) else Color(0xFF0F172A),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isFav) Color(0xFFFF4081) else Color(0xFF475569)),
-                                        modifier = Modifier.clickable { onToggleFavoriteSong(song) }
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isFav) Color(0xFFFF4081) else Color(0xFF334155)),
+                                        modifier = Modifier
+                                            .height(30.dp)
+                                            .clickable { onToggleFavoriteSong(song) }
                                     ) {
-                                        Text(
-                                            text = "❤️",
-                                            fontSize = 11.sp,
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
-                                        )
-                                    }
-
-                                    // 2. Reserve Button (R)
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (isReserved) Color(0xFF064E3B) else Color(0xFF332000),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F)),
-                                        modifier = Modifier.clickable {
-                                            onReserveSong(song)
-                                            reservedCodes[song.code] = true
+                                        Box(
+                                            modifier = Modifier.padding(horizontal = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "❤️",
+                                                fontSize = 11.sp
+                                            )
                                         }
-                                    ) {
-                                        Text(
-                                            text = if (isReserved) "✓ R" else "R",
-                                            color = if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
                                     }
 
-                                    // 3. Play Button (▶)
+                                    // 2. Reserve Button (+ RES)
                                     Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (isPlayable) Color(0xFF00E676) else Color(0xFF475569),
-                                        modifier = Modifier.clickable { onSelectSong(song) }
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isReserved) Color(0xFF064E3B) else Color(0xFF1E293B),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F)),
+                                        modifier = Modifier
+                                            .height(30.dp)
+                                            .clickable {
+                                                onReserveSong(song)
+                                                reservedCodes[song.code] = true
+                                            }
                                     ) {
-                                        Text(
-                                            text = "▶",
-                                            color = if (isPlayable) Color.Black else Color.White,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
+                                        Box(
+                                            modifier = Modifier.padding(horizontal = 9.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (isReserved) "✓ RES" else "+ RES",
+                                                color = if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F),
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Black
+                                            )
+                                        }
+                                    }
+
+                                    // 3. Play Button (▶ TUGTOG)
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isPlayable) Color(0xFF00E676) else Color(0xFF334155),
+                                        modifier = Modifier
+                                            .height(30.dp)
+                                            .clickable { onSelectSong(song) }
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.padding(horizontal = 10.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "▶ TUGTOG",
+                                                color = if (isPlayable) Color.Black else Color.White,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Black
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -3904,6 +4483,61 @@ fun SongbookDialog(
                         onQueryChange(it)
                     },
                     placeholder = { Text(if (isTagalog) "Maghanap ng titulo, artist, o code..." else "Search title, artist, or code...", fontSize = 12.sp) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(end = 6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .height(26.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFF334155))
+                                        .border(1.dp, Color(0xFFFFD54F), RoundedCornerShape(6.dp))
+                                        .clickable {
+                                            if (query.isNotEmpty()) {
+                                                val updated = query.dropLast(1)
+                                                query = updated
+                                                onQueryChange(updated)
+                                            }
+                                        }
+                                        .padding(horizontal = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "⌫",
+                                        color = Color(0xFFFFD54F),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFF475569))
+                                        .clickable {
+                                            query = ""
+                                            onQueryChange("")
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "✕",
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        autoCorrect = false,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Search
+                    ),
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -4003,41 +4637,53 @@ fun SongbookDialog(
                                 )
                             }
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 val isReserved = reservedCodes[song.code] == true
-                                Button(
-                                    onClick = {
-                                        onReserveSong(song)
-                                        reservedCodes[song.code] = true
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isReserved) Color(0xFF1E3A2F) else Color(0xFF2E3D5E)
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                    shape = RoundedCornerShape(6.dp),
-                                    modifier = Modifier.height(28.dp)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isReserved) Color(0xFF064E3B) else Color(0xFF1E293B),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F)),
+                                    modifier = Modifier
+                                        .height(30.dp)
+                                        .clickable {
+                                            onReserveSong(song)
+                                            reservedCodes[song.code] = true
+                                        }
                                 ) {
-                                    Text(
-                                        text = if (isReserved) (if (isTagalog) "✓ NAKALISTA" else "✓ QUEUED") else (if (isTagalog) "IRESERBA" else "RESERVE"),
-                                        color = if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Box(
+                                        modifier = Modifier.padding(horizontal = 10.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (isReserved) (if (isTagalog) "✓ NAKALISTA" else "✓ QUEUED") else (if (isTagalog) "+ IRESERBA" else "+ RESERVE"),
+                                            color = if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Button(
-                                    onClick = { onSelectSong(song) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = if (isPlayable) Color(0xFF00E676) else Color(0xFF475569)),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                    shape = RoundedCornerShape(6.dp),
-                                    modifier = Modifier.height(28.dp)
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isPlayable) Color(0xFF00E676) else Color(0xFF334155),
+                                    modifier = Modifier
+                                        .height(30.dp)
+                                        .clickable { onSelectSong(song) }
                                 ) {
-                                    Text(
-                                        text = if (isTagalog) "TUGTOG" else "PLAY",
-                                        color = if (isPlayable) Color.Black else Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Box(
+                                        modifier = Modifier.padding(horizontal = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (isTagalog) "▶ TUGTOG" else "▶ PLAY",
+                                            color = if (isPlayable) Color.Black else Color.White,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -4787,9 +5433,11 @@ fun BackgroundSelectionDialog(
 @Composable
 fun LyricStyleDialog(
     config: LyricCustomization,
+    isLandscape: Boolean = false,
     onSelectFontFamily: (LyricFontFamily) -> Unit,
     onSelectWipeColor: (LyricWipeColor) -> Unit,
     onSelectShadowStyle: (LyricShadowStyle) -> Unit,
+    onSelectOutlineColor: (LyricOutlineColor) -> Unit = {},
     onToggleAllCaps: () -> Unit,
     onToggleItalic: () -> Unit,
     onAdjustFontScale: (Float) -> Unit,
@@ -4809,20 +5457,23 @@ fun LyricStyleDialog(
         label = "preview_wipe"
     )
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(18.dp),
             color = Color(0xFF0F172A),
             border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF818CF8)),
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.92f)
+                .fillMaxWidth(if (isLandscape) 0.88f else 0.95f)
+                .fillMaxHeight(if (isLandscape) 0.94f else 0.90f)
                 .padding(4.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(14.dp)
+                    .padding(if (isLandscape) 14.dp else 14.dp)
             ) {
                 // Header Bar
                 Row(
@@ -4830,510 +5481,730 @@ fun LyricStyleDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = "🔤 LYRIC FONT, STYLE & POSITION",
                             fontWeight = FontWeight.Black,
                             color = Color(0xFFA5B4FC),
-                            fontSize = 13.sp
+                            fontSize = if (isLandscape) 14.sp else 12.5.sp
                         )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFF312E81)
+                        ) {
+                            Text(
+                                text = "CUSTOMIZE",
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFA5B4FC),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
                         Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // LIVE PREVIEW CARD (Simulated TV screen with live wiping!)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color(0xFF020617), Color(0xFF0B1120), Color(0xFF020617))
-                            )
-                        )
-                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                if (isLandscape) {
+                    // Two-Column Layout for TV / Landscape
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        // Left Column: Live TV Preview & Layout Options
+                        Column(
+                            modifier = Modifier
+                                .weight(0.44f)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = "LIVE TV PREVIEW",
-                                fontSize = 8.sp,
-                                color = Color(0xFF64748B),
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 2.sp
+                            // Live Preview Box
+                            LyricLivePreviewCard(config = config, previewWipe = previewWipe)
+
+                            // Line Count & Position
+                            LyricLineAndPositionControls(
+                                config = config,
+                                onSelectLineCount = onSelectLineCount,
+                                onSelectPosition = onSelectPosition
                             )
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFF312E81)
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            Button(
+                                onClick = onDismiss,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp)
                             ) {
                                 Text(
-                                    text = "${config.lineCount.displayName} • ${config.position.displayName}",
-                                    fontSize = 7.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFA5B4FC),
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    text = "ILAPAT & ISARA (APPLY & CLOSE) ✓",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.5.sp,
+                                    color = Color.White
                                 )
                             }
                         }
-                        KaraokeLyricLine(
-                            text = "STILL THE ONE",
-                            isActive = true,
-                            wipePercent = previewWipe,
-                            fontSize = 17.sp,
-                            lyricConfig = config
+
+                        // Right Column: Scrollable controls
+                        LyricControlsScrollable(
+                            config = config,
+                            onSelectFontFamily = onSelectFontFamily,
+                            onSelectWipeColor = onSelectWipeColor,
+                            onSelectShadowStyle = onSelectShadowStyle,
+                            onSelectOutlineColor = onSelectOutlineColor,
+                            onToggleAllCaps = onToggleAllCaps,
+                            onToggleItalic = onToggleItalic,
+                            onAdjustFontScale = onAdjustFontScale,
+                            onApplyPreset = onApplyPreset,
+                            modifier = Modifier
+                                .weight(0.56f)
+                                .fillMaxHeight()
                         )
-                        KaraokeLyricLine(
-                            text = "YOU'RE STILL THE ONE THAT I LOVE",
-                            isActive = false,
-                            wipePercent = 0f,
-                            fontSize = 17.sp,
-                            lyricConfig = config
+                    }
+                } else {
+                    // Portrait Layout: Single Column with preview on top
+                    LyricLivePreviewCard(config = config, previewWipe = previewWipe)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        LyricLineAndPositionControls(
+                            config = config,
+                            onSelectLineCount = onSelectLineCount,
+                            onSelectPosition = onSelectPosition
                         )
-                        if (config.lineCount == LyricLineCount.FOUR_LINES) {
-                            KaraokeLyricLine(
-                                text = "THE ONLY ONE I DREAM OF",
-                                isActive = false,
-                                wipePercent = 0f,
-                                fontSize = 15.sp,
-                                lyricConfig = config
-                            )
-                            KaraokeLyricLine(
-                                text = "STILL THE ONE I KISS GOODNIGHT",
-                                isActive = false,
-                                wipePercent = 0f,
-                                fontSize = 15.sp,
-                                lyricConfig = config
-                            )
-                        }
+                        LyricControlsInner(
+                            config = config,
+                            onSelectFontFamily = onSelectFontFamily,
+                            onSelectWipeColor = onSelectWipeColor,
+                            onSelectShadowStyle = onSelectShadowStyle,
+                            onSelectOutlineColor = onSelectOutlineColor,
+                            onToggleAllCaps = onToggleAllCaps,
+                            onToggleItalic = onToggleItalic,
+                            onAdjustFontScale = onAdjustFontScale,
+                            onApplyPreset = onApplyPreset
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                    ) {
+                        Text(
+                            text = "ILAPAT & ISARA (APPLY & CLOSE) ✓",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            color = Color.White
+                        )
                     }
                 }
+            }
+        }
+    }
+}
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Scrollable Customization Options
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // SECTION 0A: LINE COUNT (2 LINES VS 4 LINES)
-                    item {
-                        Text(
-                            text = "📄 BILANG NG LINYA NG LYRICS (LINE COUNT):",
-                            fontSize = 11.sp,
-                            color = Color(0xFFFFD54F),
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            LyricLineCount.values().forEach { lineOption ->
-                                val isSelected = config.lineCount == lineOption
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onSelectLineCount(lineOption) }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = if (isSelected) "✓ ${lineOption.displayName}" else lineOption.displayName,
-                                            fontSize = 10.5.sp,
-                                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
-                                            fontWeight = FontWeight.Bold,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // SECTION 0B: POSITION NG LYRICS (LOWER THIRD, CENTER, TOP)
-                    item {
-                        Text(
-                            text = "📍 POSISYON NG LYRICS SA SCREEN (POSITION):",
-                            fontSize = 11.sp,
-                            color = Color(0xFFFFD54F),
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            LyricScreenPosition.values().forEach { posOption ->
-                                val isSelected = config.position == posOption
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onSelectPosition(posOption) }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = if (isSelected) "✓ ${posOption.displayName}" else posOption.displayName,
-                                            fontSize = 9.5.sp,
-                                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
-                                            fontWeight = FontWeight.Bold,
-                                            textAlign = TextAlign.Center,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // SECTION 1: INSTANT PRESETS
-                    item {
-                        Text(
-                            text = "⚡ QUICK PRESETS (MGA TEMA):",
-                            fontSize = 11.sp,
-                            color = Color(0xFFA5B4FC),
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            val presets = listOf(
-                                "live_tv" to "📺 Live TV Blue",
-                                "platinum" to "🌟 Platinum",
-                                "cyber" to "🪩 Cyber Neon",
-                                "pop" to "🎤 Party Pink",
-                                "gold" to "👑 Pure Gold",
-                                "ballad" to "🍂 Ballad"
-                            )
-                            presets.forEach { (presetKey, presetLabel) ->
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFF1E293B),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onApplyPreset(presetKey) }
-                                ) {
-                                    Text(
-                                        text = presetLabel,
-                                        fontSize = 9.sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // SECTION 2: FONT FAMILY (TYPEFACE)
-                    item {
-                        Text(
-                            text = "🔤 FONT FAMILY (ESTILO NG TITIK):",
-                            fontSize = 11.sp,
-                            color = Color(0xFFA5B4FC),
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            LyricFontFamily.values().forEach { family ->
-                                val isSelected = config.fontFamily == family
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B))
-                                        .border(
-                                            width = if (isSelected) 1.5.dp else 1.dp,
-                                            color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable { onSelectFontFamily(family) }
-                                        .padding(horizontal = 10.dp, vertical = 7.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val sampleFont = when (family) {
-                                        LyricFontFamily.SAN_SERIF -> FontFamily.SansSerif
-                                        LyricFontFamily.MONOSPACE -> FontFamily.Monospace
-                                        LyricFontFamily.SERIF -> FontFamily.Serif
-                                        LyricFontFamily.CURSIVE -> FontFamily.Cursive
-                                    }
-                                    Text(
-                                        text = family.displayName,
-                                        fontFamily = sampleFont,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = if (isSelected) Color.White else Color(0xFFCBD5E1)
-                                    )
-                                    if (isSelected) {
-                                        Text(
-                                            text = "✓ AKTIBO",
-                                            color = Color(0xFF818CF8),
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 10.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // SECTION 3: WIPE COLOR (KULAY NG KANTA)
-                    item {
-                        Text(
-                            text = "🎨 WIPE COLOR (KULAY NG KINAKANTA):",
-                            fontSize = 11.sp,
-                            color = Color(0xFFA5B4FC),
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            LyricWipeColor.values().forEach { wipeColor ->
-                                val isSelected = config.wipeColor == wipeColor
-                                val c = Color(wipeColor.activeColor)
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(c)
-                                        .border(
-                                            width = if (isSelected) 3.dp else 1.dp,
-                                            color = if (isSelected) Color.White else Color.Black.copy(alpha = 0.5f),
-                                            shape = CircleShape
-                                        )
-                                        .clickable { onSelectWipeColor(wipeColor) },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isSelected) {
-                                        Text(
-                                            text = "✓",
-                                            color = Color.Black,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 14.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // SECTION 4: SHADOW & GLOW EFFECTS
-                    item {
-                        Text(
-                            text = "✨ SHADOW & OUTLINE (EPEKTO / ANINO):",
-                            fontSize = 11.sp,
-                            color = Color(0xFFA5B4FC),
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            val shadows = listOf(
-                                LyricShadowStyle.HEAVY_OUTLINE to "Outline",
-                                LyricShadowStyle.NEON_GLOW to "Neon Glow",
-                                LyricShadowStyle.SUBTLE_DROP to "3D Drop",
-                                LyricShadowStyle.CLEAN to "Clean"
-                            )
-                            shadows.forEach { (shadow, label) ->
-                                val isSelected = config.shadowStyle == shadow
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onSelectShadowStyle(shadow) }
-                                ) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 10.sp,
-                                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(vertical = 7.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // SECTION 5: TEXT FORMATTING (ALL CAPS & ITALIC)
-                    item {
-                        Text(
-                            text = "✍️ TEXT CASING AT FORMAT:",
-                            fontSize = 11.sp,
-                            color = Color(0xFFA5B4FC),
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // ALL CAPS Toggle
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (config.isAllCaps) Color(0xFF312E81) else Color(0xFF1E293B),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    width = if (config.isAllCaps) 1.5.dp else 1.dp,
-                                    color = if (config.isAllCaps) Color(0xFF818CF8) else Color(0xFF334155)
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { onToggleAllCaps() }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = if (config.isAllCaps) "🔠 ALL CAPS: ON" else "🔡 Normal Case",
-                                        fontSize = 10.sp,
-                                        color = if (config.isAllCaps) Color.White else Color(0xFF94A3B8),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            // Italic Toggle
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (config.isItalic) Color(0xFF312E81) else Color(0xFF1E293B),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    width = if (config.isItalic) 1.5.dp else 1.dp,
-                                    color = if (config.isItalic) Color(0xFF818CF8) else Color(0xFF334155)
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { onToggleItalic() }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = if (config.isItalic) "🖋️ Italic: ON" else "🖋️ Normal (Tindig)",
-                                        fontSize = 10.sp,
-                                        color = if (config.isItalic) Color.White else Color(0xFF94A3B8),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // SECTION 6: FONT SIZE SCALE
-                    item {
-                        Text(
-                            text = "📐 LAKI NG TITIK (FONT SIZE SCALE):",
-                            fontSize = 11.sp,
-                            color = Color(0xFFA5B4FC),
-                            fontWeight = FontWeight.Black
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val scales = listOf(
-                                0.85f to "Maliit (85%)",
-                                1.0f to "Normal (100%)",
-                                1.15f to "Malaki (115%)",
-                                1.30f to "Extra (130%)"
-                            )
-                            scales.forEach { (scale, label) ->
-                                val isSelected = kotlin.math.abs(config.fontScale - scale) < 0.05f
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onAdjustFontScale(scale) }
-                                ) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 9.sp,
-                                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // DONE / CLOSE BUTTON
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp)
+@Composable
+private fun LyricLivePreviewCard(
+    config: LyricCustomization,
+    previewWipe: Float,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF020617), Color(0xFF0B1120), Color(0xFF020617))
+                )
+            )
+            .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "LIVE TV PREVIEW",
+                    fontSize = 7.5.sp,
+                    color = Color(0xFF64748B),
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.5.sp
+                )
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFF312E81)
                 ) {
                     Text(
-                        text = "ILAPAT & ISARA (APPLY & CLOSE) ✓",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.sp,
-                        color = Color.White
+                        text = "${config.lineCount.displayName} • ${config.position.displayName}",
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFA5B4FC),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                    )
+                }
+            }
+            KaraokeLyricLine(
+                text = "STILL THE ONE",
+                isActive = true,
+                wipePercent = previewWipe,
+                fontSize = 15.sp,
+                lyricConfig = config
+            )
+            KaraokeLyricLine(
+                text = "YOU'RE STILL THE ONE THAT I LOVE",
+                isActive = false,
+                wipePercent = 0f,
+                fontSize = 15.sp,
+                lyricConfig = config
+            )
+            if (config.lineCount == LyricLineCount.FOUR_LINES) {
+                KaraokeLyricLine(
+                    text = "THE ONLY ONE I DREAM OF",
+                    isActive = false,
+                    wipePercent = 0f,
+                    fontSize = 13.sp,
+                    lyricConfig = config
+                )
+                KaraokeLyricLine(
+                    text = "STILL THE ONE I KISS GOODNIGHT",
+                    isActive = false,
+                    wipePercent = 0f,
+                    fontSize = 13.sp,
+                    lyricConfig = config
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricLineAndPositionControls(
+    config: LyricCustomization,
+    onSelectLineCount: (LyricLineCount) -> Unit,
+    onSelectPosition: (LyricScreenPosition) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Line count
+        Text(
+            text = "📄 BILANG NG LINYA (LINE COUNT):",
+            fontSize = 9.5.sp,
+            color = Color(0xFFFFD54F),
+            fontWeight = FontWeight.Black
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            LyricLineCount.values().forEach { lineOption ->
+                val isSelected = config.lineCount == lineOption
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectLineCount(lineOption) }
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isSelected) "✓ ${lineOption.displayName}" else lineOption.displayName,
+                            fontSize = 9.5.sp,
+                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Position
+        Text(
+            text = "📍 POSISYON SA SCREEN (POSITION):",
+            fontSize = 9.5.sp,
+            color = Color(0xFFFFD54F),
+            fontWeight = FontWeight.Black
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            LyricScreenPosition.values().forEach { posOption ->
+                val isSelected = config.position == posOption
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectPosition(posOption) }
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp, horizontal = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isSelected) "✓ ${posOption.displayName.split(' ').first()}" else posOption.displayName.split(' ').first(),
+                            fontSize = 9.sp,
+                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LyricControlsScrollable(
+    config: LyricCustomization,
+    onSelectFontFamily: (LyricFontFamily) -> Unit,
+    onSelectWipeColor: (LyricWipeColor) -> Unit,
+    onSelectShadowStyle: (LyricShadowStyle) -> Unit,
+    onSelectOutlineColor: (LyricOutlineColor) -> Unit,
+    onToggleAllCaps: () -> Unit,
+    onToggleItalic: () -> Unit,
+    onAdjustFontScale: (Float) -> Unit,
+    onApplyPreset: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        LyricControlsInner(
+            config = config,
+            onSelectFontFamily = onSelectFontFamily,
+            onSelectWipeColor = onSelectWipeColor,
+            onSelectShadowStyle = onSelectShadowStyle,
+            onSelectOutlineColor = onSelectOutlineColor,
+            onToggleAllCaps = onToggleAllCaps,
+            onToggleItalic = onToggleItalic,
+            onAdjustFontScale = onAdjustFontScale,
+            onApplyPreset = onApplyPreset
+        )
+    }
+}
+
+@Composable
+private fun LyricControlsInner(
+    config: LyricCustomization,
+    onSelectFontFamily: (LyricFontFamily) -> Unit,
+    onSelectWipeColor: (LyricWipeColor) -> Unit,
+    onSelectShadowStyle: (LyricShadowStyle) -> Unit,
+    onSelectOutlineColor: (LyricOutlineColor) -> Unit,
+    onToggleAllCaps: () -> Unit,
+    onToggleItalic: () -> Unit,
+    onAdjustFontScale: (Float) -> Unit,
+    onApplyPreset: (String) -> Unit
+) {
+    // SECTION 1: INSTANT PRESETS
+    Column {
+        Text(
+            text = "⚡ QUICK PRESETS (MGA TEMA):",
+            fontSize = 11.sp,
+            color = Color(0xFFA5B4FC),
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val presetRow1 = listOf(
+                "live_tv" to "📺 Live TV Blue",
+                "platinum" to "🌟 Platinum",
+                "cyber" to "🪩 Cyber Neon"
+            )
+            val presetRow2 = listOf(
+                "pop" to "🎤 Party Pink",
+                "gold" to "👑 Pure Gold",
+                "ballad" to "🍂 Ballad"
+            )
+
+            listOf(presetRow1, presetRow2).forEach { rowPresets ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    rowPresets.forEach { (presetKey, presetLabel) ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1E293B),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(32.dp)
+                                .clickable { onApplyPreset(presetKey) }
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = presetLabel,
+                                    fontSize = 9.5.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // SECTION 2: FONT FAMILY (TYPEFACE - 12 FONTS)
+    Column {
+        Text(
+            text = "🔤 FONT FAMILY (12 ESTILO NG TITIK):",
+            fontSize = 11.sp,
+            color = Color(0xFFA5B4FC),
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            LyricFontFamily.values().toList().chunked(2).forEach { rowFamilies ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    rowFamilies.forEach { family ->
+                        val isSelected = config.fontFamily == family
+                        val (sampleFont, sampleWeight, sampleSpacing) = remember(family) {
+                            resolveLyricFontParams(family)
+                        }
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B))
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { onSelectFontFamily(family) }
+                                .padding(horizontal = 8.dp, vertical = 7.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = family.displayName,
+                                fontFamily = sampleFont,
+                                fontWeight = sampleWeight,
+                                letterSpacing = sampleSpacing,
+                                fontSize = 10.5.sp,
+                                color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isSelected) {
+                                Text(
+                                    text = " ✓",
+                                    color = Color(0xFF00E676),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // SECTION 3: WIPE COLOR (KULAY NG KANTA)
+    Column {
+        Text(
+            text = "🎨 WIPE COLOR (KULAY NG KINAKANTA):",
+            fontSize = 11.sp,
+            color = Color(0xFFA5B4FC),
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            LyricWipeColor.values().forEach { wipeColor ->
+                val isSelected = config.wipeColor == wipeColor
+                val c = Color(wipeColor.activeColor)
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(c)
+                        .border(
+                            width = if (isSelected) 3.dp else 1.dp,
+                            color = if (isSelected) Color.White else Color.Black.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        )
+                        .clickable { onSelectWipeColor(wipeColor) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isSelected) {
+                        Text(
+                            text = "✓",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // SECTION 4: SHADOW & GLOW EFFECTS
+    Column {
+        Text(
+            text = "✨ SHADOW & OUTLINE (EPEKTO / ANINO):",
+            fontSize = 11.sp,
+            color = Color(0xFFA5B4FC),
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val shadows = listOf(
+                LyricShadowStyle.HEAVY_OUTLINE to "Outline",
+                LyricShadowStyle.NEON_GLOW to "Neon Glow",
+                LyricShadowStyle.SUBTLE_DROP to "3D Drop",
+                LyricShadowStyle.CLEAN to "Clean"
+            )
+            shadows.forEach { (shadow, label) ->
+                val isSelected = config.shadowStyle == shadow
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectShadowStyle(shadow) }
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 10.sp,
+                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 7.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    // SECTION 4B: OUTLINE COLOR (KULAY NG OUTLINE NG TITIK)
+    Column {
+        Text(
+            text = "🖍️ KULAY NG OUTLINE NG TITIK (OUTLINE COLOR):",
+            fontSize = 11.sp,
+            color = Color(0xFFA5B4FC),
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LyricOutlineColor.values().forEach { outlineColor ->
+                val isSelected = config.outlineColor == outlineColor
+                val c = if (outlineColor == LyricOutlineColor.NONE) Color.Transparent else Color(outlineColor.colorLong)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { onSelectOutlineColor(outlineColor) }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(c)
+                            .border(
+                                width = if (isSelected) 2.5.dp else 1.dp,
+                                color = if (isSelected) Color(0xFF818CF8) else Color(0xFF475569),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (outlineColor == LyricOutlineColor.NONE) {
+                            Text(
+                                text = "✕",
+                                color = Color(0xFFEF4444),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                        } else if (isSelected) {
+                            Text(
+                                text = "✓",
+                                color = if (outlineColor == LyricOutlineColor.WHITE || outlineColor == LyricOutlineColor.GOLD || outlineColor == LyricOutlineColor.CYAN) Color.Black else Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = outlineColor.displayName.split(" ").first(),
+                        fontSize = 8.5.sp,
+                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+    }
+
+    // SECTION 5: TEXT FORMATTING (ALL CAPS & ITALIC)
+    Column {
+        Text(
+            text = "✍️ TEXT CASING AT FORMAT:",
+            fontSize = 11.sp,
+            color = Color(0xFFA5B4FC),
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // ALL CAPS Toggle
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (config.isAllCaps) Color(0xFF312E81) else Color(0xFF1E293B),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (config.isAllCaps) 1.5.dp else 1.dp,
+                    color = if (config.isAllCaps) Color(0xFF818CF8) else Color(0xFF334155)
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onToggleAllCaps() }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (config.isAllCaps) "🔠 ALL CAPS: ON" else "🔡 Normal Case",
+                        fontSize = 10.sp,
+                        color = if (config.isAllCaps) Color.White else Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // Italic Toggle
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (config.isItalic) Color(0xFF312E81) else Color(0xFF1E293B),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (config.isItalic) 1.5.dp else 1.dp,
+                    color = if (config.isItalic) Color(0xFF818CF8) else Color(0xFF334155)
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onToggleItalic() }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (config.isItalic) "🖋️ Italic: ON" else "🖋️ Normal (Tindig)",
+                        fontSize = 10.sp,
+                        color = if (config.isItalic) Color.White else Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+
+    // SECTION 6: FONT SIZE SCALE
+    Column {
+        Text(
+            text = "📐 LAKI NG TITIK (FONT SIZE SCALE):",
+            fontSize = 11.sp,
+            color = Color(0xFFA5B4FC),
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val scales = listOf(
+                0.85f to "Maliit (85%)",
+                1.0f to "Normal (100%)",
+                1.15f to "Malaki (115%)",
+                1.30f to "Extra (130%)"
+            )
+            scales.forEach { (scale, label) ->
+                val isSelected = Math.abs(config.fontScale - scale) < 0.05f
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onAdjustFontScale(scale) }
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 9.sp,
+                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
                     )
                 }
             }
@@ -6819,6 +7690,21 @@ fun ForceUpdateDialog(
                             color = Color(0xFF94A3B8),
                             textAlign = TextAlign.Center
                         )
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp)
+                        ) {
+                            Text(
+                                text = "ISARA ✕",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                        }
                     }
 
                     is com.example.videokey.update.AppUpdateManager.UpdateState.Error -> {
@@ -7223,6 +8109,3 @@ fun DownloadItemCard(
         }
     }
 }
-
-
-

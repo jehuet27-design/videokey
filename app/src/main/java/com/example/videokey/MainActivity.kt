@@ -70,6 +70,16 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val state = viewModel.uiState.value
+        // When Songbook search is open, let Compose OutlinedTextField handle Backspace (KEYCODE_DEL), digits, and typing first!
+        if (state.isSongbookOpen) {
+            if (event.keyCode == android.view.KeyEvent.KEYCODE_BACK && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                viewModel.closeSongbook()
+                return true
+            }
+            return super.dispatchKeyEvent(event)
+        }
+
         if (event.action == android.view.KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
                 in android.view.KeyEvent.KEYCODE_0..android.view.KeyEvent.KEYCODE_9 -> {
@@ -245,6 +255,39 @@ class MainActivity : ComponentActivity() {
                 "open_download" -> viewModel.openDownloadCenter()
                 "open_lyric_style" -> viewModel.openLyricStyleDialog()
                 "open_bg_dialog" -> viewModel.openBackgroundDialog()
+                "open_songbook" -> viewModel.openSongbook()
+                "search_songbook" -> {
+                    viewModel.openSongbook()
+                    val q = intent.getStringExtra("query") ?: ""
+                    viewModel.searchSongbook(q)
+                }
+                "delete_digit" -> viewModel.onDeleteDigit()
+                "clear_code" -> viewModel.onClearCode()
+                "set_lyric_font" -> {
+                    val fontName = intent.getStringExtra("font") ?: "SAN_SERIF"
+                    runCatching {
+                        com.example.videokey.ui.main.LyricFontFamily.valueOf(fontName)
+                    }.onSuccess { family ->
+                        viewModel.setLyricFontFamily(family)
+                    }
+                }
+                "start_recording" -> viewModel.startRecordingNow()
+                "stop_recording" -> viewModel.stopAndSaveRecording()
+                "open_recordings" -> viewModel.openRecordingsDialog()
+                "play_latest_recording" -> {
+                    val latest = viewModel.uiState.value.savedRecordings.firstOrNull()
+                    if (latest != null) {
+                        viewModel.playSavedRecording(latest.filePath)
+                    }
+                }
+                "close_all_dialogs" -> {
+                    viewModel.closeSongbook()
+                    viewModel.closeLyricStyleDialog()
+                    viewModel.closeAudioMixerDialog()
+                    viewModel.closeRecordingsDialog()
+                    viewModel.closeSoundFontDialog()
+                    viewModel.closeSettingsDialog()
+                }
                 "set_language_en" -> viewModel.setAppLanguage(com.example.videokey.ui.main.AppLanguage.ENGLISH)
                 "set_language_tl" -> viewModel.setAppLanguage(com.example.videokey.ui.main.AppLanguage.TAGALOG)
             }

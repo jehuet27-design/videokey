@@ -42,10 +42,18 @@ data class KaraokeBackground(
 )
 
 enum class LyricFontFamily(val displayName: String) {
-    SAN_SERIF("Arial Bold (Sans)"),
-    MONOSPACE("Retro Arcade (Mono)"),
-    SERIF("Elegant Ballad (Serif)"),
-    CURSIVE("Artistic Script")
+    SAN_SERIF("Arial Bold (Classic Videoke)"),
+    IMPACT_HEAVY("Impact Heavy (Platinum TV)"),
+    CONDENSED_TALL("Bebas Tall (Arcade Stage)"),
+    GEOMETRIC_POP("Montserrat Pop (Modern)"),
+    ROUNDED_CLEAN("Verdana Clean (Wide Sans)"),
+    SMALL_CAPS("Oswald Cinema (Broadcast)"),
+    SERIF("Georgia Serif (Ballad)"),
+    SERIF_MONOSPACE("Courier Typewriter (Retro)"),
+    MONOSPACE("Digital Mono (80s Arcade)"),
+    CASUAL_FUN("Comic Casual (Party Sing)"),
+    CURSIVE("Dancing Script (Romantic)"),
+    LIGHT_MODERN("Futura Sleek (Lounge)")
 }
 
 enum class LyricWipeColor(val displayName: String, val activeColor: Long) {
@@ -77,10 +85,21 @@ enum class LyricScreenPosition(val displayName: String) {
     TOP("⬆️ Itaas (Top / Upper)")
 }
 
+enum class LyricOutlineColor(val displayName: String, val colorLong: Long) {
+    BLACK("Black (Itim)", 0xFF000000),
+    WHITE("White (Puti)", 0xFFFFFFFF),
+    NAVY("Navy Blue", 0xFF0A192F),
+    GOLD("Gold Accent", 0xFFFFD700),
+    RED("Crimson Red", 0xFFDC2626),
+    CYAN("Cyan Neon", 0xFF06B6D4),
+    NONE("No Outline", 0x00000000)
+}
+
 data class LyricCustomization(
     val fontFamily: LyricFontFamily = LyricFontFamily.SAN_SERIF,
     val wipeColor: LyricWipeColor = LyricWipeColor.DARK_BLUE,
-    val inactiveColor: Long = 0xFFFFFFFF, // Pure White with Black Outline
+    val inactiveColor: Long = 0xFFFFFFFF, // Pure White with Outline
+    val outlineColor: LyricOutlineColor = LyricOutlineColor.BLACK,
     val shadowStyle: LyricShadowStyle = LyricShadowStyle.HEAVY_OUTLINE,
     val isAllCaps: Boolean = true,
     val isItalic: Boolean = false,
@@ -191,6 +210,11 @@ data class VideoKeyUiState(
     val keyTranspose: Int = 0,
     val tempoPercent: Int = 100,
     val melodyPercent: Int = 60,
+    val drumsPercent: Int = 100,
+    val bassPercent: Int = 100,
+    val guitarPianoPercent: Int = 100,
+    val stringsBrassPercent: Int = 100,
+    val reverbPercent: Int = 50,
     val micEchoPercent: Int = 50,
     val appTheme: AppTheme = AppTheme.SLATE_DARK,
     val score: Int = 94,
@@ -207,13 +231,17 @@ data class VideoKeyUiState(
     val currentBackgroundFolder: String = "/storage/emulated/0/VideoKey/backgrounds",
     val isSongFolderPickerOpen: Boolean = false,
     val isBgFolderPickerOpen: Boolean = false,
-    val activeSoundFontName: String = "Dream SAM2634 v2.1",
+    val activeSoundFontName: String = "VideoKey Studio Minus-One",
     val availableSoundFonts: List<String> = listOf(
+        "VideoKey Studio Minus-One",
+        "Yamaha x Korg x Ketron Studio",
         "Dream SAM2634 v2.1",
-        "MegaPro Sound"
+        "MegaPro Sound",
+        "SongHub Original Sound"
     ),
     val isSoundFontDialogOpen: Boolean = false,
     val isSongbookOpen: Boolean = false,
+    val songbookQuery: String = "",
     val isReserveQueueOpen: Boolean = false,
     val isFavoritesOpen: Boolean = false,
     val favoriteCodes: Set<String> = emptySet(),
@@ -255,9 +283,9 @@ data class VideoKeyUiState(
 class VideoKeyViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = SongRepository()
-    private val soundEngine = SoundEngine(application.applicationContext)
-    private val voiceManager = com.example.videokey.data.KeypadVoiceManager(application.applicationContext)
     private val karaokeRecorder = com.example.videokey.data.KaraokeRecorder()
+    private val soundEngine = SoundEngine(application.applicationContext, karaokeRecorder)
+    private val voiceManager = com.example.videokey.data.KeypadVoiceManager(application.applicationContext)
     private val micScorer = com.example.videokey.data.MicrophoneScorer(karaokeRecorder)
     val appUpdateManager = com.example.videokey.update.AppUpdateManager(application.applicationContext)
     val contentDownloadManager = com.example.videokey.data.ContentDownloadManager(application.applicationContext)
@@ -310,11 +338,27 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val savedLang = prefs.getString("app_language", "tl") ?: "tl"
         val initialLang = if (savedLang == "en") AppLanguage.ENGLISH else AppLanguage.TAGALOG
 
-        val rawSavedSf = prefs.getString("active_soundfont", "Dream SAM2634 v2.1") ?: "Dream SAM2634 v2.1"
-        val savedSf = if (rawSavedSf.contains("mega", ignoreCase = true)) "MegaPro Sound" else "Dream SAM2634 v2.1"
+        val rawSavedSf = prefs.getString("active_soundfont", "VideoKey Studio Minus-One") ?: "VideoKey Studio Minus-One"
+        val savedSf = when {
+            rawSavedSf.contains("yamaha", ignoreCase = true) || rawSavedSf.contains("korg", ignoreCase = true) || rawSavedSf.contains("ketron", ignoreCase = true) -> "Yamaha x Korg x Ketron Studio"
+            rawSavedSf.contains("mega", ignoreCase = true) -> "MegaPro Sound"
+            rawSavedSf.contains("songhub", ignoreCase = true) -> "SongHub Original Sound"
+            rawSavedSf.contains("sam", ignoreCase = true) || rawSavedSf.contains("dream", ignoreCase = true) -> "Dream SAM2634 v2.1"
+            else -> "VideoKey Studio Minus-One"
+        }
         soundEngine.setActiveSoundFont(savedSf)
-        val initialMelody = prefs.getInt("melody_percent", 60) // Default 60% as requested!
+        val initialMelody = prefs.getInt("melody_percent", 60)
+        val initialDrums = prefs.getInt("drums_percent", 100)
+        val initialBass = prefs.getInt("bass_percent", 100)
+        val initialGuitarPiano = prefs.getInt("guitar_piano_percent", 100)
+        val initialStringsBrass = prefs.getInt("strings_brass_percent", 100)
+        val initialReverb = prefs.getInt("reverb_percent", 50)
         soundEngine.setMelodyVolume(initialMelody)
+        soundEngine.setDrumsVolume(initialDrums)
+        soundEngine.setBassVolume(initialBass)
+        soundEngine.setGuitarPianoVolume(initialGuitarPiano)
+        soundEngine.setStringsBrassVolume(initialStringsBrass)
+        soundEngine.setReverbVolume(initialReverb)
 
         val savedThemeName = prefs.getString("app_theme", AppTheme.SLATE_DARK.name) ?: AppTheme.SLATE_DARK.name
         val initialTheme = try {
@@ -329,6 +373,20 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val savedScoring = prefs.getBoolean("mic_scoring_enabled", true)
         val savedScoringSound = prefs.getBoolean("scoring_sound_enabled", true)
 
+        val savedOutlineName = prefs.getString("lyric_outline_color", LyricOutlineColor.BLACK.name) ?: LyricOutlineColor.BLACK.name
+        val initialOutline = try {
+            LyricOutlineColor.valueOf(savedOutlineName)
+        } catch (_: Exception) {
+            LyricOutlineColor.BLACK
+        }
+
+        val savedFontName = prefs.getString("lyric_font_family", LyricFontFamily.SAN_SERIF.name) ?: LyricFontFamily.SAN_SERIF.name
+        val initialFontFamily = try {
+            LyricFontFamily.valueOf(savedFontName)
+        } catch (_: Exception) {
+            LyricFontFamily.SAN_SERIF
+        }
+
         _uiState.update {
             it.copy(
                 searchResults = repository.search(""),
@@ -339,9 +397,18 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 appLanguage = initialLang,
                 activeSoundFontName = savedSf,
                 melodyPercent = initialMelody,
+                drumsPercent = initialDrums,
+                bassPercent = initialBass,
+                guitarPianoPercent = initialGuitarPiano,
+                stringsBrassPercent = initialStringsBrass,
+                reverbPercent = initialReverb,
                 appTheme = initialTheme,
                 isMicScoringEnabled = savedScoring,
                 isScoringSoundEnabled = savedScoringSound,
+                lyricConfig = it.lyricConfig.copy(
+                    outlineColor = initialOutline,
+                    fontFamily = initialFontFamily
+                ),
                 favoriteCodes = savedFavSet,
                 favoriteSongs = initialFavSongs,
                 savedRecordings = karaokeRecorder.listSavedRecordings()
@@ -533,18 +600,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             currentRawMidiBytes = rawMidiBytes
 
-            // Apply active SoundFont timbre + Melody Guide volume scaling to rawMidiBytes
+            // Extract raw MIDI bytes directly so BASSMIDI preserves 100% original instruments & mixes in real time
             if (rawMidiBytes != null) {
-                val processedBytes = try {
-                    com.example.videokey.data.MidiMelodyScaler.scaleMelody(
-                        midiBytes = rawMidiBytes,
-                        volumePercent = currentMelody,
-                        soundFontName = currentSoundFont
-                    )
-                } catch (e: Exception) {
-                    rawMidiBytes
-                }
-                midiFile = VkPackReader.extractToPrivateTemp(song, processedBytes, getApplication<Application>().cacheDir)
+                midiFile = VkPackReader.extractToPrivateTemp(song, rawMidiBytes, getApplication<Application>().cacheDir)
                 isTempFile = midiFile != null
             }
 
@@ -574,6 +632,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     } else if (karaokeRecorder.isRecording) {
                         karaokeRecorder.updatePlaybackState(0L, _uiState.value.keyTranspose, parsed?.accompNotes.orEmpty())
                     }
+                    songStartTimeMs = System.currentTimeMillis()
                     soundEngine.playMidi(midiFile.absolutePath, deleteAfterOpen = isTempFile) {
                         onSongCompleted()
                     }
@@ -619,7 +678,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 val lines = parsedKaraoke?.lines.orEmpty()
                 val melodyNotes = parsedKaraoke?.melodyNotes.orEmpty()
                 val firstLineStart = lines.firstOrNull()?.startMs ?: 10000L
-                val isTitleIntroActive = elapsedSinceStart < 4500L && (firstLineStart - posMs > 3000L)
+                val isTitleIntroActive = elapsedSinceStart in 0L..3500L && (lines.isEmpty() || posMs < firstLineStart)
 
                 // Update recorder & melody pitch target for accurate scoring
                 val activeMelodyNote = melodyNotes.firstOrNull { posMs in it.startMs..it.endMs }
@@ -697,8 +756,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                             val instrumentalGap = upcoming.startMs - prevLineEndMs
                             val isAfterLongInstrumental = instrumentalGap >= 4500L
 
-                            // Countdown: 4 seconds before vocals start ONLY after a long instrumental or song intro!
-                            val dots = if (isAfterLongInstrumental) {
+                            // Countdown: 4 seconds before vocals start ONLY after a long instrumental or song intro (when title intro finishes)!
+                            val dots = if (isAfterLongInstrumental && !isTitleIntroActive) {
                                 when {
                                     timeUntilStart in 3001L..4000L -> 4
                                     timeUntilStart in 2001L..3000L -> 3
@@ -710,7 +769,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                                 0
                             }
 
-                            val showInstrumental = !isTitleIntroActive && dots == 0 && (timeUntilStart > 3500L) && isAfterLongInstrumental
+                            val showInstrumental = !isTitleIntroActive && dots == 0 && (timeUntilStart > 3500L) && isAfterLongInstrumental && elapsedSinceStart > 3500L
 
                             val pageStart = (upcomingIndex / 4) * 4
                             val p1 = lines.getOrNull(pageStart)?.fullText?.uppercase() ?: ""
@@ -765,7 +824,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                         elapsedSinceStart in 7501L..8500L -> 1
                         else -> 0
                     }
-                    val isInst = !isTitleIntroActive && dots == 0 && elapsedSinceStart > 8500L
+                    val isInst = !isTitleIntroActive && dots == 0 && elapsedSinceStart > 3500L
                     _uiState.update {
                         it.copy(
                             showSongTitleIntro = isTitleIntroActive,
@@ -880,6 +939,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onClearCode() {
+        val current = _uiState.value
+        if (current.isSongbookOpen && current.songbookQuery.isNotEmpty() && current.enteredCode.isEmpty()) {
+            searchSongbook("", current.onlyShowPlayableSongs)
+            return
+        }
         _uiState.update {
             it.copy(
                 enteredCode = "",
@@ -889,6 +953,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onDeleteDigit() {
+        val current = _uiState.value
+        if (current.isSongbookOpen && current.songbookQuery.isNotEmpty() && current.enteredCode.isEmpty()) {
+            val nextQuery = current.songbookQuery.dropLast(1)
+            searchSongbook(nextQuery, current.onlyShowPlayableSongs)
+            return
+        }
         _uiState.update {
             val newCode = if (it.enteredCode.isNotEmpty()) it.enteredCode.dropLast(1) else ""
             val matched = if (newCode.isNotEmpty()) {
@@ -1193,45 +1263,94 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun adjustMelody(delta: Int) {
-        val newVol = (_uiState.value.melodyPercent + delta).coerceIn(0, 100)
+        setMelodyPercent(_uiState.value.melodyPercent + delta)
+    }
+
+    fun setMelodyPercent(percent: Int) {
+        val newVol = percent.coerceIn(0, 100)
         soundEngine.setMelodyVolume(newVol)
         prefs.edit().putInt("melody_percent", newVol).apply()
+        _uiState.update { it.copy(melodyPercent = newVol) }
+    }
+
+    fun adjustDrums(delta: Int) {
+        setDrumsPercent(_uiState.value.drumsPercent + delta)
+    }
+
+    fun setDrumsPercent(percent: Int) {
+        val newVol = percent.coerceIn(0, 150)
+        soundEngine.setDrumsVolume(newVol)
+        prefs.edit().putInt("drums_percent", newVol).apply()
+        _uiState.update { it.copy(drumsPercent = newVol) }
+    }
+
+    fun adjustBass(delta: Int) {
+        setBassPercent(_uiState.value.bassPercent + delta)
+    }
+
+    fun setBassPercent(percent: Int) {
+        val newVol = percent.coerceIn(0, 150)
+        soundEngine.setBassVolume(newVol)
+        prefs.edit().putInt("bass_percent", newVol).apply()
+        _uiState.update { it.copy(bassPercent = newVol) }
+    }
+
+    fun adjustGuitarPiano(delta: Int) {
+        setGuitarPianoPercent(_uiState.value.guitarPianoPercent + delta)
+    }
+
+    fun setGuitarPianoPercent(percent: Int) {
+        val newVol = percent.coerceIn(0, 150)
+        soundEngine.setGuitarPianoVolume(newVol)
+        prefs.edit().putInt("guitar_piano_percent", newVol).apply()
+        _uiState.update { it.copy(guitarPianoPercent = newVol) }
+    }
+
+    fun adjustStringsBrass(delta: Int) {
+        setStringsBrassPercent(_uiState.value.stringsBrassPercent + delta)
+    }
+
+    fun setStringsBrassPercent(percent: Int) {
+        val newVol = percent.coerceIn(0, 150)
+        soundEngine.setStringsBrassVolume(newVol)
+        prefs.edit().putInt("strings_brass_percent", newVol).apply()
+        _uiState.update { it.copy(stringsBrassPercent = newVol) }
+    }
+
+    fun adjustReverb(delta: Int) {
+        setReverbPercent(_uiState.value.reverbPercent + delta)
+    }
+
+    fun setReverbPercent(percent: Int) {
+        val newVol = percent.coerceIn(0, 100)
+        soundEngine.setReverbVolume(newVol)
+        prefs.edit().putInt("reverb_percent", newVol).apply()
+        _uiState.update { it.copy(reverbPercent = newVol) }
+    }
+
+    fun resetInstrumentMixer() {
+        soundEngine.resetInstrumentMix()
+        soundEngine.setKeyTranspose(0)
+        soundEngine.setTempo(100)
+        prefs.edit()
+            .putInt("melody_percent", 60)
+            .putInt("drums_percent", 100)
+            .putInt("bass_percent", 100)
+            .putInt("guitar_piano_percent", 100)
+            .putInt("strings_brass_percent", 100)
+            .putInt("reverb_percent", 50)
+            .apply()
         _uiState.update {
-            it.copy(melodyPercent = newVol)
-        }
-        // Live hot-reload of scaled MIDI at current position if a song is currently playing!
-        val rawBytes = currentRawMidiBytes
-        if (_uiState.value.isPlaying && rawBytes != null) {
-            melodyReloadJob?.cancel()
-            melodyReloadJob = viewModelScope.launch(Dispatchers.IO) {
-                delay(150) // Debounce rapid taps/slider drags
-                val currentPos = soundEngine.getCurrentPositionMs()
-                val song = _uiState.value.currentSong
-                val currentSf = _uiState.value.activeSoundFontName
-                val scaledBytes = try {
-                    com.example.videokey.data.MidiMelodyScaler.scaleMelody(
-                        midiBytes = rawBytes,
-                        volumePercent = newVol,
-                        soundFontName = currentSf
-                    )
-                } catch (e: Exception) {
-                    rawBytes
-                }
-                val tempFile = VkPackReader.extractToPrivateTemp(song, scaledBytes, getApplication<Application>().cacheDir)
-                if (tempFile != null && tempFile.exists()) {
-                    withContext(Dispatchers.Main) {
-                        if (_uiState.value.isPlaying) {
-                            soundEngine.playMidi(
-                                filePath = tempFile.absolutePath,
-                                deleteAfterOpen = true,
-                                resumePositionMs = currentPos
-                            ) {
-                                onSongCompleted()
-                            }
-                        }
-                    }
-                }
-            }
+            it.copy(
+                keyTranspose = 0,
+                tempoPercent = 100,
+                melodyPercent = 60,
+                drumsPercent = 100,
+                bassPercent = 100,
+                guitarPianoPercent = 100,
+                stringsBrassPercent = 100,
+                reverbPercent = 50
+            )
         }
     }
 
@@ -1270,6 +1389,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     private var searchJob: Job? = null
     fun searchSongbook(query: String, onlyPlayable: Boolean = _uiState.value.onlyShowPlayableSongs) {
+        _uiState.update {
+            it.copy(
+                songbookQuery = query,
+                onlyShowPlayableSongs = onlyPlayable
+            )
+        }
         searchJob?.cancel()
         searchJob = viewModelScope.launch(Dispatchers.Default) {
             val playables = soundEngine.getPlayableCodes()
@@ -1285,8 +1410,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleSongbookFilter(onlyPlayable: Boolean) {
+        val currentQuery = _uiState.value.songbookQuery
         _uiState.update { it.copy(onlyShowPlayableSongs = onlyPlayable) }
-        searchSongbook("", onlyPlayable)
+        searchSongbook(currentQuery, onlyPlayable)
     }
 
     fun clearAlertMessage() {
@@ -1376,19 +1502,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         prefs.edit().putString("active_soundfont", name).apply()
         soundEngine.setActiveSoundFont(name)
         val resolvedName = soundEngine.getActiveSoundFont().displayName
-        val currentlyPlaying = _uiState.value.isPlaying
-        val songToRestart = _uiState.value.currentSong
-        val isSongValid = songToRestart.code.isNotBlank()
         _uiState.update {
             it.copy(
                 activeSoundFontName = resolvedName,
                 isSoundFontDialogOpen = false,
                 alertMessage = "🎛️ Na-apply ang SoundFont: $resolvedName"
             )
-        }
-        if (currentlyPlaying && isSongValid) {
-            soundEngine.stop()
-            playSong(songToRestart)
         }
     }
 
@@ -1456,19 +1575,23 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             val count = repository.getTotalSongsCount()
             val sfCount = result.soundFonts.size
             val statusMsg = "Folder [${folder.name}]: ${count} songs, ${sfCount} SoundFonts"
-            val defaultSoundFonts = listOf("Dream SAM2634 v2.1", "MegaPro Sound")
+            val defaultSoundFonts = soundEngine.availableSoundFonts.map { it.displayName }
             val sfNames = if (result.soundFonts.isNotEmpty()) {
                 val scanned = result.soundFonts.map { it.nameWithoutExtension }
                 (defaultSoundFonts + scanned).distinct()
             } else {
                 defaultSoundFonts
             }
-            val rawSavedSf = prefs.getString("active_soundfont", "Dream SAM2634 v2.1") ?: "Dream SAM2634 v2.1"
+            val rawSavedSf = prefs.getString("active_soundfont", "VideoKey Studio Minus-One") ?: "VideoKey Studio Minus-One"
             val resolvedSf = when {
                 sfNames.any { it.equals(rawSavedSf, ignoreCase = true) } ->
                     sfNames.first { it.equals(rawSavedSf, ignoreCase = true) }
+                rawSavedSf.contains("yamaha", ignoreCase = true) || rawSavedSf.contains("korg", ignoreCase = true) || rawSavedSf.contains("ketron", ignoreCase = true) -> "Yamaha x Korg x Ketron Studio"
+                rawSavedSf.contains("minus", ignoreCase = true) || rawSavedSf.contains("videokey", ignoreCase = true) -> "VideoKey Studio Minus-One"
+                rawSavedSf.contains("sam", ignoreCase = true) || rawSavedSf.contains("dream", ignoreCase = true) -> "Dream SAM2634 v2.1"
                 rawSavedSf.contains("mega", ignoreCase = true) -> "MegaPro Sound"
-                else -> "Dream SAM2634 v2.1"
+                rawSavedSf.contains("songhub", ignoreCase = true) -> "SongHub Original Sound"
+                else -> "VideoKey Studio Minus-One"
             }
             soundEngine.setActiveSoundFont(resolvedSf)
             val playables = soundEngine.getPlayableCodes()
@@ -1708,6 +1831,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setLyricFontFamily(family: LyricFontFamily) {
+        prefs.edit().putString("lyric_font_family", family.name).apply()
         _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(fontFamily = family)) }
     }
 
@@ -1738,6 +1862,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun setLyricPosition(position: LyricScreenPosition) {
         _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(position = position)) }
+    }
+
+    fun setLyricOutlineColor(outlineColor: LyricOutlineColor) {
+        prefs.edit().putString("lyric_outline_color", outlineColor.name).apply()
+        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(outlineColor = outlineColor)) }
     }
 
     fun setAppLanguage(language: AppLanguage) {

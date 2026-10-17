@@ -89,12 +89,12 @@ class ContentDownloadManager(private val context: Context) {
                 id = "all_soundfonts",
                 title = "🎛️ Complete SoundFont Bank",
                 category = ContentCategory.SOUNDFONT,
-                description = "Lahat ng SoundFonts (Dream SAM2634 ver. 2.1 at MegaPro Sound) ay mabilis at magaan ma-download.",
-                sizeFormatted = "204 MB",
+                description = "Lahat ng SoundFonts (VideoKey Studio Minus-One, Dream SAM2634 v2.1, at MegaPro) ay mabilis at magaan ma-download.",
+                sizeFormatted = "345 MB",
                 downloadUrl = "$releaseBase/soundfonts_all.zip",
                 relativeDestinationPath = "SoundFont",
                 isZip = true,
-                checkFileRelativePath = "SoundFont/Dream SAM2634 (ver. 2.1).sf2"
+                checkFileRelativePath = "SoundFont/VideoKey_Studio_Minus1.sf2"
             ),
             // 3. Complete Video Backgrounds Pack (All-in-one single download)
             DownloadItem(
