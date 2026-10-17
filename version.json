@@ -2,6 +2,6 @@
   "versionCode": 3,
   "versionName": "2.1",
   "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.1/VideoKey.apk",
-  "forceUpdate": false,
+  "forceUpdate": true,
   "releaseNotes": "🎉 VIDEOKEY V2.1 PERFORMANCE UPDATE:\n• 100% Buttery-smooth lyric highlight na walang lag o stutter\n• Hardware-accelerated background video player na walang frame drops\n• Full Android TV Mode na may Verdana Wide lyrics\n• Instant side-by-side songbook search habang tumutugtog ang kanta"
 }

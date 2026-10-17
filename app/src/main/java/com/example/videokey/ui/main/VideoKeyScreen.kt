@@ -7883,12 +7883,28 @@ fun ForceUpdateDialog(
                                 )
                             }
                         }
-                        Text(
-                            text = if (isTagalog) "🌐 Awtomatikong ida-download gamit ang Wi-Fi o data." else "🌐 Automatically downloading via Wi-Fi or data.",
-                            fontSize = 11.sp,
-                            color = Color(0xFF94A3B8),
-                            textAlign = TextAlign.Center
-                        )
+                        androidx.compose.material3.Button(
+                            onClick = onRetry,
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF00FF88)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Text(
+                                text = if (isTagalog) "⬇️ I-DOWNLOAD ANG UPDATE (v${updateState.info.versionName})" else "⬇️ DOWNLOAD UPDATE (v${updateState.info.versionName})",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp,
+                                color = Color.Black
+                            )
+                        }
+                        if (!isForce) {
+                            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                                Text(
+                                    text = if (isTagalog) "Mamaya Na" else "Later",
+                                    color = Color.LightGray,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
 
                     is com.example.videokey.update.AppUpdateManager.UpdateState.Downloading -> {

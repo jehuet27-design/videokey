@@ -116,11 +116,16 @@ class AppUpdateManager(private val context: Context) {
                 ?: DEFAULT_ONLINE_MANIFEST_URL
 
             try {
-                val url = URL(urlString)
+                val finalUrl = if (urlString.contains("?")) "$urlString&t=${System.currentTimeMillis()}" else "$urlString?t=${System.currentTimeMillis()}"
+                val url = URL(finalUrl)
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     connectTimeout = 8000
                     readTimeout = 10000
                     requestMethod = "GET"
+                    useCaches = false
+                    defaultUseCaches = false
+                    setRequestProperty("Cache-Control", "no-cache, no-store, must-revalidate")
+                    setRequestProperty("Pragma", "no-cache")
                     setRequestProperty("User-Agent", "VideoKey-Android-App/${getCurrentVersionName()}")
                     setRequestProperty("Accept", "application/json")
                 }
