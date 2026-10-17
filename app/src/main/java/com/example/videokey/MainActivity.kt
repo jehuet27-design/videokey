@@ -71,11 +71,35 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         val state = viewModel.uiState.value
-        // When Songbook search is open, let Compose OutlinedTextField handle Backspace (KEYCODE_DEL), digits, and typing first!
+        // When Songbook search is open, allow TV remote number keys and Backspace to search smoothly!
         if (state.isSongbookOpen) {
-            if (event.keyCode == android.view.KeyEvent.KEYCODE_BACK && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                viewModel.closeSongbook()
-                return true
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                when (event.keyCode) {
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        viewModel.closeSongbook()
+                        return true
+                    }
+                    in android.view.KeyEvent.KEYCODE_0..android.view.KeyEvent.KEYCODE_9 -> {
+                        val digit = ('0' + (event.keyCode - android.view.KeyEvent.KEYCODE_0)).toString()
+                        viewModel.searchSongbook(state.songbookQuery + digit)
+                        return true
+                    }
+                    in android.view.KeyEvent.KEYCODE_NUMPAD_0..android.view.KeyEvent.KEYCODE_NUMPAD_9 -> {
+                        val digit = ('0' + (event.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0)).toString()
+                        viewModel.searchSongbook(state.songbookQuery + digit)
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_DEL, android.view.KeyEvent.KEYCODE_FORWARD_DEL -> {
+                        if (state.songbookQuery.isNotEmpty()) {
+                            viewModel.searchSongbook(state.songbookQuery.dropLast(1))
+                            return true
+                        }
+                    }
+                    android.view.KeyEvent.KEYCODE_CLEAR -> {
+                        viewModel.searchSongbook("")
+                        return true
+                    }
+                }
             }
             return super.dispatchKeyEvent(event)
         }
@@ -110,6 +134,10 @@ class MainActivity : ComponentActivity() {
                 }
                 android.view.KeyEvent.KEYCODE_CLEAR -> {
                     viewModel.onClearCode()
+                    return true
+                }
+                android.view.KeyEvent.KEYCODE_R -> {
+                    viewModel.onRButtonPressed()
                     return true
                 }
                 android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_NUMPAD_ENTER, android.view.KeyEvent.KEYCODE_DPAD_CENTER -> {
@@ -247,8 +275,9 @@ class MainActivity : ComponentActivity() {
             when (action) {
                 "play" -> viewModel.onPlay()
                 "next" -> viewModel.onNext()
-                "stop" -> viewModel.onStop()
-                "toggle_tv" -> viewModel.toggleTvMode()
+                "toggle_tv" -> viewModel.toggleTvMode(this)
+                "enter_tv" -> viewModel.enterTvLandscapeMode(this)
+                "exit_tv" -> viewModel.exitLandscapeMode(this)
                 "open_settings" -> viewModel.openSettingsDialog()
                 "open_mixer" -> viewModel.openAudioMixerDialog()
                 "open_soundfont" -> viewModel.openSoundFontDialog()

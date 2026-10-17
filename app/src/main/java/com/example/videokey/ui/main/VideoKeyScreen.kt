@@ -528,6 +528,7 @@ fun InstrumentalDisplay(
 fun SongIntroTitleSplash(
     song: Song,
     isLandscape: Boolean,
+    isTvMode: Boolean = false,
     lang: com.example.videokey.ui.main.AppLanguage = com.example.videokey.ui.main.AppLanguage.TAGALOG,
     modifier: Modifier = Modifier
 ) {
@@ -544,12 +545,12 @@ fun SongIntroTitleSplash(
 
     // Dynamic auto-adjust font size for title: starts BIG and scales down if overflowing screen
     var titleFitScale by remember(song.title) { mutableStateOf(1f) }
-    val baseTitleSize = if (isLandscape) 44.sp else 34.sp
+    val baseTitleSize = if (isTvMode) 58.sp else if (isLandscape) 44.sp else 34.sp
     val titleFontSize = baseTitleSize * titleFitScale
 
     // Dynamic auto-adjust font size for artist:
     var artistFitScale by remember(song.artist) { mutableStateOf(1f) }
-    val baseArtistSize = if (isLandscape) 22.sp else 18.sp
+    val baseArtistSize = if (isTvMode) 26.sp else if (isLandscape) 22.sp else 18.sp
     val artistFontSize = baseArtistSize * artistFitScale
 
     val isTagalog = lang == com.example.videokey.ui.main.AppLanguage.TAGALOG
@@ -797,6 +798,9 @@ fun VideokeTvScreen(
     modifier: Modifier = Modifier
 ) {
     val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
+    val isTvMode = state.isTvMode
+    val effectiveLyricConfig = if (isTvMode) state.lyricConfig.copy(fontFamily = LyricFontFamily.ROUNDED_CLEAN) else state.lyricConfig
+    val shouldShowHeader = if (isTvMode) (state.isPlaying || state.reserveQueue.isNotEmpty()) else true
     var showTvKeypadModal by remember { mutableStateOf(false) }
 
     // Auto-hide top-right buttons in Landscape Mode after 3.8s of inactivity
@@ -870,63 +874,67 @@ fun VideokeTvScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val hasReserve = state.reserveQueue.isNotEmpty()
-                        val currentSongText = "${state.currentSong.title} • ${state.currentSong.artist}".uppercase()
-                        val nextSongText = if (hasReserve) {
-                            "${state.reserveQueue.first().title} • ${state.reserveQueue.first().artist}".uppercase()
-                        } else ""
+                    if (shouldShowHeader) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            val hasReserve = state.reserveQueue.isNotEmpty()
+                            val currentSongText = "${state.currentSong.title} • ${state.currentSong.artist}".uppercase()
+                            val nextSongText = if (hasReserve) {
+                                "${state.reserveQueue.first().title} • ${state.reserveQueue.first().artist}".uppercase()
+                            } else ""
 
-                        val isShowingNext = hasReserve && showNextInHeader
+                            val isShowingNext = hasReserve && showNextInHeader
 
-                        val badgeLabel = when {
-                            !state.isPlaying && hasReserve -> if (isTagalog) "SUSUNOD:" else "NEXT:"
-                            !state.isPlaying -> "VIDEOKEY V1:"
-                            isShowingNext -> if (isTagalog) "SUSUNOD:" else "NEXT:"
-                            else -> if (isTagalog) "TUMUTUGTOG:" else "PLAYING:"
-                        }
+                            val badgeLabel = when {
+                                !state.isPlaying && hasReserve -> if (isTagalog) "SUSUNOD:" else "NEXT:"
+                                !state.isPlaying -> "VIDEOKEY V1:"
+                                isShowingNext -> if (isTagalog) "SUSUNOD:" else "NEXT:"
+                                else -> if (isTagalog) "TUMUTUGTOG:" else "PLAYING:"
+                            }
 
-                        val badgeColor = when {
-                            badgeLabel.contains("TUMUTUGTOG") || badgeLabel.contains("PLAYING") -> Color(0xFF00FF88)
-                            badgeLabel.contains("SUSUNOD") || badgeLabel.contains("NEXT") -> Color(0xFF38BDF8)
-                            else -> Color(0xFFFFD54F)
-                        }
+                            val badgeColor = when {
+                                badgeLabel.contains("TUMUTUGTOG") || badgeLabel.contains("PLAYING") -> Color(0xFF00FF88)
+                                badgeLabel.contains("SUSUNOD") || badgeLabel.contains("NEXT") -> Color(0xFF38BDF8)
+                                else -> Color(0xFFFFD54F)
+                            }
 
-                        // Pure Text Badge
-                        OutlinedHeaderText(
-                            text = "$badgeLabel ",
-                            color = badgeColor,
-                            fontSize = if (isLandscape) 13.sp else 11.5.sp,
-                            isLandscape = isLandscape,
-                            fontFamily = FontFamily.Monospace
-                        )
+                            // Pure Text Badge
+                            OutlinedHeaderText(
+                                text = "$badgeLabel ",
+                                color = badgeColor,
+                                fontSize = if (isTvMode) 15.sp else if (isLandscape) 13.sp else 11.5.sp,
+                                isLandscape = isLandscape,
+                                fontFamily = FontFamily.Monospace
+                            )
 
-                        val headerMarquee = when {
-                            !state.isPlaying && hasReserve -> "DEVELOPED BY JEROME HUET ITO PO AY FREE : $nextSongText"
-                            !state.isPlaying -> "DEVELOPED BY JEROME HUET ITO PO AY FREE : SELECT A SONG"
-                            isShowingNext -> nextSongText
-                            else -> {
-                                if (hasReserve) {
-                                    val nextWord = if (isTagalog) "SUSUNOD:" else "NEXT:"
-                                    "$currentSongText     ★★★     $nextWord $nextSongText"
-                                } else {
-                                    currentSongText
+                            val headerMarquee = when {
+                                !state.isPlaying && hasReserve -> "DEVELOPED BY JEROME HUET ITO PO AY FREE : $nextSongText"
+                                !state.isPlaying -> "DEVELOPED BY JEROME HUET ITO PO AY FREE : SELECT A SONG"
+                                isShowingNext -> nextSongText
+                                else -> {
+                                    if (hasReserve) {
+                                        val nextWord = if (isTagalog) "SUSUNOD:" else "NEXT:"
+                                        "$currentSongText     ★★★     $nextWord $nextSongText"
+                                    } else {
+                                        currentSongText
+                                    }
                                 }
                             }
-                        }
 
-                        OutlinedHeaderText(
-                            text = headerMarquee,
-                            color = Color.White,
-                            fontSize = if (isLandscape) 13.sp else 12.sp,
-                            isLandscape = isLandscape,
-                            modifier = Modifier
-                                .weight(1f)
-                                .basicMarquee(iterations = Int.MAX_VALUE)
-                        )
+                            OutlinedHeaderText(
+                                text = headerMarquee,
+                                color = Color.White,
+                                fontSize = if (isTvMode) 15.sp else if (isLandscape) 13.sp else 12.sp,
+                                isLandscape = isLandscape,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .basicMarquee(iterations = Int.MAX_VALUE)
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
 
                     // Active Recording Badge (if recording in portrait or landscape)
@@ -1082,118 +1090,263 @@ fun VideokeTvScreen(
                 }
 
                 // Sub-header Ticker: R: (Yellow R without circle on the side, matching reserved codes)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = if (isLandscape) 0.dp else 2.dp),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val reserveCodes = state.reserveQueue.joinToString(separator = "   ") { it.code }
-                    OutlinedHeaderText(
-                        text = "R: ",
-                        color = Color(0xFFFFD54F),
-                        fontSize = if (isLandscape) 12.sp else 11.sp,
-                        isLandscape = isLandscape,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.clickable { onToggleReserveQueue() }
-                    )
-                    OutlinedHeaderText(
-                        text = reserveCodes,
-                        color = Color(0xFFFFD54F),
-                        fontSize = if (isLandscape) 12.sp else 11.sp,
-                        isLandscape = isLandscape,
-                        fontFamily = FontFamily.Monospace,
+                if (shouldShowHeader && state.reserveQueue.isNotEmpty()) {
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .basicMarquee(iterations = Int.MAX_VALUE)
-                            .clickable { onToggleReserveQueue() }
-                    )
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = if (isLandscape) 0.dp else 2.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val reserveCodes = state.reserveQueue.joinToString(separator = "   ") { it.code }
+                        OutlinedHeaderText(
+                            text = "R: ",
+                            color = Color(0xFFFFD54F),
+                            fontSize = if (isTvMode) 14.sp else if (isLandscape) 12.sp else 11.sp,
+                            isLandscape = isLandscape,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.clickable { onToggleReserveQueue() }
+                        )
+                        OutlinedHeaderText(
+                            text = reserveCodes,
+                            color = Color(0xFFFFD54F),
+                            fontSize = if (isTvMode) 14.sp else if (isLandscape) 12.sp else 11.sp,
+                            isLandscape = isLandscape,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier
+                                .weight(1f)
+                                .basicMarquee(iterations = Int.MAX_VALUE)
+                                .clickable { onToggleReserveQueue() }
+                        )
+                    }
+                } else if (!isTvMode) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val reserveCodes = state.reserveQueue.joinToString(separator = "   ") { it.code }
+                        OutlinedHeaderText(
+                            text = "R: ",
+                            color = Color(0xFFFFD54F),
+                            fontSize = 11.sp,
+                            isLandscape = false,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.clickable { onToggleReserveQueue() }
+                        )
+                        OutlinedHeaderText(
+                            text = reserveCodes,
+                            color = Color(0xFFFFD54F),
+                            fontSize = 11.sp,
+                            isLandscape = false,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier
+                                .weight(1f)
+                                .basicMarquee(iterations = Int.MAX_VALUE)
+                                .clickable { onToggleReserveQueue() }
+                        )
+                    }
                 }
             }
 
             // WHEN SONGBOOK, RESERVED QUEUE (R), OR FAVORITES (❤️) OVERLAY IS OPEN:
             // Show the form in the upper area and automatically switch lyrics to 2 lines at the bottom so they are NEVER covered!
+            // WHEN SONGBOOK, RESERVED QUEUE (R), OR FAVORITES (❤️) OVERLAY IS OPEN:
+            // In TV mode while playing: Side-by-side split screen so lyrics are NEVER covered!
+            // In phone mode or while idle: Standard layout with lyrics below if playing.
             val showUpperOverlay = state.isSongbookOpen || state.isReserveQueueOpen || state.isFavoritesOpen
             if (showUpperOverlay) {
-                SongbookSearchOverlay(
-                    songs = state.searchResults,
-                    searchQuery = state.songbookQuery,
-                    reserveQueue = state.reserveQueue,
-                    favoriteSongs = state.favoriteSongs,
-                    favoriteCodes = state.favoriteCodes,
-                    activeTab = when {
-                        state.isReserveQueueOpen -> 1
-                        state.isFavoritesOpen -> 2
-                        else -> 0
-                    },
-                    currentSongFolder = state.currentSongFolder,
-                    scanStatus = state.scanStatus,
-                    isScanning = state.isScanning,
-                    onlyShowPlayableSongs = state.onlyShowPlayableSongs,
-                    playableCodes = state.playableCodes,
-                    isTagalog = isTagalog,
-                    isLandscape = isLandscape,
-                    onSwitchTab = { tab ->
-                        when (tab) {
-                            0 -> if (!state.isSongbookOpen) onOpenSongbook()
-                            1 -> if (!state.isReserveQueueOpen) onToggleReserveQueue()
-                            2 -> if (!state.isFavoritesOpen) onToggleFavorites()
-                        }
-                    },
-                    onToggleFilter = onToggleSongbookFilter,
-                    onOpenFolderLocator = onOpenSongFolderLocator,
-                    onQueryChange = onQuerySongbook,
-                    onSelectSong = onSelectSongFromBook,
-                    onReserveSong = onReserveSongFromBook,
-                    onToggleFavoriteSong = onToggleFavoriteSong,
-                    onPlayReservedIndex = onPlayReservedSong,
-                    onRemoveReservedIndex = onRemoveReservedSong,
-                    onDismiss = {
-                        onCloseSongbook()
-                        onCloseReserveQueue()
-                        onCloseFavorites()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(horizontal = if (isLandscape) 16.dp else 12.dp, vertical = 2.dp)
-                )
-
-                if (state.isPlaying) {
-                    // Automatic 2-Line Lyrics moved down below the form so it is never covered!
-                    val isTopActive = state.activeLyricPosition == ActiveLyricPosition.TOP
-                    val isBottomActive = state.activeLyricPosition == ActiveLyricPosition.BOTTOM
-                    Column(
+                if (isTvMode && state.isPlaying) {
+                    // TV MODE SIDE-BY-SIDE SPLIT: Left 52% Songbook / Right 48% Dedicated Uncovered Lyrics!
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(
-                                start = if (isLandscape) 20.dp else 10.dp,
-                                end = if (isLandscape) 20.dp else 10.dp,
-                                top = if (state.countdownDots > 0) 18.dp else 2.dp,
-                                bottom = if (isLandscape) 10.dp else 4.dp
-                            ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                            .weight(1f)
+                            .padding(horizontal = 14.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        KaraokeLyricLine(
-                            text = state.landscapeLine1,
-                            isActive = isTopActive,
-                            wipePercent = if (isTopActive) state.wipePercent else 0f,
-                            fontSize = if (isLandscape) 24.sp else 20.sp,
-                            lyricConfig = state.lyricConfig,
-                            countdownNumber = state.countdownDots,
-                            isLandscape = isLandscape
+                        SongbookSearchOverlay(
+                            songs = state.searchResults,
+                            searchQuery = state.songbookQuery,
+                            reserveQueue = state.reserveQueue,
+                            favoriteSongs = state.favoriteSongs,
+                            favoriteCodes = state.favoriteCodes,
+                            activeTab = when {
+                                state.isReserveQueueOpen -> 1
+                                state.isFavoritesOpen -> 2
+                                else -> 0
+                            },
+                            currentSongFolder = state.currentSongFolder,
+                            scanStatus = state.scanStatus,
+                            isScanning = state.isScanning,
+                            onlyShowPlayableSongs = state.onlyShowPlayableSongs,
+                            playableCodes = state.playableCodes,
+                            isTagalog = isTagalog,
+                            isLandscape = true,
+                            onSwitchTab = { tab ->
+                                when (tab) {
+                                    0 -> if (!state.isSongbookOpen) onOpenSongbook()
+                                    1 -> if (!state.isReserveQueueOpen) onToggleReserveQueue()
+                                    2 -> if (!state.isFavoritesOpen) onToggleFavorites()
+                                }
+                            },
+                            onToggleFilter = onToggleSongbookFilter,
+                            onOpenFolderLocator = onOpenSongFolderLocator,
+                            onQueryChange = onQuerySongbook,
+                            onSelectSong = onSelectSongFromBook,
+                            onReserveSong = onReserveSongFromBook,
+                            onToggleFavoriteSong = onToggleFavoriteSong,
+                            onPlayReservedIndex = onPlayReservedSong,
+                            onRemoveReservedIndex = onRemoveReservedSong,
+                            onDismiss = {
+                                onCloseSongbook()
+                                onCloseReserveQueue()
+                                onCloseFavorites()
+                            },
+                            modifier = Modifier
+                                .weight(0.52f)
+                                .fillMaxHeight()
                         )
-                        KaraokeLyricLine(
-                            text = state.landscapeLine2,
-                            isActive = isBottomActive,
-                            wipePercent = if (isBottomActive) state.wipePercent else 0f,
-                            fontSize = if (isLandscape) 24.sp else 20.sp,
-                            lyricConfig = state.lyricConfig,
-                            countdownNumber = 0,
-                            isLandscape = isLandscape
-                        )
+
+                        // Dedicated TV Lyrics Panel on Right Side
+                        Column(
+                            modifier = Modifier
+                                .weight(0.48f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xD9050E1A))
+                                .border(1.5.dp, Color(state.appTheme.primaryColor), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            // Song info badge
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF1E293B))
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Text("🎵", fontSize = 14.sp)
+                                Text(
+                                    text = "${state.currentSong.title} • ${state.currentSong.artist}".uppercase(),
+                                    color = Color(0xFFFFD54F),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(20.dp))
+                            val isTopActive = state.activeLyricPosition == ActiveLyricPosition.TOP
+                            val isBottomActive = state.activeLyricPosition == ActiveLyricPosition.BOTTOM
+                            KaraokeLyricLine(
+                                text = state.landscapeLine1,
+                                isActive = isTopActive,
+                                wipePercent = if (isTopActive) state.wipePercent else 0f,
+                                fontSize = 32.sp,
+                                lyricConfig = effectiveLyricConfig,
+                                countdownNumber = state.countdownDots,
+                                isLandscape = true
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            KaraokeLyricLine(
+                                text = state.landscapeLine2,
+                                isActive = isBottomActive,
+                                wipePercent = if (isBottomActive) state.wipePercent else 0f,
+                                fontSize = 32.sp,
+                                lyricConfig = effectiveLyricConfig,
+                                countdownNumber = 0,
+                                isLandscape = true
+                            )
+                        }
+                    }
+                } else {
+                    // Standard Layout (Vertical Stack for Phone or Idle TV)
+                    SongbookSearchOverlay(
+                        songs = state.searchResults,
+                        searchQuery = state.songbookQuery,
+                        reserveQueue = state.reserveQueue,
+                        favoriteSongs = state.favoriteSongs,
+                        favoriteCodes = state.favoriteCodes,
+                        activeTab = when {
+                            state.isReserveQueueOpen -> 1
+                            state.isFavoritesOpen -> 2
+                            else -> 0
+                        },
+                        currentSongFolder = state.currentSongFolder,
+                        scanStatus = state.scanStatus,
+                        isScanning = state.isScanning,
+                        onlyShowPlayableSongs = state.onlyShowPlayableSongs,
+                        playableCodes = state.playableCodes,
+                        isTagalog = isTagalog,
+                        isLandscape = isLandscape,
+                        onSwitchTab = { tab ->
+                            when (tab) {
+                                0 -> if (!state.isSongbookOpen) onOpenSongbook()
+                                1 -> if (!state.isReserveQueueOpen) onToggleReserveQueue()
+                                2 -> if (!state.isFavoritesOpen) onToggleFavorites()
+                            }
+                        },
+                        onToggleFilter = onToggleSongbookFilter,
+                        onOpenFolderLocator = onOpenSongFolderLocator,
+                        onQueryChange = onQuerySongbook,
+                        onSelectSong = onSelectSongFromBook,
+                        onReserveSong = onReserveSongFromBook,
+                        onToggleFavoriteSong = onToggleFavoriteSong,
+                        onPlayReservedIndex = onPlayReservedSong,
+                        onRemoveReservedIndex = onRemoveReservedSong,
+                        onDismiss = {
+                            onCloseSongbook()
+                            onCloseReserveQueue()
+                            onCloseFavorites()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(horizontal = if (isLandscape) 16.dp else 12.dp, vertical = 2.dp)
+                    )
+
+                    if (state.isPlaying) {
+                        // Automatic 2-Line Lyrics moved down below the form so it is never covered!
+                        val isTopActive = state.activeLyricPosition == ActiveLyricPosition.TOP
+                        val isBottomActive = state.activeLyricPosition == ActiveLyricPosition.BOTTOM
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = if (isLandscape) 20.dp else 10.dp,
+                                    end = if (isLandscape) 20.dp else 10.dp,
+                                    top = if (state.countdownDots > 0) 18.dp else 2.dp,
+                                    bottom = if (isLandscape) 10.dp else 4.dp
+                                ),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            KaraokeLyricLine(
+                                text = state.landscapeLine1,
+                                isActive = isTopActive,
+                                wipePercent = if (isTopActive) state.wipePercent else 0f,
+                                fontSize = if (isLandscape) 24.sp else 20.sp,
+                                lyricConfig = effectiveLyricConfig,
+                                countdownNumber = state.countdownDots,
+                                isLandscape = isLandscape
+                            )
+                            KaraokeLyricLine(
+                                text = state.landscapeLine2,
+                                isActive = isBottomActive,
+                                wipePercent = if (isBottomActive) state.wipePercent else 0f,
+                                fontSize = if (isLandscape) 24.sp else 20.sp,
+                                lyricConfig = effectiveLyricConfig,
+                                countdownNumber = 0,
+                                isLandscape = isLandscape
+                            )
+                        }
                     }
                 }
             } else if (!state.isPlaying) {
@@ -1201,6 +1354,7 @@ fun VideokeTvScreen(
                 WelcomeSongSelectionScreen(
                     state = state,
                     isLandscape = isLandscape,
+                    isTvMode = isTvMode,
                     onPlay = onPlay,
                     onReserve = onReserve,
                     modifier = Modifier
@@ -1208,17 +1362,19 @@ fun VideokeTvScreen(
                         .weight(1f)
                 )
             } else if (state.showSongTitleIntro) {
-                // Centered Song Title & Artist Intro Banner on Song Selection
+                // Song Title & Artist Intro Banner on Song Selection (Elevated and enlarged in TV mode!)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = if (isTvMode) Alignment.TopCenter else Alignment.Center
                 ) {
                     SongIntroTitleSplash(
                         song = state.currentSong,
                         isLandscape = isLandscape,
-                        lang = state.appLanguage
+                        lang = state.appLanguage,
+                        isTvMode = isTvMode,
+                        modifier = if (isTvMode) Modifier.padding(top = 36.dp) else Modifier
                     )
                 }
             } else if (state.isInstrumental) {
@@ -1242,7 +1398,9 @@ fun VideokeTvScreen(
                     LyricScreenPosition.BOTTOM -> 0.dp
                 }
 
-                val bottomPadding = if (isLandscape) {
+                val bottomPadding = if (isTvMode) {
+                    58.dp
+                } else if (isLandscape) {
                     52.dp // Elevated comfortably above bottom edge
                 } else {
                     when (state.lyricConfig.position) {
@@ -1303,7 +1461,7 @@ fun VideokeTvScreen(
                                                 isActive = isActive,
                                                 wipePercent = if (isActive) state.wipePercent else 0f,
                                                 fontSize = if (isLandscape) 20.sp else 21.sp,
-                                                lyricConfig = state.lyricConfig,
+                                                lyricConfig = effectiveLyricConfig,
                                                 countdownNumber = lineCountdown,
                                                 isLandscape = isLandscape
                                             )
@@ -1326,8 +1484,8 @@ fun VideokeTvScreen(
                                         text = state.landscapeLine1,
                                         isActive = isTopActive,
                                         wipePercent = if (isTopActive) state.wipePercent else 0f,
-                                        fontSize = if (isLandscape) 31.sp else 26.sp,
-                                        lyricConfig = state.lyricConfig,
+                                        fontSize = if (isTvMode) 42.sp else if (isLandscape) 31.sp else 26.sp,
+                                        lyricConfig = effectiveLyricConfig,
                                         countdownNumber = topCountdown,
                                         isLandscape = isLandscape
                                     )
@@ -1335,8 +1493,8 @@ fun VideokeTvScreen(
                                         text = state.landscapeLine2,
                                         isActive = isBottomActive,
                                         wipePercent = if (isBottomActive) state.wipePercent else 0f,
-                                        fontSize = if (isLandscape) 31.sp else 26.sp,
-                                        lyricConfig = state.lyricConfig,
+                                        fontSize = if (isTvMode) 42.sp else if (isLandscape) 31.sp else 26.sp,
+                                        lyricConfig = effectiveLyricConfig,
                                         countdownNumber = bottomCountdown,
                                         isLandscape = isLandscape
                                     )
@@ -1349,15 +1507,17 @@ fun VideokeTvScreen(
         }
 
         // FIXED FULL-WIDTH SONG / RESERVE BOX ABOVE NUMBERING WHILE PLAYING:
-        // Aligned with the 12.dp horizontal button padding, never shifts lyrics or resizes when appearing,
-        // text auto-centers inside, and tapping R RESERVE automatically reserves the song!
+        // In TV mode, elevated to top so it never obstructs singing lyrics!
         if (state.isPlaying && state.enteredCode.isNotEmpty()) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(if (isTvMode) Alignment.TopCenter else Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-                    .height(46.dp)
+                    .padding(
+                        horizontal = 12.dp,
+                        vertical = if (isTvMode) 38.dp else 4.dp
+                    )
+                    .height(if (isTvMode) 52.dp else 46.dp)
                     .shadow(8.dp, RoundedCornerShape(10.dp))
                     .clip(RoundedCornerShape(10.dp))
                     .background(Color(0xF20A1910))
@@ -1372,14 +1532,14 @@ fun VideokeTvScreen(
                 ) {
                     // Left: Entered 6-digit code
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "🔢", fontSize = 13.sp)
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "🔢", fontSize = if (isTvMode) 16.sp else 13.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = state.enteredCode.padStart(6, '0'),
                             color = Color(0xFF00FF88),
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
-                            fontSize = 14.sp
+                            fontSize = if (isTvMode) 18.sp else 14.sp
                         )
                     }
 
@@ -1395,7 +1555,7 @@ fun VideokeTvScreen(
                                 text = "${state.matchedEnteredSong.title.uppercase()} • ${state.matchedEnteredSong.artist.uppercase()}",
                                 color = Color(0xFFFFD54F),
                                 fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
+                                fontSize = if (isTvMode) 15.sp else 12.sp,
                                 maxLines = 1,
                                 textAlign = TextAlign.Center,
                                 overflow = TextOverflow.Ellipsis,
@@ -1407,7 +1567,7 @@ fun VideokeTvScreen(
                             Text(
                                 text = if (isTagalog) "Kulang ng ${6 - state.enteredCode.length} digits" else "Need ${6 - state.enteredCode.length} more digits",
                                 color = Color(0xFFA5B4FC),
-                                fontSize = 11.sp,
+                                fontSize = if (isTvMode) 13.sp else 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
@@ -1417,7 +1577,7 @@ fun VideokeTvScreen(
                             Text(
                                 text = if (isTagalog) "Walang kanta sa code" else "Song code not found",
                                 color = Color(0xFFFF8A80),
-                                fontSize = 11.sp,
+                                fontSize = if (isTvMode) 13.sp else 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
@@ -1445,7 +1605,7 @@ fun VideokeTvScreen(
                                     text = if (isTagalog) "R IRESERBA" else "R RESERVE",
                                     color = Color(0xFFFFD54F),
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 10.5.sp
+                                    fontSize = if (isTvMode) 12.sp else 10.5.sp
                                 )
                             }
                             Box(
@@ -1461,7 +1621,7 @@ fun VideokeTvScreen(
                                     text = "▶",
                                     color = Color(0xFF00FF88),
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 10.5.sp
+                                    fontSize = if (isTvMode) 12.sp else 10.5.sp
                                 )
                             }
                         }
@@ -1636,6 +1796,7 @@ fun TvHeaderIconButton(
 fun WelcomeSongSelectionScreen(
     state: VideoKeyUiState,
     isLandscape: Boolean,
+    isTvMode: Boolean = false,
     onPlay: () -> Unit = {},
     onReserve: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -1661,12 +1822,14 @@ fun WelcomeSongSelectionScreen(
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // Upper & Middle Area: SELECT A SONG + 6 Advancing Digit Slots
+        // In TV mode, elevated to the upper portion of the screen for maximum visibility!
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(1f)
+                .padding(top = if (isTvMode) 32.dp else 0.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = if (isTvMode) Arrangement.Top else Arrangement.Center
         ) {
             // Glowing Arcade Header: ★ SELECT A SONG ★
             val titleText = if (isTagalog) "PUMILI NG KANTA" else "SELECT A SONG"
@@ -1678,11 +1841,11 @@ fun WelcomeSongSelectionScreen(
                     Text(
                         text = "★",
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isLandscape) 28.sp else 20.sp,
+                        fontSize = if (isTvMode && isLandscape) 36.sp else if (isLandscape) 28.sp else 20.sp,
                         style = TextStyle(
                             color = Color.Black,
                             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isLandscape) 5.5f else 4f,
+                                width = if (isTvMode && isLandscape) 7.5f else if (isLandscape) 5.5f else 4f,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
                         )
@@ -1690,7 +1853,7 @@ fun WelcomeSongSelectionScreen(
                     Text(
                         text = "★",
                         color = Color(0xFFFFD54F),
-                        fontSize = if (isLandscape) 28.sp else 20.sp,
+                        fontSize = if (isTvMode && isLandscape) 36.sp else if (isLandscape) 28.sp else 20.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -1699,12 +1862,14 @@ fun WelcomeSongSelectionScreen(
                     Text(
                         text = titleText,
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isLandscape) 32.sp else 22.sp,
+                        fontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 30.sp else 22.sp,
                         letterSpacing = 2.sp,
+                        maxLines = 1,
+                        softWrap = false,
                         style = TextStyle(
                             color = Color.Black,
                             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isLandscape) 6.5f else 4.8f,
+                                width = if (isTvMode && isLandscape) 7.5f else if (isLandscape) 6.0f else 4.5f,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
                         )
@@ -1714,19 +1879,21 @@ fun WelcomeSongSelectionScreen(
                         text = titleText,
                         color = Color(0xFFFFD54F),
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isLandscape) 32.sp else 22.sp,
-                        letterSpacing = 2.sp
+                        fontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 30.sp else 22.sp,
+                        letterSpacing = 2.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = "★",
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isLandscape) 28.sp else 20.sp,
+                        fontSize = if (isTvMode && isLandscape) 36.sp else if (isLandscape) 28.sp else 20.sp,
                         style = TextStyle(
                             color = Color.Black,
                             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isLandscape) 5.5f else 4f,
+                                width = if (isTvMode && isLandscape) 7.5f else if (isLandscape) 5.5f else 4f,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
                         )
@@ -1734,7 +1901,7 @@ fun WelcomeSongSelectionScreen(
                     Text(
                         text = "★",
                         color = Color(0xFFFFD54F),
-                        fontSize = if (isLandscape) 28.sp else 20.sp,
+                        fontSize = if (isTvMode && isLandscape) 36.sp else if (isLandscape) 28.sp else 20.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -1743,15 +1910,15 @@ fun WelcomeSongSelectionScreen(
             Text(
                 text = if (isTagalog) "ITIPA ANG 6-DIGIT NA NUMERO SA KEYPAD" else "ENTER 6-DIGIT SONG NUMBER ON KEYPAD",
                 color = Color(0xFF81D4FA),
-                fontSize = if (isLandscape) 12.sp else 10.sp,
+                fontSize = if (isTvMode && isLandscape) 14.sp else if (isLandscape) 12.sp else 10.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
-                modifier = Modifier.padding(top = 2.dp, bottom = if (isLandscape) 10.dp else 6.dp)
+                modifier = Modifier.padding(top = if (isTvMode) 8.dp else 2.dp, bottom = if (isTvMode) 18.dp else if (isLandscape) 10.dp else 6.dp)
             )
 
             // 6 Advancing Digit Slots: Starts from Right Side [ 0 ] [ 0 ] [ 0 ] [ 0 ] [ 0 ] [ 0 ]
             Row(
-                horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (isTvMode && isLandscape) 14.dp else if (isLandscape) 10.dp else 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val code = state.enteredCode
@@ -1783,8 +1950,8 @@ fun WelcomeSongSelectionScreen(
                     Box(
                         modifier = Modifier
                             .size(
-                                width = if (isLandscape) 52.dp else 40.dp,
-                                height = if (isLandscape) 60.dp else 46.dp
+                                width = if (isTvMode && isLandscape) 64.dp else if (isLandscape) 52.dp else 40.dp,
+                                height = if (isTvMode && isLandscape) 74.dp else if (isLandscape) 60.dp else 46.dp
                             )
                             .shadow(if (isActiveSlot || isFilled) 6.dp else 2.dp, RoundedCornerShape(8.dp))
                             .clip(RoundedCornerShape(8.dp))
@@ -1805,7 +1972,7 @@ fun WelcomeSongSelectionScreen(
                                 color = digitColor,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Black,
-                                fontSize = if (isLandscape) 30.sp else 22.sp,
+                                fontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 30.sp else 22.sp,
                                 style = TextStyle(
                                     shadow = if (isFilled || isActiveSlot) {
                                         Shadow(
@@ -1822,7 +1989,7 @@ fun WelcomeSongSelectionScreen(
                                 Box(
                                     modifier = Modifier
                                         .padding(top = 2.dp)
-                                        .width(if (isLandscape) 20.dp else 14.dp)
+                                        .width(if (isTvMode && isLandscape) 26.dp else if (isLandscape) 20.dp else 14.dp)
                                         .height(2.5.dp)
                                         .background(Color(0xFFFFD54F).copy(alpha = pulseBorderAlpha), RoundedCornerShape(1.dp))
                                 )
@@ -1851,8 +2018,8 @@ fun WelcomeSongSelectionScreen(
 
         Box(
             modifier = Modifier
-                .fillMaxWidth(if (isLandscape) 0.78f else 1f)
-                .height(if (isLandscape) 66.dp else 58.dp)
+                .fillMaxWidth(if (isTvMode) 0.88f else if (isLandscape) 0.78f else 1f)
+                .height(if (isTvMode) 76.dp else if (isLandscape) 66.dp else 58.dp)
                 .shadow(6.dp, RoundedCornerShape(10.dp))
                 .clip(RoundedCornerShape(10.dp))
                 .background(boxBgColor)
@@ -1871,7 +2038,7 @@ fun WelcomeSongSelectionScreen(
                         text = "🎵 ${song.code}: ${song.title.uppercase()}",
                         color = Color(0xFFFFD54F),
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isLandscape) 16.sp else 13.sp,
+                        fontSize = if (isTvMode) 19.sp else if (isLandscape) 16.sp else 13.sp,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1884,7 +2051,7 @@ fun WelcomeSongSelectionScreen(
                         text = "👤 ${song.artist.uppercase()}",
                         color = Color(0xFFE2E8F0),
                         fontWeight = FontWeight.Bold,
-                        fontSize = if (isLandscape) 13.sp else 11.sp,
+                        fontSize = if (isTvMode) 15.sp else if (isLandscape) 13.sp else 11.sp,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
