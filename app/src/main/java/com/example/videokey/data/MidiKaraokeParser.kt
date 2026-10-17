@@ -53,12 +53,16 @@ object MidiKaraokeParser {
         val format = buffer.short.toInt()
         val numTracks = buffer.short.toInt()
         val division = buffer.short.toInt()
+        if (headerLen > 6 && 8 + headerLen <= buffer.limit()) {
+            buffer.position(8 + headerLen)
+        }
 
         // Division: ticks per quarter note
         val ppq = if (division > 0) division else 480
 
         val tempoMap = mutableListOf<Pair<Long, Long>>() // tick to microseconds per quarter note
-        val rawLyrics = mutableListOf<Pair<Long, String>>() // tick to text
+        val rawLyricMeta = mutableListOf<Pair<Long, String>>() // 0x05 Lyric events
+        val rawTextMeta = mutableListOf<Pair<Long, String>>()  // 0x01 Text events
         val melodyNoteSpans = mutableListOf<Pair<Long, Long>>() // startTick to endTick for melody notes
         val allNoteSpans = mutableListOf<Pair<Long, Long>>()
         val rawMelodyNotes = mutableListOf<RawTrackNote>()
@@ -70,7 +74,11 @@ object MidiKaraokeParser {
             if (buffer.remaining() < 8) break
             val trackTag = ByteArray(4)
             buffer.get(trackTag)
-            val trackLen = buffer.int
+            val tagStr = String(trackTag, Charsets.ISO_8859_1)
+            if (tagStr != "MTrk") {
+                break
+            }
+            val trackLen = buffer.int.coerceAtLeast(0)
             val trackEndPos = (buffer.position() + trackLen).coerceAtMost(buffer.limit())
 
             var currentTick = 0L
@@ -85,7 +93,7 @@ object MidiKaraokeParser {
                 currentTick += delta
                 if (currentTick > maxTick) maxTick = currentTick
 
-                if (!buffer.hasRemaining()) break
+                if (buffer.position() >= trackEndPos || !buffer.hasRemaining()) break
                 var status = buffer.get().toInt() and 0xFF
                 if (status < 0x80) {
                     // Running status
@@ -99,7 +107,7 @@ object MidiKaraokeParser {
                     // Meta event
                     if (!buffer.hasRemaining()) break
                     val metaType = buffer.get().toInt() and 0xFF
-                    val length = readVariableLength(buffer).toInt().coerceAtMost(buffer.remaining())
+                    val length = readVariableLength(buffer).toInt().coerceIn(0, buffer.remaining())
                     val data = ByteArray(length)
                     buffer.get(data)
 
@@ -120,18 +128,39 @@ object MidiKaraokeParser {
                                 tempoMap.add(Pair(currentTick, tempo.toLong()))
                             }
                         }
-                        0x01, 0x05 -> {
-                            // 0x01: Text, 0x05: Lyric
+                        0x05 -> {
+                            // 0x05: Dedicated Lyric Meta Event
                             val text = String(data, Charsets.ISO_8859_1)
-                            if (text.isNotEmpty() && !text.startsWith("@")) {
-                                rawLyrics.add(Pair(currentTick, text))
+                            if (text.isNotEmpty() && !isMetadataTag(text)) {
+                                rawLyricMeta.add(Pair(currentTick, text))
                                 isMelodyTrack = true
+                            }
+                        }
+                        0x01 -> {
+                            // 0x01: Text Meta Event (used by .kar files)
+                            val text = String(data, Charsets.ISO_8859_1)
+                            if (text.isNotEmpty() && !isMetadataTag(text)) {
+                                // Ignore tick-0 header comments in KAR files (e.g., "Words and Music by...")
+                                val trimmed = text.trim()
+                                val isTickZeroHeader = currentTick == 0L && (
+                                    trimmed.length > 24 ||
+                                    trimmed.startsWith("http", ignoreCase = true) ||
+                                    trimmed.startsWith("www.", ignoreCase = true) ||
+                                    trimmed.contains("copyright", ignoreCase = true) ||
+                                    trimmed.contains("sequenced", ignoreCase = true) ||
+                                    trimmed.contains("karaoke", ignoreCase = true) ||
+                                    trimmed.contains("midi", ignoreCase = true)
+                                )
+                                if (!isTickZeroHeader) {
+                                    rawTextMeta.add(Pair(currentTick, text))
+                                    isMelodyTrack = true
+                                }
                             }
                         }
                     }
                 } else if (status == 0xF0 || status == 0xF7) {
                     // SysEx event
-                    val length = readVariableLength(buffer).toInt().coerceAtMost(buffer.remaining())
+                    val length = readVariableLength(buffer).toInt().coerceIn(0, buffer.remaining())
                     buffer.position(buffer.position() + length)
                 } else {
                     // Channel message
@@ -175,12 +204,24 @@ object MidiKaraokeParser {
                 }
             }
 
+            // Always align buffer position to the exact end of the track chunk
+            buffer.position(trackEndPos)
+
             allNoteSpans.addAll(trackNotes)
             rawAllNotes.addAll(trackRawNotes)
             if (isMelodyTrack) {
                 melodyNoteSpans.addAll(trackNotes)
                 rawMelodyNotes.addAll(trackRawNotes.filter { it.channel != 9 })
             }
+        }
+
+        // Prefer 0x05 Lyric events if present; otherwise use 0x01 Text events (do not mix both to avoid duplicates/headers)
+        val rawLyrics = if (rawLyricMeta.size >= 5) {
+            rawLyricMeta
+        } else if (rawTextMeta.isNotEmpty()) {
+            rawTextMeta
+        } else {
+            rawLyricMeta
         }
 
         // 1. Correlate note events with rawLyrics to detect true vocal melody channel
@@ -220,7 +261,7 @@ object MidiKaraokeParser {
 
         val effectiveMelodyNotes = effectiveRawMelody.map { Pair(it.startTick, it.endTick) }.sortedBy { it.first }
 
-        // Sort tempo and lyrics by tick
+        // Stable sort tempo and lyrics by tick
         tempoMap.sortBy { it.first }
         rawLyrics.sortBy { it.first }
 
@@ -273,71 +314,275 @@ object MidiKaraokeParser {
             )
         }.sortedBy { it.startMs }
 
-        // Group into lines - synchronized with melody notes and syllables
-        val lines = mutableListOf<KaraokeLine>()
+        // Tokenize raw lyrics into normalized syllable tokens with accurate breakBefore / breakAfter flags.
+        // This prevents trailing '\r\n' on the last syllable of a line from cutting that syllable onto the next line!
+        val tokens = tokenizeLyrics(rawLyrics)
+        val hasExplicitBreaks = tokens.count { it.breakBefore || it.breakAfter } >= 3
+
+        val rawLines = mutableListOf<MutableList<KaraokeLyric>>()
         var currentSyllables = mutableListOf<KaraokeLyric>()
-        var lineIndex = 0
         var currentLineChars = 0
 
-        for (i in rawLyrics.indices) {
-            val (tick, text) = rawLyrics[i]
+        fun flushCurrentLine() {
+            if (currentSyllables.isEmpty()) return
+            // Clean up internal syllable hyphens within words (e.g., "UM-" + "BRELLA" -> "UMBRELLA", "LOV-" + "ING" -> "LOVING")
+            val cleaned = cleanupSyllableHyphens(currentSyllables)
+            val full = cleaned.joinToString("") { it.text }.trim()
+            if (full.isNotEmpty()) {
+                rawLines.add(cleaned.toMutableList())
+            }
+            currentSyllables = mutableListOf()
+            currentLineChars = 0
+        }
+
+        for (i in tokens.indices) {
+            val token = tokens[i]
+            val tick = token.tick
+            val cleanText = token.text
+            if (cleanText.isEmpty()) {
+                if (token.breakBefore || token.breakAfter) {
+                    flushCurrentLine()
+                }
+                continue
+            }
 
             // Sync syllable start and duration with the nearest melody note if available
             val matchedNote = effectiveMelodyNotes.minByOrNull { kotlin.math.abs(it.first - tick) }
             val isNoteMatched = matchedNote != null && kotlin.math.abs(matchedNote.first - tick) <= (ppq / 2).coerceAtLeast(40)
-            
-            // Align start timestamp with the melody note start if note is within vocal lead-in threshold
             val effectiveStartTick = if (isNoteMatched) matchedNote!!.first else tick
             val timestampMs = tickToMs(effectiveStartTick)
-            
+
             val noteDurationMs = if (isNoteMatched) {
                 (tickToMs(matchedNote!!.second) - tickToMs(matchedNote.first)).coerceIn(120L, 3500L)
             } else {
                 null
             }
 
-            val nextTick = if (i + 1 < rawLyrics.size) rawLyrics[i + 1].first else tick + ppq
+            val nextTick = if (i + 1 < tokens.size) tokens[i + 1].tick else tick + ppq
             val defaultDuration = (tickToMs(nextTick) - timestampMs).coerceIn(120L, 2500L)
             val duration = noteDurationMs ?: defaultDuration
 
-            val prevTick = if (i > 0) rawLyrics[i - 1].first else tick
+            val prevTick = if (i > 0) tokens[i - 1].tick else tick
             val gapMs = tickToMs(tick) - tickToMs(prevTick)
 
-            val isExplicitBreak = text.contains("\r") || text.contains("\n") ||
-                    text.startsWith("/") || text.startsWith("\\")
-            val isTimeGapBreak = gapMs > 1300L && currentSyllables.isNotEmpty()
             val prevText = currentSyllables.lastOrNull()?.text ?: ""
-            val isWordBoundary = text.startsWith(" ") || prevText.endsWith(" ")
-            val isLengthBreak = (currentLineChars >= 28 || currentSyllables.size >= 7) && isWordBoundary
+            val prevEndsWithHyphen = prevText.trimEnd().endsWith("-")
+            val isWordBoundary = (cleanText.startsWith(" ") || prevText.endsWith(" ")) && !prevEndsWithHyphen
 
-            if ((isExplicitBreak || isTimeGapBreak || isLengthBreak) && currentSyllables.isNotEmpty()) {
-                val start = currentSyllables.first().timestampMs
-                val end = currentSyllables.last().timestampMs + currentSyllables.last().durationMs
-                val full = currentSyllables.joinToString("") { it.text }.trim()
-                if (full.isNotEmpty()) {
-                    lines.add(KaraokeLine(lineIndex++, currentSyllables, start, end, full))
+            // How many syllables/chars remain before the next explicit break?
+            var charsUntilNextExplicitBreak = 0
+            var syllablesUntilNextExplicitBreak = 0
+            if (hasExplicitBreaks) {
+                for (j in i until minOf(i + 12, tokens.size)) {
+                    if (j > i && tokens[j].breakBefore) break
+                    charsUntilNextExplicitBreak += tokens[j].text.length
+                    syllablesUntilNextExplicitBreak++
+                    if (tokens[j].breakAfter) break
                 }
-                currentSyllables = mutableListOf()
-                currentLineChars = 0
             }
 
-            val cleanText = text.removePrefix("/").removePrefix("\\").replace("\r", "").replace("\n", "")
-            if (cleanText.isNotEmpty()) {
-                currentSyllables.add(KaraokeLyric(cleanText, timestampMs, duration))
-                currentLineChars += cleanText.length
+            // Never break in the middle of a hyphenated word ("UM-" + "BRELLA") unless the time gap is huge (> 3s)
+            val shouldBreakBefore = when {
+                currentSyllables.isEmpty() -> false
+                token.breakBefore && !prevEndsWithHyphen -> true
+                token.breakBefore && prevEndsWithHyphen && gapMs > 2500L -> true
+                !hasExplicitBreaks && isWordBoundary && gapMs > 2000L -> true
+                hasExplicitBreaks && isWordBoundary && gapMs > 4500L -> true
+                !hasExplicitBreaks && isWordBoundary && currentLineChars >= 34 -> true
+                // If MIDI has explicit breaks, only wrap an ultra-long line (> 42 chars) if at least 12 chars & 3 syllables remain before the explicit break!
+                hasExplicitBreaks && isWordBoundary && currentLineChars >= 42 &&
+                    charsUntilNextExplicitBreak >= 12 && syllablesUntilNextExplicitBreak >= 3 -> true
+                else -> false
+            }
+
+            if (shouldBreakBefore) {
+                flushCurrentLine()
+            }
+
+            // If we are at the start of a new line, strip leading spaces; if continuing after a hyphen on same word, ensure no stray space
+            val normalizedText = if (currentSyllables.isEmpty()) {
+                cleanText.trimStart()
+            } else {
+                cleanText
+            }
+
+            if (normalizedText.isNotEmpty()) {
+                currentSyllables.add(KaraokeLyric(normalizedText, timestampMs, duration))
+                currentLineChars += normalizedText.length
+            }
+
+            // If this syllable had a trailing line break (e.g., "love\r\n"), flush AFTER adding it (unless it ends with a hyphen for anunfinished word)
+            val endsWithHyphenNow = normalizedText.trimEnd().endsWith("-")
+            if (token.breakAfter && !endsWithHyphenNow) {
+                flushCurrentLine()
             }
         }
 
-        if (currentSyllables.isNotEmpty()) {
-            val start = currentSyllables.first().timestampMs
-            val end = currentSyllables.last().timestampMs + currentSyllables.last().durationMs
-            val full = currentSyllables.joinToString("") { it.text }.trim()
-            if (full.isNotEmpty()) {
-                lines.add(KaraokeLine(lineIndex, currentSyllables, start, end, full))
-            }
+        flushCurrentLine()
+
+        // Post-process: merge any stray/orphan short fragments (e.g. 1-3 letters or trailing hyphenated fragments)
+        val mergedRawLines = mergeStrayFragments(rawLines)
+
+        // Build final KaraokeLine list with smooth, contiguous syllable durations
+        val lines = mutableListOf<KaraokeLine>()
+        for (idx in mergedRawLines.indices) {
+            val syls = mergedRawLines[idx]
+            if (syls.isEmpty()) continue
+            val full = syls.joinToString("") { it.text }.trim()
+            if (full.isEmpty()) continue
+
+            val start = syls.first().timestampMs
+            val lastSyl = syls.last()
+            val nextLineStart = mergedRawLines.getOrNull(idx + 1)?.firstOrNull()?.timestampMs ?: (lastSyl.timestampMs + lastSyl.durationMs + 500L)
+            // Give the last syllable of the line enough hold time so it never cuts off abruptly
+            val minLastDuration = lastSyl.durationMs.coerceAtLeast(350L)
+            val maxAllowedEnd = (nextLineStart - 60L).coerceAtLeast(lastSyl.timestampMs + 180L)
+            val end = (lastSyl.timestampMs + minLastDuration).coerceAtMost(maxAllowedEnd).coerceAtLeast(start + 250L)
+
+            lines.add(KaraokeLine(idx, syls, start, end, full))
         }
 
         return ParsedKaraoke(lines, durationMs, initialBpm, parsedMelodyNotes, parsedAccompNotes)
+    }
+
+    private data class SyllableToken(
+        val tick: Long,
+        val text: String,
+        val breakBefore: Boolean,
+        val breakAfter: Boolean
+    )
+
+    private fun isMetadataTag(text: String): Boolean {
+        val t = text.trim()
+        if (t.isEmpty()) return false
+        // Standard KAR/MIDI metadata prefixes (@K, @L, @T, @V, @I, %..., #...)
+        if (t.startsWith("@") || t.startsWith("%") || t.startsWith("#")) return true
+        return false
+    }
+
+    private fun isBreakChar(c: Char): Boolean = c == '\r' || c == '\n' || c == '/' || c == '\\'
+
+    private fun tokenizeLyrics(rawLyrics: List<Pair<Long, String>>): List<SyllableToken> {
+        val result = mutableListOf<SyllableToken>()
+        var pendingBreakBefore = false
+
+        for ((tick, raw) in rawLyrics) {
+            // Normalize control characters (ignore ASCII < 32 except \r, \n, \t)
+            val sb = StringBuilder(raw.length)
+            for (ch in raw) {
+                when {
+                    ch == '\t' -> sb.append(' ')
+                    ch == '\r' || ch == '\n' -> sb.append(ch)
+                    ch.code >= 32 -> sb.append(ch)
+                }
+            }
+            val s = sb.toString()
+            if (s.isEmpty()) continue
+
+            var idx = 0
+            val n = s.length
+            var leadingBreak = pendingBreakBefore
+            pendingBreakBefore = false
+
+            while (idx < n && isBreakChar(s[idx])) {
+                leadingBreak = true
+                idx++
+            }
+
+            if (idx >= n) {
+                // Entire event was just break characters (e.g., "\r\n" or "/")
+                pendingBreakBefore = true
+                continue
+            }
+
+            // Scan through remaining characters; split if there are embedded break chars
+            while (idx < n) {
+                val segStart = idx
+                while (idx < n && !isBreakChar(s[idx])) {
+                    idx++
+                }
+                val segText = s.substring(segStart, idx)
+                var trailingBreak = false
+                while (idx < n && isBreakChar(s[idx])) {
+                    trailingBreak = true
+                    idx++
+                }
+                if (segText.isNotEmpty()) {
+                    result.add(
+                        SyllableToken(
+                            tick = tick,
+                            text = segText,
+                            breakBefore = leadingBreak,
+                            breakAfter = trailingBreak && idx >= n
+                        )
+                    )
+                    leadingBreak = trailingBreak && idx < n
+                } else if (trailingBreak) {
+                    leadingBreak = true
+                }
+            }
+        }
+        return result
+    }
+
+    private fun cleanupSyllableHyphens(syllables: List<KaraokeLyric>): List<KaraokeLyric> {
+        if (syllables.isEmpty()) return syllables
+        val out = ArrayList<KaraokeLyric>(syllables.size)
+        for (i in syllables.indices) {
+            val cur = syllables[i]
+            var txt = cur.text
+            val trimmedEnd = txt.trimEnd()
+            if (trimmedEnd.endsWith("-") && trimmedEnd.length >= 2) {
+                if (i + 1 < syllables.size) {
+                    val nextTxt = syllables[i + 1].text
+                    // If the hyphen is an internal syllable divider inside a word, remove the hyphen
+                    if (!nextTxt.startsWith(" ")) {
+                        txt = trimmedEnd.dropLast(1)
+                    } else {
+                        txt = trimmedEnd.dropLast(1) + " "
+                    }
+                } else {
+                    // Trailing hyphen at the very end of a line ("UM-") -> remove the dangling hyphen
+                    txt = trimmedEnd.dropLast(1)
+                }
+            }
+            if (txt.isNotEmpty()) {
+                out.add(cur.copy(text = txt))
+            }
+        }
+        return out
+    }
+
+    private fun mergeStrayFragments(lines: List<MutableList<KaraokeLyric>>): List<MutableList<KaraokeLyric>> {
+        if (lines.size <= 1) return lines
+        val result = mutableListOf<MutableList<KaraokeLyric>>()
+
+        var i = 0
+        while (i < lines.size) {
+            val current = lines[i]
+            val currentFull = current.joinToString("") { it.text }.trim()
+
+            // Check if this line is a tiny stray fragment (<= 3 letters, single syllable/fragment)
+            val isTinyStray = current.size == 1 && currentFull.length in 1..3 && !currentFull.contains(" ")
+            if (isTinyStray && result.isNotEmpty()) {
+                val prev = result.last()
+                val prevEndMs = prev.last().timestampMs + prev.last().durationMs
+                val curStartMs = current.first().timestampMs
+                val prevChars = prev.sumOf { it.text.length }
+                if (curStartMs - prevEndMs <= 1600L && prevChars + currentFull.length <= 42) {
+                    // Attach to the end of the previous line
+                    val firstSyl = current.first()
+                    val needsSpace = !prev.last().text.endsWith(" ") && !firstSyl.text.startsWith(" ") &&
+                        firstSyl.text.first().isUpperCase()
+                    prev.add(firstSyl.copy(text = if (needsSpace) " ${firstSyl.text}" else firstSyl.text))
+                    i++
+                    continue
+                }
+            }
+            result.add(current)
+            i++
+        }
+        return result
     }
 
     private fun readVariableLength(buffer: ByteBuffer): Long {

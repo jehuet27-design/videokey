@@ -42,57 +42,66 @@ data class KaraokeBackground(
 )
 
 enum class LyricFontFamily(val displayName: String) {
-    SAN_SERIF("Arial Bold (Classic Videoke)"),
-    IMPACT_HEAVY("Impact Heavy (Platinum TV)"),
-    CONDENSED_TALL("Bebas Tall (Arcade Stage)"),
-    GEOMETRIC_POP("Montserrat Pop (Modern)"),
-    ROUNDED_CLEAN("Verdana Clean (Wide Sans)"),
-    SMALL_CAPS("Oswald Cinema (Broadcast)"),
-    SERIF("Georgia Serif (Ballad)"),
-    SERIF_MONOSPACE("Courier Typewriter (Retro)"),
-    MONOSPACE("Digital Mono (80s Arcade)"),
-    CASUAL_FUN("Comic Casual (Party Sing)"),
-    CURSIVE("Dancing Script (Romantic)"),
-    LIGHT_MODERN("Futura Sleek (Lounge)")
+    SAN_SERIF("Arial Bold"),
+    IMPACT_HEAVY("Impact Heavy"),
+    CONDENSED_TALL("Bebas Tall"),
+    GEOMETRIC_POP("Montserrat Pop"),
+    ROUNDED_CLEAN("Verdana Wide"),
+    SMALL_CAPS("Oswald Cinema"),
+    SERIF("Georgia Serif"),
+    SERIF_MONOSPACE("Courier Slab"),
+    MONOSPACE("Digital Mono"),
+    CASUAL_FUN("Comic Casual"),
+    CURSIVE("Dancing Script"),
+    LIGHT_MODERN("Futura Sleek")
 }
 
 enum class LyricWipeColor(val displayName: String, val activeColor: Long) {
-    DARK_BLUE("Dark Blue (Videoke)", 0xFF1D4ED8),
-    OCEAN_BLUE("Karaoke Blue (Live TV)", 0xFF0088FF),
-    SUNSHINE_YELLOW("Sunshine Yellow (Classic)", 0xFFFFEB3B),
-    ELECTRIC_CYAN("Electric Cyan (Neon)", 0xFF00E5FF),
-    NEON_GREEN("Lime Green (Cyber)", 0xFF00E676),
-    HOT_PINK("Hot Pink (Party)", 0xFFFF4081),
-    VIBRANT_ORANGE("Sunset Orange (Rock)", 0xFFFF9100),
-    PURE_GOLD("Pure Gold (Luxury)", 0xFFFFD54F)
+    DARK_BLUE("Dark Blue", 0xFF1D4ED8),
+    OCEAN_BLUE("Karaoke Blue", 0xFF0088FF),
+    SUNSHINE_YELLOW("Sunshine Yellow", 0xFFFFEB3B),
+    ELECTRIC_CYAN("Electric Cyan", 0xFF00E5FF),
+    NEON_GREEN("Lime Green", 0xFF00E676),
+    HOT_PINK("Hot Pink", 0xFFFF4081),
+    VIBRANT_ORANGE("Sunset Orange", 0xFFFF9100),
+    PURE_GOLD("Pure Gold", 0xFFFFD54F)
 }
 
-enum class LyricShadowStyle(val displayName: String) {
-    HEAVY_OUTLINE("Deep Dark Outline"),
-    NEON_GLOW("Neon Ambient Glow"),
-    SUBTLE_DROP("Subtle 3D Drop"),
-    CLEAN("Clean (No Shadow)")
+enum class LyricShadowStyle(val displayName: String, val tagalogName: String) {
+    HEAVY_OUTLINE("Heavy Outline", "Makapal na Outline"),
+    NEON_GLOW("Neon Glow", "Neon Glow"),
+    SUBTLE_DROP("3D Drop Shadow", "3D Anino"),
+    CLEAN("No Shadow", "Walang Anino");
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
 }
 
-enum class LyricLineCount(val displayName: String, val lines: Int) {
-    TWO_LINES("2 Lines (Dalawang Linya)", 2),
-    FOUR_LINES("4 Lines (Apat na Linya)", 4)
+enum class LyricLineCount(val displayName: String, val tagalogName: String, val lines: Int) {
+    TWO_LINES("2 Lines", "2 Linya (Dalawa)", 2),
+    FOUR_LINES("4 Lines", "4 Linya (Apat)", 4);
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
+    fun shortBadge(isTagalog: Boolean): String = if (isTagalog) "${lines} Linya" else "${lines} Lines"
 }
 
-enum class LyricScreenPosition(val displayName: String) {
-    BOTTOM("⬇️ Ibaba (Lower Third)"),
-    CENTER("⏺️ Gitna (Center / Middle)"),
-    TOP("⬆️ Itaas (Top / Upper)")
+enum class LyricScreenPosition(val displayName: String, val tagalogName: String) {
+    BOTTOM("⬇️ Bottom", "⬇️ Ibaba"),
+    CENTER("⏺️ Center", "⏺️ Gitna"),
+    TOP("⬆️ Top", "⬆️ Itaas");
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
 }
 
-enum class LyricOutlineColor(val displayName: String, val colorLong: Long) {
-    BLACK("Black (Itim)", 0xFF000000),
-    WHITE("White (Puti)", 0xFFFFFFFF),
-    NAVY("Navy Blue", 0xFF0A192F),
-    GOLD("Gold Accent", 0xFFFFD700),
-    RED("Crimson Red", 0xFFDC2626),
-    CYAN("Cyan Neon", 0xFF06B6D4),
-    NONE("No Outline", 0x00000000)
+enum class LyricOutlineColor(val displayName: String, val tagalogName: String, val colorLong: Long) {
+    BLACK("Black", "Itim (Black)", 0xFF000000),
+    WHITE("White", "Puti (White)", 0xFFFFFFFF),
+    NAVY("Navy Blue", "Navy Blue", 0xFF0A192F),
+    GOLD("Gold", "Ginto (Gold)", 0xFFFFD700),
+    RED("Crimson Red", "Pula (Red)", 0xFFDC2626),
+    CYAN("Cyan Neon", "Cyan Neon", 0xFF06B6D4),
+    NONE("No Outline", "Walang Outline", 0x00000000);
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
 }
 
 data class LyricCustomization(
@@ -111,6 +120,7 @@ data class LyricCustomization(
 enum class AppTheme(
     val id: String,
     val displayName: String,
+    val tagalogName: String,
     val primaryColor: Long,       // Smooth flat accent
     val secondaryColor: Long,     // Secondary accent
     val surfaceColor: Long,       // Card / Dialog surface
@@ -123,6 +133,7 @@ enum class AppTheme(
     SLATE_DARK(
         "slate_dark",
         "Classic Slate",
+        "Klasikong Slate",
         primaryColor = 0xFF38BDF8,      // Flat Sky Blue
         secondaryColor = 0xFF818CF8,    // Soft Indigo
         surfaceColor = 0xFF1E293B,      // Deep Slate Card
@@ -135,6 +146,7 @@ enum class AppTheme(
     EMERALD_STAGE(
         "emerald_stage",
         "Emerald Stage",
+        "Emerald Entablado",
         primaryColor = 0xFF10B981,      // Smooth Emerald
         secondaryColor = 0xFF34D399,
         surfaceColor = 0xFF064E3B,
@@ -147,6 +159,7 @@ enum class AppTheme(
     WARM_AMBER(
         "warm_amber",
         "Warm Gold",
+        "Gintong Entablado",
         primaryColor = 0xFFF59E0B,      // Flat Amber
         secondaryColor = 0xFFFBBF24,
         surfaceColor = 0xFF292524,
@@ -158,6 +171,7 @@ enum class AppTheme(
     ),
     ROYAL_INDIGO(
         "royal_indigo",
+        "Royal Studio",
         "Royal Studio",
         primaryColor = 0xFF6366F1,      // Smooth Indigo
         secondaryColor = 0xFFA5B4FC,
@@ -171,6 +185,7 @@ enum class AppTheme(
     CHARCOAL_MINIMAL(
         "charcoal_minimal",
         "Minimal Charcoal",
+        "Minimal Charcoal",
         primaryColor = 0xFFE2E8F0,      // Soft Silver/Slate
         secondaryColor = 0xFF94A3B8,
         surfaceColor = 0xFF18181B,      // Zinc 900
@@ -179,7 +194,9 @@ enum class AppTheme(
         buttonBorderColor = 0xFF3F3F46, // Zinc 700
         textColor = 0xFFF4F4F5,
         textMutedColor = 0xFFA1A1AA
-    )
+    );
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
 }
 
 enum class AppLanguage(val code: String, val displayName: String) {
@@ -643,15 +660,20 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                         micScorer.stopScoring()
                     }
                     _uiState.update {
+                        val isTl = it.appLanguage == AppLanguage.TAGALOG
                         it.copy(
                             isPlaying = false,
                             showSongTitleIntro = false,
                             isInstrumental = false,
                             countdownDots = 0,
-                            alertMessage = "⚠️ Walang audio file para sa [${song.code}] \"${song.title}\". Mangyaring maglagay ng \"${song.code}.mid\" sa /sdcard/VideoKey/songs/ folder upang mapatugtog ito.",
+                            alertMessage = if (isTl) {
+                                "⚠️ Walang audio file para sa [${song.code}] \"${song.title}\". Mangyaring maglagay ng \"${song.code}.mid\" sa /sdcard/VideoKey/songs/ folder upang mapatugtog ito."
+                            } else {
+                                "⚠️ No audio file found for [${song.code}] \"${song.title}\". Please place \"${song.code}.mid\" inside /sdcard/VideoKey/songs/ to play this song."
+                            },
                             line1 = "NO MIDI FILE FOUND",
-                            line2 = "WALANG FILE PARA SA: ${song.title.take(24).uppercase()}",
-                            line3 = "PUMILI NG MAY 🎵 BADGE SA SONGBOOK",
+                            line2 = if (isTl) "WALANG FILE PARA SA: ${song.title.take(24).uppercase()}" else "MISSING FILE FOR: ${song.title.take(24).uppercase()}",
+                            line3 = if (isTl) "PUMILI NG MAY 🎵 BADGE SA SONGBOOK" else "CHOOSE A SONG WITH 🎵 BADGE IN SONGBOOK",
                             line4 = "",
                             activeLineNumber = 1,
                             landscapeLine1 = "NO MIDI FILE FOUND",
@@ -706,7 +728,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 }
 
                 if (lines.isNotEmpty() && isAudioPlaying) {
-                    val activeIndex = lines.indexOfFirst { posMs in it.startMs..it.endMs }
+                    val activeIndex = lines.indexOfFirst { idxLine ->
+                        val idx = lines.indexOf(idxLine)
+                        val nextStart = lines.getOrNull(idx + 1)?.startMs ?: (idxLine.endMs + 500L)
+                        val holdEnd = minOf(idxLine.endMs + 420L, (nextStart - 60L).coerceAtLeast(idxLine.endMs))
+                        posMs in idxLine.startMs..holdEnd
+                    }
                     if (activeIndex != -1) {
                         val currentLine = lines[activeIndex]
                         val nextLine = lines.getOrNull(activeIndex + 1)
@@ -883,7 +910,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         if (_uiState.value.isRecording || karaokeRecorder.isRecording) {
             val saved = karaokeRecorder.stopAndSaveRecording()
             if (saved != null) {
-                savedBanner = "✅ Na-save ang Recording: ${saved.fileName}"
+                val isTl = _uiState.value.appLanguage == AppLanguage.TAGALOG
+                savedBanner = if (isTl) "✅ Na-save ang Recording: ${saved.fileName}" else "✅ Recording Saved: ${saved.fileName}"
             }
         }
         micScorer.stopScoring()
@@ -1122,10 +1150,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         if (started) {
             micScorer.startScoring()
             _uiState.update {
+                val isTl = it.appLanguage == AppLanguage.TAGALOG
                 it.copy(
                     isRecording = true,
                     recordingSeconds = 0,
-                    recordingBannerMessage = "🔴 Nagre-record ng Boses at Tugtog: ${song.title}"
+                    recordingBannerMessage = if (isTl) "🔴 Nagre-record ng Boses at Tugtog: ${song.title}" else "🔴 Recording Voice & Music: ${song.title}"
                 )
             }
         }
@@ -1138,11 +1167,14 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
         val list = karaokeRecorder.listSavedRecordings()
         _uiState.update {
+            val isTl = it.appLanguage == AppLanguage.TAGALOG
             it.copy(
                 isRecording = false,
                 recordingSeconds = 0,
                 savedRecordings = list,
-                recordingBannerMessage = if (saved != null) "✅ Na-save ang Recording: ${saved.fileName}" else null
+                recordingBannerMessage = if (saved != null) {
+                    if (isTl) "✅ Na-save ang Recording: ${saved.fileName}" else "✅ Recording Saved: ${saved.fileName}"
+                } else null
             )
         }
     }
@@ -1503,10 +1535,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         soundEngine.setActiveSoundFont(name)
         val resolvedName = soundEngine.getActiveSoundFont().displayName
         _uiState.update {
+            val isTl = it.appLanguage == AppLanguage.TAGALOG
             it.copy(
                 activeSoundFontName = resolvedName,
                 isSoundFontDialogOpen = false,
-                alertMessage = "🎛️ Na-apply ang SoundFont: $resolvedName"
+                alertMessage = if (isTl) "🎛️ Na-apply ang SoundFont: $resolvedName" else "🎛️ Applied SoundFont: $resolvedName"
             )
         }
     }

@@ -291,6 +291,7 @@ fun VideoKeyScreen(
                 ForceUpdateDialog(
                     updateState = state.updateState,
                     isLandscape = isLandscape,
+                    isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG,
                     onRetry = { viewModel.retryUpdate() },
                     onInstall = { file -> viewModel.promptInstallDownloadedApk(file) },
                     onDismiss = { viewModel.dismissUpdateDialog() }
@@ -314,6 +315,7 @@ fun VideoKeyScreen(
             LyricStyleDialog(
                 config = state.lyricConfig,
                 isLandscape = isLandscape,
+                isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG,
                 onSelectFontFamily = { viewModel.setLyricFontFamily(it) },
                 onSelectWipeColor = { viewModel.setLyricWipeColor(it) },
                 onSelectShadowStyle = { viewModel.setLyricShadowStyle(it) },
@@ -358,9 +360,11 @@ fun VideoKeyScreen(
 
         // Song Folder Browser Dialog
         if (state.isSongFolderPickerOpen) {
+            val isTl = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
             FolderBrowserDialog(
-                title = "📁 PILIIN ANG SONG FOLDER (MGA KANTA)",
+                title = if (isTl) "📁 PILIIN ANG SONG FOLDER (MGA KANTA)" else "📁 SELECT SONG FOLDER",
                 initialPath = state.currentSongFolder,
+                isTagalog = isTl,
                 onFolderSelected = { folderPath ->
                     viewModel.setSongFolder(folderPath)
                     viewModel.closeSongFolderPicker()
@@ -371,9 +375,11 @@ fun VideoKeyScreen(
 
         // Background Folder Browser Dialog
         if (state.isBgFolderPickerOpen) {
+            val isTl = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
             FolderBrowserDialog(
-                title = "🎬 PILIIN ANG BACKGROUND FOLDER",
+                title = if (isTl) "🎬 PILIIN ANG BACKGROUND FOLDER" else "🎬 SELECT BACKGROUND FOLDER",
                 initialPath = state.currentBackgroundFolder,
+                isTagalog = isTl,
                 onFolderSelected = { folderPath ->
                     viewModel.setBackgroundFolder(folderPath)
                     viewModel.closeBgFolderPicker()
@@ -1174,7 +1180,7 @@ fun VideokeTvScreen(
                             text = state.landscapeLine1,
                             isActive = isTopActive,
                             wipePercent = if (isTopActive) state.wipePercent else 0f,
-                            fontSize = if (isLandscape) (25.sp * state.lyricConfig.fontScale) else (21.sp * state.lyricConfig.fontScale),
+                            fontSize = if (isLandscape) 24.sp else 20.sp,
                             lyricConfig = state.lyricConfig,
                             countdownNumber = state.countdownDots,
                             isLandscape = isLandscape
@@ -1183,7 +1189,7 @@ fun VideokeTvScreen(
                             text = state.landscapeLine2,
                             isActive = isBottomActive,
                             wipePercent = if (isBottomActive) state.wipePercent else 0f,
-                            fontSize = if (isLandscape) (25.sp * state.lyricConfig.fontScale) else (21.sp * state.lyricConfig.fontScale),
+                            fontSize = if (isLandscape) 24.sp else 20.sp,
                             lyricConfig = state.lyricConfig,
                             countdownNumber = 0,
                             isLandscape = isLandscape
@@ -1260,7 +1266,7 @@ fun VideokeTvScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = if (isLandscape) 24.dp else 12.dp),
+                            .padding(horizontal = if (isLandscape) 20.dp else 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -1269,8 +1275,8 @@ fun VideokeTvScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(
-                                    start = if (isLandscape) 18.dp else 8.dp,
-                                    end = if (isLandscape) 18.dp else 8.dp,
+                                    start = if (isLandscape) 12.dp else 4.dp,
+                                    end = if (isLandscape) 12.dp else 4.dp,
                                     top = if (state.countdownDots > 0) 24.dp else 0.dp
                                 )
                         ) {
@@ -1296,7 +1302,7 @@ fun VideokeTvScreen(
                                                 text = lineText,
                                                 isActive = isActive,
                                                 wipePercent = if (isActive) state.wipePercent else 0f,
-                                                fontSize = if (isLandscape) (20.sp * state.lyricConfig.fontScale) else (22.sp * state.lyricConfig.fontScale),
+                                                fontSize = if (isLandscape) 20.sp else 21.sp,
                                                 lyricConfig = state.lyricConfig,
                                                 countdownNumber = lineCountdown,
                                                 isLandscape = isLandscape
@@ -1320,7 +1326,7 @@ fun VideokeTvScreen(
                                         text = state.landscapeLine1,
                                         isActive = isTopActive,
                                         wipePercent = if (isTopActive) state.wipePercent else 0f,
-                                        fontSize = if (isLandscape) (32.sp * state.lyricConfig.fontScale) else (28.sp * state.lyricConfig.fontScale),
+                                        fontSize = if (isLandscape) 31.sp else 26.sp,
                                         lyricConfig = state.lyricConfig,
                                         countdownNumber = topCountdown,
                                         isLandscape = isLandscape
@@ -1329,7 +1335,7 @@ fun VideokeTvScreen(
                                         text = state.landscapeLine2,
                                         isActive = isBottomActive,
                                         wipePercent = if (isBottomActive) state.wipePercent else 0f,
-                                        fontSize = if (isLandscape) (32.sp * state.lyricConfig.fontScale) else (28.sp * state.lyricConfig.fontScale),
+                                        fontSize = if (isLandscape) 31.sp else 26.sp,
                                         lyricConfig = state.lyricConfig,
                                         countdownNumber = bottomCountdown,
                                         isLandscape = isLandscape
@@ -1482,96 +1488,106 @@ fun VideokeTvScreen(
 @Composable
 fun SongbookButtonGraphic(
     showLabel: Boolean = true,
-    iconWidth: androidx.compose.ui.unit.Dp = 24.dp,
-    iconHeight: androidx.compose.ui.unit.Dp = 17.dp
+    iconWidth: androidx.compose.ui.unit.Dp = 20.dp,
+    iconHeight: androidx.compose.ui.unit.Dp = 13.dp
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        androidx.compose.foundation.Canvas(
-            modifier = Modifier.size(width = iconWidth, height = iconHeight)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            val w = size.width
-            val h = size.height
-            // 1. Bright Gold outer hardcover book base
-            drawRoundRect(
-                color = Color(0xFFFFB300),
-                topLeft = Offset(0f, h * 0.08f),
-                size = androidx.compose.ui.geometry.Size(w, h * 0.88f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.14f, w * 0.14f)
-            )
-            // 2. Crisp Pure White left page
-            drawRoundRect(
-                color = Color.White,
-                topLeft = Offset(w * 0.08f, h * 0.02f),
-                size = androidx.compose.ui.geometry.Size(w * 0.40f, h * 0.80f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f)
-            )
-            // 3. Crisp Pure White right page
-            drawRoundRect(
-                color = Color.White,
-                topLeft = Offset(w * 0.52f, h * 0.02f),
-                size = androidx.compose.ui.geometry.Size(w * 0.40f, h * 0.80f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f)
-            )
-            // 4. Center book spine in dark slate + glowing cyan accent
-            drawLine(
-                color = Color(0xFF0F172A),
-                start = Offset(w * 0.50f, h * 0.02f),
-                end = Offset(w * 0.50f, h * 0.92f),
-                strokeWidth = w * 0.06f
-            )
-            // 5. High-contrast text lines on left page
-            val lineStroke = (h * 0.09f).coerceAtLeast(1.5f)
-            drawLine(
-                color = Color(0xFF0284C7),
-                start = Offset(w * 0.15f, h * 0.25f),
-                end = Offset(w * 0.41f, h * 0.25f),
-                strokeWidth = lineStroke
-            )
-            drawLine(
-                color = Color(0xFF1E293B),
-                start = Offset(w * 0.15f, h * 0.46f),
-                end = Offset(w * 0.41f, h * 0.46f),
-                strokeWidth = lineStroke
-            )
-            drawLine(
-                color = Color(0xFF1E293B),
-                start = Offset(w * 0.15f, h * 0.66f),
-                end = Offset(w * 0.36f, h * 0.66f),
-                strokeWidth = lineStroke
-            )
-            // 6. High-contrast text lines / music note on right page
-            drawLine(
-                color = Color(0xFF0284C7),
-                start = Offset(w * 0.59f, h * 0.25f),
-                end = Offset(w * 0.85f, h * 0.25f),
-                strokeWidth = lineStroke
-            )
-            drawLine(
-                color = Color(0xFF1E293B),
-                start = Offset(w * 0.59f, h * 0.46f),
-                end = Offset(w * 0.85f, h * 0.46f),
-                strokeWidth = lineStroke
-            )
-            drawLine(
-                color = Color(0xFF1E293B),
-                start = Offset(w * 0.59f, h * 0.66f),
-                end = Offset(w * 0.80f, h * 0.66f),
-                strokeWidth = lineStroke
-            )
-        }
-        if (showLabel) {
-            Spacer(modifier = Modifier.height(1.dp))
-            Text(
-                text = "SONGBOOK",
-                color = Color(0xFFFFD54F),
-                fontSize = 8.5.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.5.sp,
-                maxLines = 1
-            )
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier.size(width = iconWidth, height = iconHeight)
+            ) {
+                val w = size.width
+                val h = size.height
+                // 1. Bright Gold outer hardcover book base
+                drawRoundRect(
+                    color = Color(0xFFFFB300),
+                    topLeft = Offset(0f, h * 0.08f),
+                    size = androidx.compose.ui.geometry.Size(w, h * 0.88f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.14f, w * 0.14f)
+                )
+                // 2. Crisp Pure White left page
+                drawRoundRect(
+                    color = Color.White,
+                    topLeft = Offset(w * 0.08f, h * 0.02f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.40f, h * 0.80f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f)
+                )
+                // 3. Crisp Pure White right page
+                drawRoundRect(
+                    color = Color.White,
+                    topLeft = Offset(w * 0.52f, h * 0.02f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.40f, h * 0.80f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f, w * 0.08f)
+                )
+                // 4. Center book spine in dark slate
+                drawLine(
+                    color = Color(0xFF0F172A),
+                    start = Offset(w * 0.50f, h * 0.02f),
+                    end = Offset(w * 0.50f, h * 0.92f),
+                    strokeWidth = w * 0.06f
+                )
+                // 5. High-contrast text lines on left page
+                val lineStroke = (h * 0.09f).coerceAtLeast(1.5f)
+                drawLine(
+                    color = Color(0xFF0284C7),
+                    start = Offset(w * 0.15f, h * 0.25f),
+                    end = Offset(w * 0.41f, h * 0.25f),
+                    strokeWidth = lineStroke
+                )
+                drawLine(
+                    color = Color(0xFF1E293B),
+                    start = Offset(w * 0.15f, h * 0.46f),
+                    end = Offset(w * 0.41f, h * 0.46f),
+                    strokeWidth = lineStroke
+                )
+                drawLine(
+                    color = Color(0xFF1E293B),
+                    start = Offset(w * 0.15f, h * 0.66f),
+                    end = Offset(w * 0.36f, h * 0.66f),
+                    strokeWidth = lineStroke
+                )
+                // 6. High-contrast text lines on right page
+                drawLine(
+                    color = Color(0xFF0284C7),
+                    start = Offset(w * 0.59f, h * 0.25f),
+                    end = Offset(w * 0.85f, h * 0.25f),
+                    strokeWidth = lineStroke
+                )
+                drawLine(
+                    color = Color(0xFF1E293B),
+                    start = Offset(w * 0.59f, h * 0.46f),
+                    end = Offset(w * 0.85f, h * 0.46f),
+                    strokeWidth = lineStroke
+                )
+                drawLine(
+                    color = Color(0xFF1E293B),
+                    start = Offset(w * 0.59f, h * 0.66f),
+                    end = Offset(w * 0.80f, h * 0.66f),
+                    strokeWidth = lineStroke
+                )
+            }
+            if (showLabel) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "SONGBOOK",
+                    color = Color(0xFFFFD54F),
+                    fontSize = 8.sp,
+                    lineHeight = 8.5.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.3.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    style = TextStyle(
+                        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)
+                    )
+                )
+            }
         }
     }
 }
@@ -2845,8 +2861,23 @@ fun KaraokeLyricLine(
         }
     }
 
-    // Shrink-to-fit: if the line is wider than the screen, reduce the size step by step
-    var fitScale by remember(text, fontSize, lyricConfig.fontScale, lyricConfig.fontFamily) { mutableStateOf(1f) }
+    // Shrink-to-fit: pre-compute initial fitScale on Frame 0 so long lines never clip on the edges
+    val initialFitScale = remember(displayText, fontSize, lyricConfig.fontScale, isLandscape) {
+        val len = displayText.length.coerceAtLeast(1)
+        val maxSafeChars = if (isLandscape) {
+            (28f / lyricConfig.fontScale).coerceAtLeast(14f)
+        } else {
+            (19f / lyricConfig.fontScale).coerceAtLeast(11f)
+        }
+        if (len > maxSafeChars) {
+            (maxSafeChars / len.toFloat()).coerceIn(0.42f, 1.0f)
+        } else {
+            1.0f
+        }
+    }
+    var fitScale by remember(text, fontSize, lyricConfig.fontScale, lyricConfig.fontFamily, isLandscape) {
+        mutableStateOf(initialFitScale)
+    }
     val scaledFontSize = (fontSize.value * lyricConfig.fontScale * fitScale).sp
     val outlineWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { scaledFontSize.toPx() * 0.095f }
 
@@ -2906,7 +2937,7 @@ fun KaraokeLyricLine(
                 softWrap = false,
                 style = fillStyle,
                 onTextLayout = { result ->
-                    if (result.didOverflowWidth && fitScale > 0.35f) fitScale *= 0.92f
+                    if (result.didOverflowWidth && fitScale > 0.35f) fitScale *= 0.90f
                 }
             )
 
@@ -3054,7 +3085,7 @@ fun ActionButton(
     ) {
         if (text.isEmpty()) {
             if (icon == "📖") {
-                SongbookButtonGraphic(showLabel = true, iconWidth = 24.dp, iconHeight = 16.dp)
+                SongbookButtonGraphic(showLabel = true, iconWidth = 20.dp, iconHeight = 13.dp)
             } else {
                 Text(
                     text = icon,
@@ -3962,21 +3993,37 @@ fun SongbookSearchOverlay(
                             val isFav = favoriteCodes.contains(song.code)
                             val isReserved = reservedCodes[song.code] == true
 
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(Color(0xFF1E293B))
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .clickable { onSelectSong(song) }
+                                    .padding(horizontal = 9.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onSelectSong(song) }
+                                // Top Row: Full Song Title across the entire width (zero truncation!)
+                                Text(
+                                    text = song.title,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 15.sp,
+                                    maxLines = 2,
+                                    softWrap = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                // Bottom Row: 6-digit Code + Artist on Left, Action Buttons on Right
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 6.dp)
+                                    ) {
                                         Text(
                                             text = song.code,
                                             color = Color(0xFFFFD54F),
@@ -3986,90 +4033,82 @@ fun SongbookSearchOverlay(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = song.title,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
+                                            text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 10.sp,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
-                                    Text(
-                                        text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
-                                        color = Color(0xFF94A3B8),
-                                        fontSize = 10.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
 
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    // 1. Favorite Toggle (❤️)
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isFav) Color(0xFF831843) else Color(0xFF0F172A),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isFav) Color(0xFFFF4081) else Color(0xFF334155)),
-                                        modifier = Modifier
-                                            .height(30.dp)
-                                            .clickable { onToggleFavoriteSong(song) }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                                     ) {
-                                        Box(
-                                            modifier = Modifier.padding(horizontal = 8.dp),
-                                            contentAlignment = Alignment.Center
+                                        // 1. Favorite Toggle (❤️)
+                                        Surface(
+                                            shape = RoundedCornerShape(7.dp),
+                                            color = if (isFav) Color(0xFF831843) else Color(0xFF0F172A),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isFav) Color(0xFFFF4081) else Color(0xFF334155)),
+                                            modifier = Modifier
+                                                .height(27.dp)
+                                                .clickable { onToggleFavoriteSong(song) }
                                         ) {
-                                            Text(
-                                                text = "❤️",
-                                                fontSize = 11.sp
-                                            )
-                                        }
-                                    }
-
-                                    // 2. Reserve Button (+ RES)
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isReserved) Color(0xFF064E3B) else Color(0xFF1E293B),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F)),
-                                        modifier = Modifier
-                                            .height(30.dp)
-                                            .clickable {
-                                                onReserveSong(song)
-                                                reservedCodes[song.code] = true
+                                            Box(
+                                                modifier = Modifier.padding(horizontal = 7.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "❤️",
+                                                    fontSize = 10.5.sp
+                                                )
                                             }
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.padding(horizontal = 9.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = if (isReserved) "✓ RES" else "+ RES",
-                                                color = if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F),
-                                                fontSize = 10.5.sp,
-                                                fontWeight = FontWeight.Black
-                                            )
                                         }
-                                    }
 
-                                    // 3. Play Button (▶ TUGTOG)
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isPlayable) Color(0xFF00E676) else Color(0xFF334155),
-                                        modifier = Modifier
-                                            .height(30.dp)
-                                            .clickable { onSelectSong(song) }
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.padding(horizontal = 10.dp),
-                                            contentAlignment = Alignment.Center
+                                        // 2. Reserve Button (+ RES)
+                                        Surface(
+                                            shape = RoundedCornerShape(7.dp),
+                                            color = if (isReserved) Color(0xFF064E3B) else Color(0xFF1E293B),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F)),
+                                            modifier = Modifier
+                                                .height(27.dp)
+                                                .clickable {
+                                                    onReserveSong(song)
+                                                    reservedCodes[song.code] = true
+                                                }
                                         ) {
-                                            Text(
-                                                text = "▶ TUGTOG",
-                                                color = if (isPlayable) Color.Black else Color.White,
-                                                fontSize = 10.5.sp,
-                                                fontWeight = FontWeight.Black
-                                            )
+                                            Box(
+                                                modifier = Modifier.padding(horizontal = 8.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = if (isReserved) "✓ RES" else "+ RES",
+                                                    color = if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
+                                        }
+
+                                        // 3. Play Button (▶ TUGTOG / ▶ PLAY)
+                                        Surface(
+                                            shape = RoundedCornerShape(7.dp),
+                                            color = if (isPlayable) Color(0xFF00E676) else Color(0xFF334155),
+                                            modifier = Modifier
+                                                .height(27.dp)
+                                                .clickable { onSelectSong(song) }
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.padding(horizontal = 9.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = if (isTagalog) "▶ TUGTOG" else "▶ PLAY",
+                                                    color = if (isPlayable) Color.Black else Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -4117,36 +4156,41 @@ fun SongbookSearchOverlay(
 
                         items(reserveQueue.size) { index ->
                             val song = reserveQueue[index]
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(Color(0xFF1E293B))
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(horizontal = 9.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
+                                Text(
+                                    text = "#${index + 1}  ${song.title}",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 15.sp,
+                                    maxLines = 2,
+                                    softWrap = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = "#${index + 1}",
-                                        color = Color(0xFF38BDF8),
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 11.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        modifier = Modifier.width(28.dp)
-                                    )
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 6.dp)
+                                    ) {
                                         Text(
-                                            text = "${song.code} • ${song.title}",
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
+                                            text = song.code,
+                                            color = Color(0xFFFFD54F),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 11.sp,
+                                            fontFamily = FontFamily.Monospace
                                         )
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = song.artist,
                                             color = Color(0xFF94A3B8),
@@ -4155,40 +4199,40 @@ fun SongbookSearchOverlay(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
-                                }
 
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    // Play from reserve
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFF00E676),
-                                        modifier = Modifier.clickable { onPlayReservedIndex(index) }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        Text(
-                                            text = "▶",
-                                            color = Color.Black,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
+                                        // Play from reserve
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFF00E676),
+                                            modifier = Modifier.clickable { onPlayReservedIndex(index) }
+                                        ) {
+                                            Text(
+                                                text = "▶",
+                                                color = Color.Black,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
 
-                                    // Remove from reserve
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFEF4444),
-                                        modifier = Modifier.clickable { onRemoveReservedIndex(index) }
-                                    ) {
-                                        Text(
-                                            text = "✕",
-                                            color = Color.White,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
+                                        // Remove from reserve
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFFEF4444),
+                                            modifier = Modifier.clickable { onRemoveReservedIndex(index) }
+                                        ) {
+                                            Text(
+                                                text = "✕",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -4234,21 +4278,34 @@ fun SongbookSearchOverlay(
                         }
 
                         items(favoriteSongs) { song ->
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(Color(0xFF1E293B))
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .clickable { onSelectSong(song) }
+                                    .padding(horizontal = 9.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable { onSelectSong(song) }
+                                Text(
+                                    text = song.title,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 15.sp,
+                                    maxLines = 2,
+                                    softWrap = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f).padding(end = 6.dp)
+                                    ) {
                                         Text(
                                             text = song.code,
                                             color = Color(0xFFFFD54F),
@@ -4258,70 +4315,62 @@ fun SongbookSearchOverlay(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = song.title,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
+                                            text = song.artist,
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 10.sp,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
-                                    Text(
-                                        text = song.artist,
-                                        color = Color(0xFF94A3B8),
-                                        fontSize = 10.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
 
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    // Remove from Favorites (❤️)
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFF831843),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF4081)),
-                                        modifier = Modifier.clickable { onToggleFavoriteSong(song) }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        Text(
-                                            text = "❤️",
-                                            fontSize = 11.sp,
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
-                                        )
-                                    }
+                                        // Remove from Favorites (❤️)
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFF831843),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF4081)),
+                                            modifier = Modifier.clickable { onToggleFavoriteSong(song) }
+                                        ) {
+                                            Text(
+                                                text = "❤️",
+                                                fontSize = 11.sp,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                                            )
+                                        }
 
-                                    // Reserve Button (R)
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFF332000),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD54F)),
-                                        modifier = Modifier.clickable { onReserveSong(song) }
-                                    ) {
-                                        Text(
-                                            text = "R",
-                                            color = Color(0xFFFFD54F),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
-                                    }
+                                        // Reserve Button (R)
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFF332000),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD54F)),
+                                            modifier = Modifier.clickable { onReserveSong(song) }
+                                        ) {
+                                            Text(
+                                                text = "R",
+                                                color = Color(0xFFFFD54F),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
 
-                                    // Play Button (▶)
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFF00E676),
-                                        modifier = Modifier.clickable { onSelectSong(song) }
-                                    ) {
-                                        Text(
-                                            text = "▶",
-                                            color = Color.Black,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                        )
+                                        // Play Button (▶)
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFF00E676),
+                                            modifier = Modifier.clickable { onSelectSong(song) }
+                                        ) {
+                                            Text(
+                                                text = "▶",
+                                                color = Color.Black,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -5433,6 +5482,7 @@ fun BackgroundSelectionDialog(
 @Composable
 fun LyricStyleDialog(
     config: LyricCustomization,
+    isTagalog: Boolean = false,
     isLandscape: Boolean = false,
     onSelectFontFamily: (LyricFontFamily) -> Unit,
     onSelectWipeColor: (LyricWipeColor) -> Unit,
@@ -5483,17 +5533,19 @@ fun LyricStyleDialog(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "🔤 LYRIC FONT, STYLE & POSITION",
+                            text = if (isTagalog) "🔤 FONT, ESTILO AT POSISYON" else "🔤 LYRIC FONT, STYLE & POSITION",
                             fontWeight = FontWeight.Black,
                             color = Color(0xFFA5B4FC),
-                            fontSize = if (isLandscape) 14.sp else 12.5.sp
+                            fontSize = if (isLandscape) 14.sp else 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Surface(
                             shape = RoundedCornerShape(4.dp),
                             color = Color(0xFF312E81)
                         ) {
                             Text(
-                                text = "CUSTOMIZE",
+                                text = if (isTagalog) "BAGUHIN" else "CUSTOMIZE",
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFFA5B4FC),
@@ -5524,11 +5576,12 @@ fun LyricStyleDialog(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // Live Preview Box
-                            LyricLivePreviewCard(config = config, previewWipe = previewWipe)
+                            LyricLivePreviewCard(config = config, previewWipe = previewWipe, isTagalog = isTagalog)
 
                             // Line Count & Position
                             LyricLineAndPositionControls(
                                 config = config,
+                                isTagalog = isTagalog,
                                 onSelectLineCount = onSelectLineCount,
                                 onSelectPosition = onSelectPosition
                             )
@@ -5544,10 +5597,11 @@ fun LyricStyleDialog(
                                     .height(38.dp)
                             ) {
                                 Text(
-                                    text = "ILAPAT & ISARA (APPLY & CLOSE) ✓",
+                                    text = if (isTagalog) "ILAPAT AT ISARA ✓" else "APPLY & CLOSE ✓",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 11.5.sp,
-                                    color = Color.White
+                                    color = Color.White,
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -5555,6 +5609,7 @@ fun LyricStyleDialog(
                         // Right Column: Scrollable controls
                         LyricControlsScrollable(
                             config = config,
+                            isTagalog = isTagalog,
                             onSelectFontFamily = onSelectFontFamily,
                             onSelectWipeColor = onSelectWipeColor,
                             onSelectShadowStyle = onSelectShadowStyle,
@@ -5570,7 +5625,7 @@ fun LyricStyleDialog(
                     }
                 } else {
                     // Portrait Layout: Single Column with preview on top
-                    LyricLivePreviewCard(config = config, previewWipe = previewWipe)
+                    LyricLivePreviewCard(config = config, previewWipe = previewWipe, isTagalog = isTagalog)
                     Spacer(modifier = Modifier.height(8.dp))
                     Column(
                         modifier = Modifier
@@ -5581,11 +5636,13 @@ fun LyricStyleDialog(
                     ) {
                         LyricLineAndPositionControls(
                             config = config,
+                            isTagalog = isTagalog,
                             onSelectLineCount = onSelectLineCount,
                             onSelectPosition = onSelectPosition
                         )
                         LyricControlsInner(
                             config = config,
+                            isTagalog = isTagalog,
                             onSelectFontFamily = onSelectFontFamily,
                             onSelectWipeColor = onSelectWipeColor,
                             onSelectShadowStyle = onSelectShadowStyle,
@@ -5606,10 +5663,11 @@ fun LyricStyleDialog(
                             .height(40.dp)
                     ) {
                         Text(
-                            text = "ILAPAT & ISARA (APPLY & CLOSE) ✓",
+                            text = if (isTagalog) "ILAPAT AT ISARA ✓" else "APPLY & CLOSE ✓",
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
-                            color = Color.White
+                            color = Color.White,
+                            maxLines = 1
                         )
                     }
                 }
@@ -5622,6 +5680,7 @@ fun LyricStyleDialog(
 private fun LyricLivePreviewCard(
     config: LyricCustomization,
     previewWipe: Float,
+    isTagalog: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -5646,22 +5705,24 @@ private fun LyricLivePreviewCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "LIVE TV PREVIEW",
-                    fontSize = 7.5.sp,
-                    color = Color(0xFF64748B),
+                    text = if (isTagalog) "PREVIEW NG LYRICS" else "LIVE TV PREVIEW",
+                    fontSize = 8.sp,
+                    color = Color(0xFF94A3B8),
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.5.sp
+                    letterSpacing = 1.sp,
+                    maxLines = 1
                 )
                 Surface(
                     shape = RoundedCornerShape(4.dp),
                     color = Color(0xFF312E81)
                 ) {
                     Text(
-                        text = "${config.lineCount.displayName} • ${config.position.displayName}",
-                        fontSize = 7.sp,
+                        text = "${config.lineCount.shortBadge(isTagalog)} • ${config.position.label(isTagalog)}",
+                        fontSize = 8.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFA5B4FC),
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
             }
@@ -5702,6 +5763,7 @@ private fun LyricLivePreviewCard(
 @Composable
 private fun LyricLineAndPositionControls(
     config: LyricCustomization,
+    isTagalog: Boolean = false,
     onSelectLineCount: (LyricLineCount) -> Unit,
     onSelectPosition: (LyricScreenPosition) -> Unit,
     modifier: Modifier = Modifier
@@ -5709,8 +5771,8 @@ private fun LyricLineAndPositionControls(
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // Line count
         Text(
-            text = "📄 BILANG NG LINYA (LINE COUNT):",
-            fontSize = 9.5.sp,
+            text = if (isTagalog) "📄 BILANG NG LINYA:" else "📄 LINE COUNT:",
+            fontSize = 10.sp,
             color = Color(0xFFFFD54F),
             fontWeight = FontWeight.Black
         )
@@ -5732,14 +5794,16 @@ private fun LyricLineAndPositionControls(
                         .clickable { onSelectLineCount(lineOption) }
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp, horizontal = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (isSelected) "✓ ${lineOption.displayName}" else lineOption.displayName,
+                            text = if (isSelected) "✓ ${lineOption.label(isTagalog)}" else lineOption.label(isTagalog),
                             fontSize = 9.5.sp,
                             color = if (isSelected) Color.White else Color(0xFFCBD5E1),
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -5748,8 +5812,8 @@ private fun LyricLineAndPositionControls(
 
         // Position
         Text(
-            text = "📍 POSISYON SA SCREEN (POSITION):",
-            fontSize = 9.5.sp,
+            text = if (isTagalog) "📍 POSISYON SA SCREEN:" else "📍 SCREEN POSITION:",
+            fontSize = 10.sp,
             color = Color(0xFFFFD54F),
             fontWeight = FontWeight.Black
         )
@@ -5771,12 +5835,12 @@ private fun LyricLineAndPositionControls(
                         .clickable { onSelectPosition(posOption) }
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp, horizontal = 2.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp, horizontal = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (isSelected) "✓ ${posOption.displayName.split(' ').first()}" else posOption.displayName.split(' ').first(),
-                            fontSize = 9.sp,
+                            text = if (isSelected) "✓ ${posOption.label(isTagalog)}" else posOption.label(isTagalog),
+                            fontSize = 9.5.sp,
                             color = if (isSelected) Color.White else Color(0xFFCBD5E1),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -5792,6 +5856,7 @@ private fun LyricLineAndPositionControls(
 @Composable
 private fun LyricControlsScrollable(
     config: LyricCustomization,
+    isTagalog: Boolean = false,
     onSelectFontFamily: (LyricFontFamily) -> Unit,
     onSelectWipeColor: (LyricWipeColor) -> Unit,
     onSelectShadowStyle: (LyricShadowStyle) -> Unit,
@@ -5808,6 +5873,7 @@ private fun LyricControlsScrollable(
     ) {
         LyricControlsInner(
             config = config,
+            isTagalog = isTagalog,
             onSelectFontFamily = onSelectFontFamily,
             onSelectWipeColor = onSelectWipeColor,
             onSelectShadowStyle = onSelectShadowStyle,
@@ -5823,6 +5889,7 @@ private fun LyricControlsScrollable(
 @Composable
 private fun LyricControlsInner(
     config: LyricCustomization,
+    isTagalog: Boolean = false,
     onSelectFontFamily: (LyricFontFamily) -> Unit,
     onSelectWipeColor: (LyricWipeColor) -> Unit,
     onSelectShadowStyle: (LyricShadowStyle) -> Unit,
@@ -5835,8 +5902,8 @@ private fun LyricControlsInner(
     // SECTION 1: INSTANT PRESETS
     Column {
         Text(
-            text = "⚡ QUICK PRESETS (MGA TEMA):",
-            fontSize = 11.sp,
+            text = if (isTagalog) "⚡ MABILISANG TEMA (PRESETS):" else "⚡ QUICK STYLE PRESETS:",
+            fontSize = 10.5.sp,
             color = Color(0xFFA5B4FC),
             fontWeight = FontWeight.Black
         )
@@ -5892,8 +5959,8 @@ private fun LyricControlsInner(
     // SECTION 2: FONT FAMILY (TYPEFACE - 12 FONTS)
     Column {
         Text(
-            text = "🔤 FONT FAMILY (12 ESTILO NG TITIK):",
-            fontSize = 11.sp,
+            text = if (isTagalog) "🔤 ESTILO NG TITIK (12 FONTS):" else "🔤 FONT FAMILY (12 STYLES):",
+            fontSize = 10.5.sp,
             color = Color(0xFFA5B4FC),
             fontWeight = FontWeight.Black
         )
@@ -5906,7 +5973,7 @@ private fun LyricControlsInner(
                 ) {
                     rowFamilies.forEach { family ->
                         val isSelected = config.fontFamily == family
-                        val (sampleFont, sampleWeight, sampleSpacing) = remember(family) {
+                        val (sampleFont, sampleWeight, _) = remember(family) {
                             resolveLyricFontParams(family)
                         }
                         Row(
@@ -5928,8 +5995,7 @@ private fun LyricControlsInner(
                                 text = family.displayName,
                                 fontFamily = sampleFont,
                                 fontWeight = sampleWeight,
-                                letterSpacing = sampleSpacing,
-                                fontSize = 10.5.sp,
+                                fontSize = 10.sp,
                                 color = if (isSelected) Color.White else Color(0xFFCBD5E1),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -5953,8 +6019,8 @@ private fun LyricControlsInner(
     // SECTION 3: WIPE COLOR (KULAY NG KANTA)
     Column {
         Text(
-            text = "🎨 WIPE COLOR (KULAY NG KINAKANTA):",
-            fontSize = 11.sp,
+            text = if (isTagalog) "🎨 KULAY NG KINAKANTA (WIPE COLOR):" else "🎨 SINGING WIPE COLOR:",
+            fontSize = 10.5.sp,
             color = Color(0xFFA5B4FC),
             fontWeight = FontWeight.Black
         )
@@ -5995,8 +6061,8 @@ private fun LyricControlsInner(
     // SECTION 4: SHADOW & GLOW EFFECTS
     Column {
         Text(
-            text = "✨ SHADOW & OUTLINE (EPEKTO / ANINO):",
-            fontSize = 11.sp,
+            text = if (isTagalog) "✨ ANINO AT EPEKTO (SHADOW STYLE):" else "✨ SHADOW & GLOW EFFECTS:",
+            fontSize = 10.5.sp,
             color = Color(0xFFA5B4FC),
             fontWeight = FontWeight.Black
         )
@@ -6005,13 +6071,7 @@ private fun LyricControlsInner(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            val shadows = listOf(
-                LyricShadowStyle.HEAVY_OUTLINE to "Outline",
-                LyricShadowStyle.NEON_GLOW to "Neon Glow",
-                LyricShadowStyle.SUBTLE_DROP to "3D Drop",
-                LyricShadowStyle.CLEAN to "Clean"
-            )
-            shadows.forEach { (shadow, label) ->
+            LyricShadowStyle.values().forEach { shadow ->
                 val isSelected = config.shadowStyle == shadow
                 Surface(
                     shape = RoundedCornerShape(8.dp),
@@ -6025,12 +6085,14 @@ private fun LyricControlsInner(
                         .clickable { onSelectShadowStyle(shadow) }
                 ) {
                     Text(
-                        text = label,
-                        fontSize = 10.sp,
+                        text = shadow.label(isTagalog),
+                        fontSize = 9.5.sp,
                         color = if (isSelected) Color.White else Color(0xFF94A3B8),
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 7.dp)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
                     )
                 }
             }
@@ -6040,8 +6102,8 @@ private fun LyricControlsInner(
     // SECTION 4B: OUTLINE COLOR (KULAY NG OUTLINE NG TITIK)
     Column {
         Text(
-            text = "🖍️ KULAY NG OUTLINE NG TITIK (OUTLINE COLOR):",
-            fontSize = 11.sp,
+            text = if (isTagalog) "🖍️ KULAY NG OUTLINE NG TITIK:" else "🖍️ TEXT OUTLINE COLOR:",
+            fontSize = 10.5.sp,
             color = Color(0xFFA5B4FC),
             fontWeight = FontWeight.Black
         )
@@ -6088,10 +6150,11 @@ private fun LyricControlsInner(
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = outlineColor.displayName.split(" ").first(),
+                        text = outlineColor.label(isTagalog),
                         fontSize = 8.5.sp,
                         color = if (isSelected) Color.White else Color(0xFF94A3B8),
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1
                     )
                 }
             }
@@ -6101,8 +6164,8 @@ private fun LyricControlsInner(
     // SECTION 5: TEXT FORMATTING (ALL CAPS & ITALIC)
     Column {
         Text(
-            text = "✍️ TEXT CASING AT FORMAT:",
-            fontSize = 11.sp,
+            text = if (isTagalog) "✍️ AYOS NG MGA LETRA:" else "✍️ TEXT FORMAT & CASING:",
+            fontSize = 10.5.sp,
             color = Color(0xFFA5B4FC),
             fontWeight = FontWeight.Black
         )
@@ -6129,10 +6192,12 @@ private fun LyricControlsInner(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (config.isAllCaps) "🔠 ALL CAPS: ON" else "🔡 Normal Case",
-                        fontSize = 10.sp,
+                        text = if (config.isAllCaps) "🔠 ALL CAPS: ON" else (if (isTagalog) "🔡 Normal na Titik" else "🔡 Normal Case"),
+                        fontSize = 9.5.sp,
                         color = if (config.isAllCaps) Color.White else Color(0xFF94A3B8),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -6155,10 +6220,12 @@ private fun LyricControlsInner(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (config.isItalic) "🖋️ Italic: ON" else "🖋️ Normal (Tindig)",
-                        fontSize = 10.sp,
+                        text = if (config.isItalic) "🖋️ Italic: ON" else (if (isTagalog) "🖋️ Tuwid (Normal)" else "🖋️ Upright (Normal)"),
+                        fontSize = 9.5.sp,
                         color = if (config.isItalic) Color.White else Color(0xFF94A3B8),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -6168,8 +6235,8 @@ private fun LyricControlsInner(
     // SECTION 6: FONT SIZE SCALE
     Column {
         Text(
-            text = "📐 LAKI NG TITIK (FONT SIZE SCALE):",
-            fontSize = 11.sp,
+            text = if (isTagalog) "📐 LAKI NG TITIK (FONT SIZE):" else "📐 FONT SIZE SCALE:",
+            fontSize = 10.5.sp,
             color = Color(0xFFA5B4FC),
             fontWeight = FontWeight.Black
         )
@@ -6180,10 +6247,10 @@ private fun LyricControlsInner(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val scales = listOf(
-                0.85f to "Maliit (85%)",
-                1.0f to "Normal (100%)",
-                1.15f to "Malaki (115%)",
-                1.30f to "Extra (130%)"
+                0.85f to (if (isTagalog) "Maliit 85%" else "Small 85%"),
+                1.0f to "Normal 100%",
+                1.15f to (if (isTagalog) "Malaki 115%" else "Large 115%"),
+                1.30f to "Extra 130%"
             )
             scales.forEach { (scale, label) ->
                 val isSelected = Math.abs(config.fontScale - scale) < 0.05f
@@ -6204,6 +6271,8 @@ private fun LyricControlsInner(
                         color = if (isSelected) Color.White else Color(0xFF94A3B8),
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(vertical = 7.dp, horizontal = 2.dp)
                     )
                 }
@@ -6432,7 +6501,7 @@ fun AppSettingsDialog(
                                             .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
                                     )
                                     Text(
-                                        text = themeItem.displayName,
+                                        text = themeItem.label(isTagalog),
                                         fontWeight = if (isSel) FontWeight.Black else FontWeight.Bold,
                                         color = if (isSel) Color.White else Color(0xFFCBD5E1),
                                         fontSize = 11.sp
@@ -6975,6 +7044,7 @@ fun AppSettingsDialog(
 fun FolderBrowserDialog(
     title: String,
     initialPath: String,
+    isTagalog: Boolean = false,
     onFolderSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -7024,7 +7094,10 @@ fun FolderBrowserDialog(
                         text = title,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF38BDF8),
-                        fontSize = 13.sp
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
                         Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -7048,7 +7121,7 @@ fun FolderBrowserDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                             Text(
-                                text = "KASALUKUYANG FOLDER:",
+                                text = if (isTagalog) "KASALUKUYANG FOLDER:" else "CURRENT FOLDER:",
                                 fontSize = 8.sp,
                                 color = Color(0xFF94A3B8),
                                 fontWeight = FontWeight.Bold
@@ -7072,7 +7145,12 @@ fun FolderBrowserDialog(
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                 modifier = Modifier.height(28.dp)
                             ) {
-                                Text(text = "⬆️ Taas", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = if (isTagalog) "⬆️ Taas" else "⬆️ Up",
+                                    fontSize = 10.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -7115,7 +7193,7 @@ fun FolderBrowserDialog(
                 }
 
                 Text(
-                    text = "MGA SUBFOLDER (${subFolders.size}):",
+                    text = if (isTagalog) "MGA SUBFOLDER (${subFolders.size}):" else "SUBFOLDERS (${subFolders.size}):",
                     fontSize = 9.sp,
                     color = Color.Gray,
                     fontWeight = FontWeight.Bold,
@@ -7138,7 +7216,10 @@ fun FolderBrowserDialog(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "Walang karagdagang subfolder dito.\nI-click ang 'Piliin ang Folder na Ito' sa ibaba.",
+                                    text = if (isTagalog)
+                                        "Walang karagdagang subfolder dito.\nI-click ang 'Piliin ang Folder na Ito' sa ibaba."
+                                    else
+                                        "No additional subfolders here.\nTap 'Select This Folder' below.",
                                     color = Color.Gray,
                                     fontSize = 11.sp,
                                     textAlign = TextAlign.Center
@@ -7173,7 +7254,7 @@ fun FolderBrowserDialog(
                                     )
                                 }
                                 Text(
-                                    text = "Buksan ▶",
+                                    text = if (isTagalog) "Buksan ▶" else "Open ▶",
                                     color = Color(0xFF38BDF8),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
@@ -7195,7 +7276,7 @@ fun FolderBrowserDialog(
                         .height(42.dp)
                 ) {
                     Text(
-                        text = "✓ PILIIN ANG FOLDER NA ITO",
+                        text = if (isTagalog) "✓ PILIIN ANG FOLDER NA ITO" else "✓ SELECT THIS FOLDER",
                         color = Color.Black,
                         fontWeight = FontWeight.Black,
                         fontSize = 12.sp
@@ -7289,7 +7370,10 @@ fun RecordingsDialog(
                             val recMins = state.recordingSeconds / 60
                             val recSecs = state.recordingSeconds % 60
                             Text(
-                                text = String.format("🔴 NAGRE-RECORD: %02d:%02d", recMins, recSecs),
+                                text = if (isTagalog)
+                                    String.format("🔴 NAGRE-RECORD: %02d:%02d", recMins, recSecs)
+                                else
+                                    String.format("🔴 RECORDING: %02d:%02d", recMins, recSecs),
                                 color = Color(0xFFFF5252),
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Black,
@@ -7297,9 +7381,9 @@ fun RecordingsDialog(
                             )
                             Text(
                                 text = if (isTagalog)
-                                    "Maririnig ang boses na may warm studio echo kasama ang tugtog ng kanta."
+                                    "Nire-record nang buo at malinaw (48kHz True Stereo) ang lahat ng instrumento at boses."
                                 else
-                                    "Recording singer voice with studio warm echo mixed with MIDI accompaniment.",
+                                    "Recording full 48kHz True Stereo SoundFont instruments mixed with studio vocals.",
                                 color = Color(0xFFCBD5E1),
                                 fontSize = 10.sp,
                                 textAlign = TextAlign.Center
@@ -7321,16 +7405,16 @@ fun RecordingsDialog(
                             }
                         } else {
                             Text(
-                                text = if (isTagalog) "🎙️ HANDANG MAG-RECORD" else "🎙️ READY TO RECORD",
+                                text = if (isTagalog) "🎙️ HANDANG MAG-RECORD (TRUE STEREO)" else "🎙️ READY TO RECORD (TRUE STEREO)",
                                 color = Color(0xFF00FF88),
                                 fontWeight = FontWeight.Black,
-                                fontSize = 15.sp
+                                fontSize = 14.sp
                             )
                             Text(
                                 text = if (isTagalog)
-                                    "Pindutin ang pindutan sa ibaba habang kumakanta upang mai-save ang iyong boses at tugtog bilang WAV file."
+                                    "Pindutin ang pindutan sa ibaba habang kumakanta upang mai-save nang buo ang tugtog at boses bilang Stereo WAV."
                                 else
-                                    "Press the button below while singing to record your vocals and music accompaniment as a WAV file.",
+                                    "Press the button below while playing a song to save full stereo music and vocals as a WAV file.",
                                 color = Color(0xFF94A3B8),
                                 fontSize = 10.sp,
                                 textAlign = TextAlign.Center
@@ -7441,7 +7525,11 @@ fun RecordingsDialog(
                                         modifier = Modifier.clickable { onPlayRecording(rec.filePath) }
                                     ) {
                                         Text(
-                                            text = if (isPlayingThis) "⏹ ITIGIL" else "▶ TUGTUGIN",
+                                            text = if (isPlayingThis) {
+                                                if (isTagalog) "⏹ ITIGIL" else "⏹ STOP"
+                                            } else {
+                                                if (isTagalog) "▶ TUGTUGIN" else "▶ PLAY"
+                                            },
                                             color = if (isPlayingThis) Color.White else Color.Black,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Black,
@@ -7494,6 +7582,7 @@ fun RecordingsDialog(
 @Composable
 fun ForceUpdateDialog(
     updateState: com.example.videokey.update.AppUpdateManager.UpdateState,
+    isTagalog: Boolean = false,
     isLandscape: Boolean = false,
     onRetry: () -> Unit,
     onInstall: (java.io.File) -> Unit,
@@ -7536,7 +7625,7 @@ fun ForceUpdateDialog(
                     is com.example.videokey.update.AppUpdateManager.UpdateState.Checking -> {
                         Text(text = "🔄", fontSize = 36.sp)
                         Text(
-                            text = "SINI-SURI ANG UPDATE...",
+                            text = if (isTagalog) "SINI-SURI ANG UPDATE..." else "CHECKING FOR UPDATES...",
                             fontWeight = FontWeight.Black,
                             fontSize = 16.sp,
                             color = Color(0xFF00E5FF)
@@ -7556,14 +7645,17 @@ fun ForceUpdateDialog(
                     is com.example.videokey.update.AppUpdateManager.UpdateState.UpToDate -> {
                         Text(text = "✅", fontSize = 42.sp)
                         Text(
-                            text = "PINAKABAGONG BERSYON NA!",
+                            text = if (isTagalog) "PINAKABAGONG BERSYON NA!" else "UP TO DATE!",
                             fontWeight = FontWeight.Black,
                             fontSize = 17.sp,
                             color = Color(0xFF00FF88),
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "Nasa pinakabagong bersyon na ang iyong VideoKey (v${updateState.currentVersion}). Walang kailangang i-update sa ngayon.",
+                            text = if (isTagalog)
+                                "Nasa pinakabagong bersyon na ang iyong VideoKey (v${updateState.currentVersion}). Walang kailangang i-update sa ngayon."
+                            else
+                                "Your VideoKey is already on the latest version (v${updateState.currentVersion}). No update is needed right now.",
                             fontSize = 12.sp,
                             color = Color.LightGray,
                             textAlign = TextAlign.Center
@@ -7576,14 +7668,18 @@ fun ForceUpdateDialog(
                                 .fillMaxWidth()
                                 .height(44.dp)
                         ) {
-                            Text(text = "OK, SALAMAT", fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                text = if (isTagalog) "OK, SALAMAT" else "OK, GOT IT",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         }
                     }
 
                     is com.example.videokey.update.AppUpdateManager.UpdateState.UpdateAvailable -> {
                         Text(text = "🚀", fontSize = 38.sp)
                         Text(
-                            text = "BAGONG UPDATE: v${updateState.info.versionName}",
+                            text = if (isTagalog) "BAGONG UPDATE: v${updateState.info.versionName}" else "NEW UPDATE: v${updateState.info.versionName}",
                             fontWeight = FontWeight.Black,
                             fontSize = 17.sp,
                             color = Color(0xFFFFD54F)
@@ -7596,7 +7692,7 @@ fun ForceUpdateDialog(
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text(
-                                    text = "MGA BAGONG DAGDAG / PAGBABAGO:",
+                                    text = if (isTagalog) "MGA BAGONG DAGDAG / PAGBABAGO:" else "WHAT'S NEW:",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 11.sp,
                                     color = Color(0xFF00FF88)
@@ -7610,7 +7706,7 @@ fun ForceUpdateDialog(
                             }
                         }
                         Text(
-                            text = "🌐 Awtomatikong ida-download gamit ang Wi-Fi o data.",
+                            text = if (isTagalog) "🌐 Awtomatikong ida-download gamit ang Wi-Fi o data." else "🌐 Automatically downloading via Wi-Fi or data.",
                             fontSize = 11.sp,
                             color = Color(0xFF94A3B8),
                             textAlign = TextAlign.Center
@@ -7620,14 +7716,17 @@ fun ForceUpdateDialog(
                     is com.example.videokey.update.AppUpdateManager.UpdateState.Downloading -> {
                         Text(text = "⬇️", fontSize = 38.sp)
                         Text(
-                            text = "KINAKAILANGANG I-UPDATE ANG VIDEOKEY",
+                            text = if (isTagalog) "KINAKAILANGANG I-UPDATE ANG VIDEOKEY" else "UPDATING VIDEOKEY",
                             fontWeight = FontWeight.Black,
                             fontSize = 15.sp,
                             color = Color(0xFF00E5FF),
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "Bersyon ${updateState.info.versionName} • Huwag munang isara ang app habang dina-download ang update.",
+                            text = if (isTagalog)
+                                "Bersyon ${updateState.info.versionName} • Huwag munang isara ang app habang dina-download ang update."
+                            else
+                                "Version ${updateState.info.versionName} • Please keep the app open while downloading the update.",
                             fontSize = 11.5.sp,
                             color = Color.LightGray,
                             textAlign = TextAlign.Center
@@ -7658,13 +7757,16 @@ fun ForceUpdateDialog(
                     is com.example.videokey.update.AppUpdateManager.UpdateState.ReadyToInstall -> {
                         Text(text = "🎉", fontSize = 42.sp)
                         Text(
-                            text = "TAPOS NA ANG PAG-DOWNLOAD!",
+                            text = if (isTagalog) "TAPOS NA ANG PAG-DOWNLOAD!" else "DOWNLOAD COMPLETE!",
                             fontWeight = FontWeight.Black,
                             fontSize = 17.sp,
                             color = Color(0xFF00FF88)
                         )
                         Text(
-                            text = "Handa nang i-install ang VideoKey v${updateState.info.versionName}. Pindutin ang pindutan sa ibaba para ituloy ang pag-install:",
+                            text = if (isTagalog)
+                                "Handa nang i-install ang VideoKey v${updateState.info.versionName}. Pindutin ang pindutan sa ibaba para ituloy ang pag-install:"
+                            else
+                                "VideoKey v${updateState.info.versionName} is ready to install. Tap the button below to proceed:",
                             fontSize = 12.sp,
                             color = Color.White,
                             textAlign = TextAlign.Center
@@ -7678,14 +7780,17 @@ fun ForceUpdateDialog(
                                 .height(46.dp)
                         ) {
                             Text(
-                                text = "📦 I-INSTALL ANG UPDATE NGAYON",
+                                text = if (isTagalog) "📦 I-INSTALL ANG UPDATE NGAYON" else "📦 INSTALL UPDATE NOW",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 13.sp,
                                 color = Color.Black
                             )
                         }
                         Text(
-                            text = "💡 Hindi mawawala ang iyong mga kanta, paborito, at recordings.",
+                            text = if (isTagalog)
+                                "💡 Hindi mawawala ang iyong mga kanta, paborito, at recordings."
+                            else
+                                "💡 Your songs, favorites, and recordings will be preserved.",
                             fontSize = 10.sp,
                             color = Color(0xFF94A3B8),
                             textAlign = TextAlign.Center
@@ -7699,7 +7804,7 @@ fun ForceUpdateDialog(
                                 .height(38.dp)
                         ) {
                             Text(
-                                text = "ISARA ✕",
+                                text = if (isTagalog) "ISARA ✕" else "CLOSE ✕",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
                                 color = Color.White
@@ -7710,7 +7815,7 @@ fun ForceUpdateDialog(
                     is com.example.videokey.update.AppUpdateManager.UpdateState.Error -> {
                         Text(text = "⚠️", fontSize = 38.sp)
                         Text(
-                            text = "HINDI MATAPOS ANG UPDATE",
+                            text = if (isTagalog) "HINDI MATAPOS ANG UPDATE" else "UPDATE FAILED",
                             fontWeight = FontWeight.Black,
                             fontSize = 16.sp,
                             color = Color(0xFFFF5252)
@@ -7735,7 +7840,7 @@ fun ForceUpdateDialog(
                                     .height(42.dp)
                             ) {
                                 Text(
-                                    text = "🔄 SUBUKANG MULI",
+                                    text = if (isTagalog) "🔄 SUBUKANG MULI" else "🔄 RETRY",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp,
                                     maxLines = 1,
@@ -7753,7 +7858,7 @@ fun ForceUpdateDialog(
                                         .height(42.dp)
                                 ) {
                                     Text(
-                                        text = "ISARA",
+                                        text = if (isTagalog) "ISARA" else "CLOSE",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.sp,
                                         maxLines = 1,
@@ -7817,7 +7922,7 @@ fun DownloadCenterDialog(
                         Text(text = "📦", fontSize = 20.sp)
                         Column {
                             Text(
-                                text = if (isTagalog) "VIDEOKEY DOWNLOAD CENTER" else "VIDEOKEY DOWNLOAD CENTER",
+                                text = "VIDEOKEY DOWNLOAD CENTER",
                                 fontWeight = FontWeight.Black,
                                 color = Color(0xFFFFD54F),
                                 fontSize = 14.sp
@@ -7873,6 +7978,7 @@ fun DownloadCenterDialog(
                     items(songsPacks) { item ->
                         DownloadItemCard(
                             item = item,
+                            isTagalog = isTagalog,
                             downloadStatus = currentStatus,
                             onDownload = { onDownloadItem(item) },
                             onCancel = onCancelDownload
@@ -7903,6 +8009,7 @@ fun DownloadCenterDialog(
                     items(backgroundPacks) { item ->
                         DownloadItemCard(
                             item = item,
+                            isTagalog = isTagalog,
                             downloadStatus = currentStatus,
                             onDownload = { onDownloadItem(item) },
                             onCancel = onCancelDownload
@@ -7934,6 +8041,7 @@ fun DownloadCenterDialog(
 @Composable
 fun DownloadItemCard(
     item: com.example.videokey.data.ContentDownloadManager.DownloadItem,
+    isTagalog: Boolean = false,
     downloadStatus: com.example.videokey.data.ContentDownloadManager.DownloadStatus,
     onDownload: () -> Unit,
     onCancel: () -> Unit
@@ -8035,7 +8143,12 @@ fun DownloadItemCard(
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                             modifier = Modifier.height(28.dp)
                         ) {
-                            Text(text = "✕ KANSELAHIN", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                text = if (isTagalog) "✕ KANSELAHIN" else "✕ CANCEL",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         }
                     }
                 }
@@ -8051,7 +8164,7 @@ fun DownloadItemCard(
                         strokeWidth = 2.dp
                     )
                     Text(
-                        text = "Ina-unpack at inaayos ang mga video files...",
+                        text = if (isTagalog) "Ina-unpack at inaayos ang mga files..." else "Extracting and installing files...",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF00FF88)
@@ -8069,7 +8182,7 @@ fun DownloadItemCard(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF059669))
                     ) {
                         Text(
-                            text = "✓ NAKA-INSTALL NA",
+                            text = if (isTagalog) "✓ NAKA-INSTALL NA" else "✓ INSTALLED",
                             color = Color(0xFF00FF88),
                             fontWeight = FontWeight.Black,
                             fontSize = 10.sp,
@@ -8085,7 +8198,11 @@ fun DownloadItemCard(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                         modifier = Modifier.height(28.dp)
                     ) {
-                        Text(text = "🔄 I-download Muli", fontSize = 9.sp, color = Color.LightGray)
+                        Text(
+                            text = if (isTagalog) "🔄 I-download Muli" else "🔄 Redownload",
+                            fontSize = 9.sp,
+                            color = Color.LightGray
+                        )
                     }
                 }
             } else {
@@ -8099,10 +8216,11 @@ fun DownloadItemCard(
                         .height(34.dp)
                 ) {
                     Text(
-                        text = "⬇️ I-DOWNLOAD ANG PACK NA ITO (${item.sizeFormatted})",
+                        text = if (isTagalog) "⬇️ I-DOWNLOAD ANG PACK (${item.sizeFormatted})" else "⬇️ DOWNLOAD PACK (${item.sizeFormatted})",
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.5.sp,
-                        color = Color.White
+                        color = Color.White,
+                        maxLines = 1
                     )
                 }
             }

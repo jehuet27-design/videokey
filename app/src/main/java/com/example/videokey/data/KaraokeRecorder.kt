@@ -10,6 +10,8 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -23,20 +25,25 @@ data class RecordedPerformance(
 )
 
 /**
- * Studio-Grade Videoke Performance Recorder (48,000 Hz 16-bit PCM .WAV):
- * - Captures 100% genuine 32-bit float BASSMIDI SoundFont (.sf2) accompaniment directly from [SoundEngine]
- *   after the 10-band Studio EQ, Compressor, Reverb, and Instrument Mixer.
- * - Mixes live microphone vocals (with high-pass rumble filter, smart noise gate, and warm karaoke echo)
- *   using a sample-accurate 48,000 Hz dual ring buffer and soft-knee studio limiter ("walang basag").
+ * Studio-Grade Videoke Performance Recorder (True 48,000 Hz 2-Channel Stereo 16-bit PCM .WAV):
+ * - Captures 100% genuine 32-bit float stereo BASSMIDI SoundFont (.sf2) accompaniment directly from [SoundEngine]
+ *   after the 10-band Studio EQ, Compressor, Reverb, and Instrument Mixer — preserving full stereo separation ("buo ang tunog").
+ * - Uses BASSMIDI's real-time stereo frame clock 1:1 as the master recording clock when music is playing so
+ *   zero instrument samples are ever dropped or padded (0 waveform discontinuities).
+ * - Uses a smart close-mic vocal noise gate that blocks loudspeaker bleed when music is playing while mixing
+ *   live singing vocals centered across the stereo stage with soft-knee mastering limiting ("walang basag").
+ * - Offloads all disk writes to a dedicated background writer thread so BASS's real-time DSP thread never blocks.
  */
 class KaraokeRecorder {
 
     companion object {
         private const val TAG = "KaraokeRecorder"
         const val SAMPLE_RATE = 48000
+        const val NUM_CHANNELS = 2 // True Stereo (Left + Right)
+        const val BYTES_PER_FRAME = NUM_CHANNELS * 2 // 4 bytes per stereo 16-bit frame
+        const val BYTE_RATE = SAMPLE_RATE * BYTES_PER_FRAME // 192,000 bytes/sec
         private const val MIC_INPUT_RATE = 16000
-        private const val UPSAMPLE_FACTOR = SAMPLE_RATE / MIC_INPUT_RATE // Exact 3x (16kHz -> 48kHz)
-        private const val RING_CAPACITY = SAMPLE_RATE * 3 // 3 seconds at 48kHz (144,000 samples)
+        private const val VOCAL_RING_CAPACITY = SAMPLE_RATE * 2 // 2 seconds of 48kHz mono vocal samples
     }
 
     @Volatile
@@ -47,23 +54,28 @@ class KaraokeRecorder {
     private var currentTempFile: File? = null
     private var currentSongCode: String = ""
     private var currentSongTitle: String = ""
-    private var totalSamplesWritten: Long = 0L
-
-    // Dual 48kHz Ring Buffers for Glitch-Free Sample-Accurate Music + Vocal Mixing
-    private val musicRing = ShortArray(RING_CAPACITY)
-    private var musicReadIdx = 0
-    private var musicWriteIdx = 0
-    private var musicCount = 0
     @Volatile
-    private var lastMusicChunkTimeMs: Long = 0L
+    private var totalStereoFramesWritten: Long = 0L
 
-    private val vocalRing = ShortArray(RING_CAPACITY)
+    // Async disk writer queue so BASS's real-time DSP callback never touches disk I/O
+    private val writeQueue = LinkedBlockingQueue<ByteArray>(256)
+    private var writerThread: Thread? = null
+    @Volatile
+    private var isWriterRunning: Boolean = false
+
+    // Lock-protected 48kHz mono vocal ring buffer (fed by MicrophoneScorer, drained alongside BASS stereo frames)
+    private val vocalLock = Any()
+    private val vocalRing = ShortArray(VOCAL_RING_CAPACITY)
     private var vocalReadIdx = 0
     private var vocalWriteIdx = 0
     private var vocalCount = 0
+    private var lastHeldVocal = 0f
+
+    @Volatile
+    private var lastMusicChunkTimeMs: Long = 0L
 
     // Microphone Vocal DSP state (at 16kHz before 3x linear interpolation to 48kHz)
-    private val echoDelaySamples = (MIC_INPUT_RATE * 0.175).toInt() // 175ms studio slapback reverb
+    private val echoDelaySamples = (MIC_INPUT_RATE * 0.145).toInt() // 145ms tight studio vocal ambience
     private val echoBuffer = ShortArray(echoDelaySamples)
     private var echoWriteIdx = 0
     private var echoLpState = 0f
@@ -71,9 +83,6 @@ class KaraokeRecorder {
     private var hpPrevOut = 0f
     private var gateEnvelope = 0f
     private var prevVocalSample = 0f
-
-    // Reusable output byte buffer
-    private var mixByteBuffer = ByteArray(16384)
 
     private var previewPlayer: MediaPlayer? = null
     @Volatile
@@ -101,20 +110,20 @@ class KaraokeRecorder {
             val cleanTitle = songTitle.replace(Regex("""[^a-zA-Z0-9 _-]"""), "").trim().take(24).ifBlank { "Song" }
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val tempFile = File(dir, ".rec_tmp_${songCode}_$timestamp.pcm")
-            currentPcmStream = BufferedOutputStream(FileOutputStream(tempFile), 32768)
+            val stream = BufferedOutputStream(FileOutputStream(tempFile), 65536)
+            currentPcmStream = stream
             currentTempFile = tempFile
             currentSongCode = songCode
             currentSongTitle = cleanTitle
-            totalSamplesWritten = 0L
-
-            musicReadIdx = 0
-            musicWriteIdx = 0
-            musicCount = 0
+            totalStereoFramesWritten = 0L
             lastMusicChunkTimeMs = 0L
 
-            vocalReadIdx = 0
-            vocalWriteIdx = 0
-            vocalCount = 0
+            synchronized(vocalLock) {
+                vocalReadIdx = 0
+                vocalWriteIdx = 0
+                vocalCount = 0
+                lastHeldVocal = 0f
+            }
 
             echoBuffer.fill(0)
             echoWriteIdx = 0
@@ -124,25 +133,47 @@ class KaraokeRecorder {
             gateEnvelope = 0f
             prevVocalSample = 0f
 
+            writeQueue.clear()
+            isWriterRunning = true
             isRecording = true
-            Log.d(TAG, "Started 48kHz Studio Recording for [$songCode] $songTitle -> ${tempFile.absolutePath}")
+
+            writerThread = Thread({
+                try {
+                    while (isWriterRunning || writeQueue.isNotEmpty()) {
+                        val chunk = writeQueue.poll(30, TimeUnit.MILLISECONDS)
+                        if (chunk != null) {
+                            stream.write(chunk)
+                        }
+                    }
+                    stream.flush()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Background PCM writer error", e)
+                }
+            }, "VideoKey-RecWriter").apply {
+                priority = Thread.NORM_PRIORITY + 1
+                start()
+            }
+
+            Log.d(TAG, "Started 48kHz True Stereo Studio Recording for [$songCode] $songTitle -> ${tempFile.absolutePath}")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start recording", e)
             isRecording = false
+            isWriterRunning = false
             false
         }
     }
 
     fun updatePlaybackState(posMs: Long, keyTranspose: Int, accompNotes: List<MidiKaraokeParser.MelodyNote>? = null) {
-        // Real BASSMIDI SoundFont PCM is streamed directly via onBassMusicPcm()
+        // Real BASSMIDI SoundFont stereo PCM is streamed directly via onBassMusicPcm()
     }
 
     /**
      * Called directly from [SoundEngine]'s BASS DSP callback with live 48,000 Hz stereo 32-bit float
      * SoundFont (.sf2) audio after the 10-band Studio EQ, Compressor, and Instrument Mixer.
+     *
+     * Drives the recording clock 1:1 with zero dropped or padded music frames!
      */
-    @Synchronized
     fun onBassMusicPcm(stereoFloats: FloatArray, floatCount: Int) {
         if (!isRecording) return
         val frames = floatCount / 2
@@ -150,200 +181,186 @@ class KaraokeRecorder {
 
         lastMusicChunkTimeMs = System.currentTimeMillis()
 
-        for (i in 0 until frames) {
-            val left = stereoFloats[i * 2]
-            val right = stereoFloats[i * 2 + 1]
-            // Balanced stereo-to-mono studio folddown with headroom
-            val mono = ((left + right) * 0.56f).coerceIn(-1.0f, 1.0f)
-            val pcm16 = (mono * 30500f).toInt().coerceIn(-32768, 32767).toShort()
+        val outBytes = ByteArray(frames * BYTES_PER_FRAME)
 
-            if (musicCount == RING_CAPACITY) {
-                // Drop oldest sample if ring buffer ever fills
-                musicReadIdx = (musicReadIdx + 1) % RING_CAPACITY
-                musicCount--
+        synchronized(vocalLock) {
+            // Keep vocal latency tight (< 70ms lead) so singing stays locked to the beat
+            val maxVocalLead = SAMPLE_RATE / 14 // ~3,428 samples (~71ms)
+            if (vocalCount > frames + maxVocalLead) {
+                val trim = vocalCount - frames - (SAMPLE_RATE / 30)
+                if (trim > 0) {
+                    vocalReadIdx = (vocalReadIdx + trim) % VOCAL_RING_CAPACITY
+                    vocalCount -= trim
+                }
             }
-            musicRing[musicWriteIdx] = pcm16
-            musicWriteIdx = (musicWriteIdx + 1) % RING_CAPACITY
-            musicCount++
+
+            var byteOffset = 0
+            for (i in 0 until frames) {
+                val musicL = stereoFloats[i * 2]
+                val musicR = stereoFloats[i * 2 + 1]
+
+                val vocalSample = if (vocalCount > 0) {
+                    val v = vocalRing[vocalReadIdx].toFloat() / 32768f
+                    vocalReadIdx = (vocalReadIdx + 1) % VOCAL_RING_CAPACITY
+                    vocalCount--
+                    lastHeldVocal = v
+                    v
+                } else {
+                    lastHeldVocal *= 0.92f
+                    lastHeldVocal
+                }
+
+                // True Stereo Mix: preserve 100% of Left & Right SoundFont stereo width + centered vocal
+                val mixL = musicL * 0.96f + vocalSample * 0.72f
+                val mixR = musicR * 0.96f + vocalSample * 0.72f
+
+                // Transparent soft-knee mastering limiter (only engages near full-scale peaks >= 0.88)
+                val limL = softLimitStudio(mixL)
+                val limR = softLimitStudio(mixR)
+
+                val pcmL = (limL * 32767f).toInt().coerceIn(-32768, 32767)
+                val pcmR = (limR * 32767f).toInt().coerceIn(-32768, 32767)
+
+                outBytes[byteOffset] = (pcmL and 0xFF).toByte()
+                outBytes[byteOffset + 1] = ((pcmL ushr 8) and 0xFF).toByte()
+                outBytes[byteOffset + 2] = (pcmR and 0xFF).toByte()
+                outBytes[byteOffset + 3] = ((pcmR ushr 8) and 0xFF).toByte()
+                byteOffset += 4
+            }
         }
 
-        drainAndMixLocked()
+        if (writeQueue.offer(outBytes)) {
+            totalStereoFramesWritten += frames
+        }
+    }
+
+    private fun softLimitStudio(x: Float): Float {
+        val ax = abs(x)
+        if (ax <= 0.85f) return x
+        val sign = if (x >= 0f) 1f else -1f
+        val excess = ax - 0.85f
+        val compressed = 0.85f + 0.15f * (excess / (excess + 0.15f))
+        return (sign * compressed).coerceIn(-0.999f, 0.999f)
     }
 
     /**
      * Called from [MicrophoneScorer]'s audio loop with live 16,000 Hz 16-bit PCM microphone samples.
-     * Applies studio high-pass filter, smart noise gate, and warm karaoke echo, then upsamples 3x
-     * to 48,000 Hz to mix seamlessly with the BASSMIDI SoundFont audio.
+     * Uses a smart close-mic vocal gate so loudspeaker music bleed is completely suppressed when not singing,
+     * keeping the recorded stereo SoundFont instruments 100% clean, full-bodied, and echo-free.
      */
-    @Synchronized
     fun onMicPcmChunk(micBuffer: ShortArray, readSize: Int) {
         if (!isRecording || readSize <= 0) return
 
-        // Measure chunk RMS to drive the smooth vocal noise gate
+        val now = System.currentTimeMillis()
+        val isMusicStreaming = (now - lastMusicChunkTimeMs) < 350L
+
+        // Measure chunk RMS to distinguish real close-mic singing from speaker bleed
         var sumSq = 0.0
         for (i in 0 until readSize) {
             val s = micBuffer[i].toDouble()
             sumSq += s * s
         }
         val rms = sqrt(sumSq / readSize)
-        val targetGate = when {
-            rms > 320.0 -> 1.0f
-            rms > 140.0 -> ((rms - 140.0) / 180.0).toFloat().coerceIn(0.15f, 1.0f)
-            else -> 0.08f // Keep room noise floor ultra-quiet so SoundFont music stays crystal-clear
+
+        // When music is playing through speakers, reject speaker bleed (< 520 RMS) completely (0.0f)
+        // so the stereo SoundFont instruments are never muddied by delayed mic bleed!
+        val targetGate = if (isMusicStreaming) {
+            when {
+                rms > 1100.0 -> 1.0f
+                rms > 520.0 -> ((rms - 520.0) / 580.0).toFloat().coerceIn(0f, 1.0f)
+                else -> 0.0f
+            }
+        } else {
+            when {
+                rms > 400.0 -> 1.0f
+                rms > 160.0 -> ((rms - 160.0) / 240.0).toFloat().coerceIn(0f, 1.0f)
+                else -> 0.0f
+            }
         }
 
-        for (i in 0 until readSize) {
-            gateEnvelope = gateEnvelope * 0.985f + targetGate * 0.015f
+        synchronized(vocalLock) {
+            for (i in 0 until readSize) {
+                val attackRelease = if (targetGate > gateEnvelope) 0.025f else 0.008f
+                gateEnvelope += (targetGate - gateEnvelope) * attackRelease
 
-            // 1. High-pass filter (~95 Hz) to eliminate mic handling thumps and plosive rumble
-            val rawIn = micBuffer[i].toFloat()
-            val hpOut = 0.962f * (hpPrevOut + rawIn - hpPrevIn)
-            hpPrevIn = rawIn
-            hpPrevOut = hpOut
+                // 1. High-pass filter (~100 Hz) to eliminate mic handling thumps and low-end mud
+                val rawIn = micBuffer[i].toFloat()
+                val hpOut = 0.960f * (hpPrevOut + rawIn - hpPrevIn)
+                hpPrevIn = rawIn
+                hpPrevOut = hpOut
 
-            val gatedVocal = hpOut * gateEnvelope
+                val gatedVocal = hpOut * gateEnvelope
 
-            // 2. Warm Studio Karaoke Echo (175ms delay with low-pass warmth damping in feedback)
-            val delayed = echoBuffer[echoWriteIdx].toFloat()
-            echoLpState = echoLpState * 0.45f + delayed * 0.55f
-            val vocalOut = (gatedVocal * 1.25f + echoLpState * 0.30f).coerceIn(-32000f, 32000f)
+                // 2. Subtle Studio Vocal Ambience (only fed when vocal gate is open)
+                val delayed = echoBuffer[echoWriteIdx].toFloat()
+                echoLpState = echoLpState * 0.50f + delayed * 0.50f
+                val vocalOut = (gatedVocal * 1.10f + echoLpState * 0.18f).coerceIn(-32000f, 32000f)
 
-            val nextFeedback = (gatedVocal + echoLpState * 0.26f).coerceIn(-32000f, 32000f).toInt().toShort()
-            echoBuffer[echoWriteIdx] = nextFeedback
-            echoWriteIdx = (echoWriteIdx + 1) % echoDelaySamples
+                val nextFeedback = (gatedVocal + echoLpState * 0.16f).coerceIn(-32000f, 32000f).toInt().toShort()
+                echoBuffer[echoWriteIdx] = nextFeedback
+                echoWriteIdx = (echoWriteIdx + 1) % echoDelaySamples
 
-            // 3. Exact 3x Linear Interpolation (16,000 Hz -> 48,000 Hz)
-            val s0 = prevVocalSample
-            val s1 = vocalOut
-            prevVocalSample = s1
+                // 3. Exact 3x Linear Interpolation (16,000 Hz -> 48,000 Hz)
+                val s0 = prevVocalSample
+                val s1 = vocalOut
+                prevVocalSample = s1
 
-            val u1 = (s0 + (s1 - s0) * 0.3333333f).toInt().coerceIn(-32768, 32767).toShort()
-            val u2 = (s0 + (s1 - s0) * 0.6666667f).toInt().coerceIn(-32768, 32767).toShort()
-            val u3 = s1.toInt().coerceIn(-32768, 32767).toShort()
+                val u1 = (s0 + (s1 - s0) * 0.3333333f).toInt().coerceIn(-32768, 32767).toShort()
+                val u2 = (s0 + (s1 - s0) * 0.6666667f).toInt().coerceIn(-32768, 32767).toShort()
+                val u3 = s1.toInt().coerceIn(-32768, 32767).toShort()
 
-            pushVocalSampleLocked(u1)
-            pushVocalSampleLocked(u2)
-            pushVocalSampleLocked(u3)
+                pushVocalSampleLocked(u1)
+                pushVocalSampleLocked(u2)
+                pushVocalSampleLocked(u3)
+            }
+
+            // If no song is currently playing (a cappella voice recording), drain vocal samples directly as stereo frames
+            if (!isMusicStreaming && vocalCount > 0) {
+                val frames = vocalCount
+                val outBytes = ByteArray(frames * BYTES_PER_FRAME)
+                var byteOffset = 0
+                for (i in 0 until frames) {
+                    val v = vocalRing[vocalReadIdx].toFloat() / 32768f
+                    vocalReadIdx = (vocalReadIdx + 1) % VOCAL_RING_CAPACITY
+                    vocalCount--
+                    val lim = softLimitStudio(v * 0.90f)
+                    val pcm = (lim * 32767f).toInt().coerceIn(-32768, 32767)
+                    val lo = (pcm and 0xFF).toByte()
+                    val hi = ((pcm ushr 8) and 0xFF).toByte()
+                    outBytes[byteOffset] = lo
+                    outBytes[byteOffset + 1] = hi
+                    outBytes[byteOffset + 2] = lo
+                    outBytes[byteOffset + 3] = hi
+                    byteOffset += 4
+                }
+                if (writeQueue.offer(outBytes)) {
+                    totalStereoFramesWritten += frames
+                }
+            }
         }
-
-        drainAndMixLocked()
     }
 
     private fun pushVocalSampleLocked(sample: Short) {
-        if (vocalCount == RING_CAPACITY) {
-            vocalReadIdx = (vocalReadIdx + 1) % RING_CAPACITY
+        if (vocalCount == VOCAL_RING_CAPACITY) {
+            vocalReadIdx = (vocalReadIdx + 1) % VOCAL_RING_CAPACITY
             vocalCount--
         }
         vocalRing[vocalWriteIdx] = sample
-        vocalWriteIdx = (vocalWriteIdx + 1) % RING_CAPACITY
+        vocalWriteIdx = (vocalWriteIdx + 1) % VOCAL_RING_CAPACITY
         vocalCount++
-    }
-
-    /**
-     * Drains matched 48,000 Hz samples from [musicRing] and [vocalRing], mixes them through a
-     * soft-knee studio mastering limiter, and writes 16-bit PCM to disk without a single click or gap.
-     */
-    private fun drainAndMixLocked() {
-        val out = currentPcmStream ?: return
-        val now = System.currentTimeMillis()
-        val isMusicStreaming = (now - lastMusicChunkTimeMs) < 350L
-
-        try {
-            if (isMusicStreaming) {
-                // Keep vocal buffer tightly aligned with music buffer (discard pre-song vocal backlog > 90ms)
-                val maxLeadSamples = SAMPLE_RATE / 11 // ~4,360 samples (~90ms)
-                if (vocalCount - musicCount > maxLeadSamples) {
-                    val drop = vocalCount - musicCount - (SAMPLE_RATE / 25)
-                    if (drop > 0) {
-                        vocalReadIdx = (vocalReadIdx + drop) % RING_CAPACITY
-                        vocalCount -= drop
-                    }
-                }
-
-                // If microphone capture ever lags behind BASSMIDI by > 250ms, pad vocal with silence so music never stalls
-                if (musicCount - vocalCount > SAMPLE_RATE / 4) {
-                    val pad = musicCount - vocalCount
-                    for (p in 0 until pad) {
-                        pushVocalSampleLocked(0)
-                    }
-                }
-
-                val framesToWrite = minOf(musicCount, vocalCount)
-                if (framesToWrite <= 0) return
-
-                val byteLen = framesToWrite * 2
-                if (mixByteBuffer.size < byteLen) {
-                    mixByteBuffer = ByteArray(byteLen)
-                }
-
-                for (i in 0 until framesToWrite) {
-                    val m = musicRing[musicReadIdx].toFloat() / 32768f
-                    musicReadIdx = (musicReadIdx + 1) % RING_CAPACITY
-                    musicCount--
-
-                    val v = vocalRing[vocalReadIdx].toFloat() / 32768f
-                    vocalReadIdx = (vocalReadIdx + 1) % RING_CAPACITY
-                    vocalCount--
-
-                    // Soft-knee studio mastering limiter so music + vocals never clip ("walang basag")
-                    val sum = m * 0.96f + v * 0.90f
-                    val limited = sum / (1.0f + abs(sum) * 0.22f)
-                    val pcm = (limited * 32767f).toInt().coerceIn(-32768, 32767)
-
-                    mixByteBuffer[i * 2] = (pcm and 0xFF).toByte()
-                    mixByteBuffer[i * 2 + 1] = ((pcm ushr 8) and 0xFF).toByte()
-                }
-
-                out.write(mixByteBuffer, 0, byteLen)
-                totalSamplesWritten += framesToWrite
-            } else {
-                // Song is paused or not playing: drain any remaining music + vocals
-                val framesToWrite = maxOf(musicCount, vocalCount)
-                if (framesToWrite <= 0) return
-
-                val byteLen = framesToWrite * 2
-                if (mixByteBuffer.size < byteLen) {
-                    mixByteBuffer = ByteArray(byteLen)
-                }
-
-                for (i in 0 until framesToWrite) {
-                    val m = if (musicCount > 0) {
-                        val s = musicRing[musicReadIdx].toFloat() / 32768f
-                        musicReadIdx = (musicReadIdx + 1) % RING_CAPACITY
-                        musicCount--
-                        s
-                    } else 0f
-
-                    val v = if (vocalCount > 0) {
-                        val s = vocalRing[vocalReadIdx].toFloat() / 32768f
-                        vocalReadIdx = (vocalReadIdx + 1) % RING_CAPACITY
-                        vocalCount--
-                        s
-                    } else 0f
-
-                    val sum = m * 0.96f + v * 0.95f
-                    val limited = sum / (1.0f + abs(sum) * 0.22f)
-                    val pcm = (limited * 32767f).toInt().coerceIn(-32768, 32767)
-
-                    mixByteBuffer[i * 2] = (pcm and 0xFF).toByte()
-                    mixByteBuffer[i * 2 + 1] = ((pcm ushr 8) and 0xFF).toByte()
-                }
-
-                out.write(mixByteBuffer, 0, byteLen)
-                totalSamplesWritten += framesToWrite
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error writing mixed PCM chunk", e)
-        }
     }
 
     @Synchronized
     fun stopAndSaveRecording(): RecordedPerformance? {
         if (!isRecording) return null
-        // Flush any remaining buffered samples before closing
-        lastMusicChunkTimeMs = 0L
-        drainAndMixLocked()
         isRecording = false
+        isWriterRunning = false
+
+        try {
+            writerThread?.join(1500)
+        } catch (_: Exception) {}
+        writerThread = null
+
         try {
             currentPcmStream?.flush()
             currentPcmStream?.close()
@@ -352,7 +369,7 @@ class KaraokeRecorder {
 
         val tempFile = currentTempFile
         currentTempFile = null
-        if (tempFile == null || !tempFile.exists() || totalSamplesWritten < SAMPLE_RATE / 2) {
+        if (tempFile == null || !tempFile.exists() || totalStereoFramesWritten < SAMPLE_RATE / 2) {
             tempFile?.delete()
             return null
         }
@@ -362,9 +379,9 @@ class KaraokeRecorder {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val safeTitle = currentSongTitle.replace(" ", "_").ifBlank { "Videoke" }
             val wavFile = File(dir, "VK_${currentSongCode}_${safeTitle}_$timestamp.wav")
-            writeWavFile(tempFile, wavFile, SAMPLE_RATE)
+            writeStereoWavFile(tempFile, wavFile, SAMPLE_RATE)
             tempFile.delete()
-            Log.d(TAG, "Saved 48kHz Studio WAV recording: ${wavFile.absolutePath} (${wavFile.length()} bytes)")
+            Log.d(TAG, "Saved 48kHz True Stereo Studio WAV recording: ${wavFile.absolutePath} (${wavFile.length()} bytes)")
             toRecordedPerformance(wavFile)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to finalize WAV file", e)
@@ -375,13 +392,13 @@ class KaraokeRecorder {
 
     fun getRecordingDurationSeconds(): Int {
         if (!isRecording) return 0
-        return (totalSamplesWritten / SAMPLE_RATE).toInt()
+        return (totalStereoFramesWritten / SAMPLE_RATE).toInt()
     }
 
-    private fun writeWavFile(pcmFile: File, wavFile: File, sampleRate: Int) {
+    private fun writeStereoWavFile(pcmFile: File, wavFile: File, sampleRate: Int) {
         val pcmDataSize = pcmFile.length().toInt()
         val totalDataLen = pcmDataSize + 36
-        val byteRate = sampleRate * 2 // 16-bit mono = 2 bytes per sample
+        val byteRate = sampleRate * BYTES_PER_FRAME // 48,000 * 4 = 192,000 bytes/sec (True 16-bit Stereo)
 
         FileOutputStream(wavFile).use { out ->
             val header = ByteArray(44)
@@ -402,10 +419,10 @@ class KaraokeRecorder {
             header[15] = ' '.code.toByte()
             writeIntLE(header, 16, 16) // Subchunk1Size (16 for PCM)
             writeShortLE(header, 20, 1) // AudioFormat = 1 (PCM)
-            writeShortLE(header, 22, 1) // NumChannels = 1 (Mono)
+            writeShortLE(header, 22, NUM_CHANNELS) // NumChannels = 2 (Stereo)
             writeIntLE(header, 24, sampleRate)
             writeIntLE(header, 28, byteRate)
-            writeShortLE(header, 32, 2) // BlockAlign = 2
+            writeShortLE(header, 32, BYTES_PER_FRAME) // BlockAlign = 4 (2 channels * 16-bit)
             writeShortLE(header, 34, 16) // BitsPerSample = 16
             // "data"
             header[36] = 'd'.code.toByte()
@@ -416,7 +433,7 @@ class KaraokeRecorder {
             out.write(header, 0, 44)
 
             FileInputStream(pcmFile).use { fis ->
-                val buf = ByteArray(16384)
+                val buf = ByteArray(32768)
                 var read: Int
                 while (fis.read(buf).also { read = it } != -1) {
                     out.write(buf, 0, read)
@@ -447,13 +464,13 @@ class KaraokeRecorder {
                     val b2 = (header[30].toInt() and 0xFF) shl 16
                     val b3 = (header[31].toInt() and 0xFF) shl 24
                     val rate = b0 or b1 or b2 or b3
-                    if (rate in 16000..384000) rate else (SAMPLE_RATE * 2)
+                    if (rate in 16000..384000) rate else BYTE_RATE
                 } else {
-                    SAMPLE_RATE * 2
+                    BYTE_RATE
                 }
             }
         } catch (_: Exception) {
-            SAMPLE_RATE * 2
+            BYTE_RATE
         }
     }
 

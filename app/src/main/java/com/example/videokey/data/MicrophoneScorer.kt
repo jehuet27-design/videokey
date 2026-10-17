@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.NoiseSuppressor
 import android.util.Log
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,8 @@ class MicrophoneScorer(
 ) {
 
     private var audioRecord: AudioRecord? = null
+    private var echoCanceler: AcousticEchoCanceler? = null
+    private var noiseSuppressor: NoiseSuppressor? = null
     private var recordingJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -70,20 +74,35 @@ class MicrophoneScorer(
         val bufferSize = (minBufferSize * 2).coerceAtLeast(2048)
 
         try {
-            audioRecord = AudioRecord(
+            val rec = AudioRecord(
                 MediaRecorder.AudioSource.MIC,
                 sampleRate,
                 channelConfig,
                 audioFormat,
                 bufferSize
             )
+            audioRecord = rec
 
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+            if (rec.state != AudioRecord.STATE_INITIALIZED) {
                 Log.w("MicrophoneScorer", "AudioRecord initialization failed")
                 return
             }
 
-            audioRecord?.startRecording()
+            // Enable hardware AcousticEchoCanceler and NoiseSuppressor so speaker music bleed
+            // is stripped from the microphone and never muddies the recorded instruments!
+            val sessionId = rec.audioSessionId
+            try {
+                if (AcousticEchoCanceler.isAvailable()) {
+                    echoCanceler = AcousticEchoCanceler.create(sessionId)?.apply { enabled = true }
+                }
+            } catch (_: Exception) {}
+            try {
+                if (NoiseSuppressor.isAvailable()) {
+                    noiseSuppressor = NoiseSuppressor.create(sessionId)?.apply { enabled = true }
+                }
+            } catch (_: Exception) {}
+
+            rec.startRecording()
             Log.d("MicrophoneScorer", "Microphone capture started for melody scoring & recording")
 
             recordingJob = scope.launch {
@@ -214,6 +233,14 @@ class MicrophoneScorer(
     fun stopScoring() {
         recordingJob?.cancel()
         recordingJob = null
+        try {
+            echoCanceler?.release()
+        } catch (_: Exception) {}
+        echoCanceler = null
+        try {
+            noiseSuppressor?.release()
+        } catch (_: Exception) {}
+        noiseSuppressor = null
         try {
             if (audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                 audioRecord?.stop()
