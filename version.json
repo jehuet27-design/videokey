@@ -1,7 +1,7 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0",
-  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.0/VideoKey-v1.0.apk",
+  "versionCode": 2,
+  "versionName": "2.0",
+  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.0/VideoKey.apk",
   "forceUpdate": false,
-  "releaseNotes": "🎉 VIDEOKEY V1 (Official First Release):\n• DRONE SHOOT HD Video Backgrounds\n• Concert Grand & Punchy Studio SoundFont (60% Melody Guide)\n• Uniform Flat Themes at malinis na mga pindutan\n• TV Keypad na nag-uumpisa sa kanan"
+  "releaseNotes": "🎉 VIDEOKEY V2.0:\n• Full Android TV Mode na may auto-enhanced lyrics (Verdana Wide)\n• Split screen Songbook habang tumutugtog ang kanta\n• TV remote number key detection at elevated header\n• Clean download store para sa mga kanta at SoundFonts"
 }
