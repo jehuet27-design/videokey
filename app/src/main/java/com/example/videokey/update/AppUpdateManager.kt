@@ -134,7 +134,7 @@ class AppUpdateManager(private val context: Context) {
                     val remoteVersionCode = json.optInt("versionCode", 0)
                     val remoteVersionName = json.optString("versionName", "1.0")
                     val apkUrl = json.optString("apkUrl", "")
-                    val isForce = json.optBoolean("forceUpdate", true)
+                    val isForce = json.optBoolean("forceUpdate", false)
                     val notes = json.optString("releaseNotes", "Mahahalagang pagpapahusay sa sistema.")
 
                     val currentCode = getCurrentVersionCode()
@@ -149,7 +149,7 @@ class AppUpdateManager(private val context: Context) {
                             releaseNotes = notes
                         )
                         _updateState.value = UpdateState.UpdateAvailable(info)
-                        if (autoDownloadIfNewer) {
+                        if (isForce || autoDownloadIfNewer) {
                             startDownload(info)
                         }
                     } else {
@@ -288,6 +288,7 @@ class AppUpdateManager(private val context: Context) {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
             }
             context.startActivity(installIntent)
+            _updateState.value = UpdateState.Idle
         } catch (e: Exception) {
             Log.e("AppUpdateManager", "Failed to launch package installer", e)
             _updateState.value = UpdateState.Error("Hindi mabuksan ang installer: ${e.message}")

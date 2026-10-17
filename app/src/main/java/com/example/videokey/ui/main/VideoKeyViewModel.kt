@@ -513,7 +513,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
 
         // Background OTA Update Check across any internet connection (Wi-Fi, Data)
-        appUpdateManager.checkForUpdates(autoDownloadIfNewer = true, isManual = false)
+        appUpdateManager.checkForUpdates(autoDownloadIfNewer = false, isManual = false)
     }
 
     @Volatile
