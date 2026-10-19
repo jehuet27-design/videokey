@@ -67,6 +67,8 @@ import androidx.compose.ui.zIndex
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 
+private val CleanFont = FontFamily(Font(R.font.radio_canada))
+
 @Composable
 fun VideoKeyScreen(
     viewModel: VideoKeyViewModel,
@@ -1732,7 +1734,7 @@ fun VideokeTvScreen(
                             color = Color(0xFFFFD54F),
                             fontSize = if (isTvMode) 14.sp else if (isLandscape) 12.sp else 11.sp,
                             isLandscape = isLandscape,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = CleanFont,
                             modifier = Modifier.clickable { onToggleReserveQueue() }
                         )
                         OutlinedHeaderText(
@@ -1740,7 +1742,7 @@ fun VideokeTvScreen(
                             color = Color(0xFFFFD54F),
                             fontSize = if (isTvMode) 14.sp else if (isLandscape) 12.sp else 11.sp,
                             isLandscape = isLandscape,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = CleanFont,
                             modifier = Modifier
                                 .weight(1f)
                                 .basicMarquee(iterations = Int.MAX_VALUE)
@@ -1761,7 +1763,7 @@ fun VideokeTvScreen(
                             color = Color(0xFFFFD54F),
                             fontSize = 11.sp,
                             isLandscape = false,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = CleanFont,
                             modifier = Modifier.clickable { onToggleReserveQueue() }
                         )
                         OutlinedHeaderText(
@@ -1769,7 +1771,7 @@ fun VideokeTvScreen(
                             color = Color(0xFFFFD54F),
                             fontSize = 11.sp,
                             isLandscape = false,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = CleanFont,
                             modifier = Modifier
                                 .weight(1f)
                                 .basicMarquee(iterations = Int.MAX_VALUE)
@@ -4794,8 +4796,9 @@ fun SongbookSearchOverlay(
                             Text(
                                 text = "📖 SONGBOOK",
                                 color = if (isSongbookActive) activeTextColor else Color(theme.textColor),
+                                fontFamily = cleanFont,
                                 fontSize = if (isLandscape) 11.sp else 9.5.sp,
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 textAlign = TextAlign.Center
                             )
@@ -4825,8 +4828,9 @@ fun SongbookSearchOverlay(
                             Text(
                                 text = "R RESERVE (${reserveQueue.size})",
                                 color = if (isReserveActive) activeSecTextColor else Color(theme.textColor),
+                                fontFamily = cleanFont,
                                 fontSize = if (isLandscape) 11.sp else 9.5.sp,
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 textAlign = TextAlign.Center
                             )
@@ -4855,8 +4859,9 @@ fun SongbookSearchOverlay(
                             Text(
                                 text = "❤️ FAVORITES (${favoriteSongs.size})",
                                 color = if (isFavActive) Color.White else Color(0xFFFF80AB),
+                                fontFamily = cleanFont,
                                 fontSize = if (isLandscape) 11.sp else 9.5.sp,
-                                fontWeight = FontWeight.Black,
+                                fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 textAlign = TextAlign.Center
                             )
@@ -5224,9 +5229,10 @@ fun SongbookSearchOverlay(
                     // TAB 1: RESERVED SONGS (R) LIST
                     Text(
                         text = if (isTagalog) "MGA NAKA-RESERVE NA KANTA (${reserveQueue.size})" else "RESERVED SONGS QUEUE (${reserveQueue.size})",
-                        color = Color(0xFFFFD54F),
+                        color = Color(theme.secondaryColor),
+                        fontFamily = cleanFont,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Black,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
 
@@ -5249,7 +5255,8 @@ fun SongbookSearchOverlay(
                                             "Walang naka-reserve na kanta.\nMag-reserve sa Songbook o pindutin ang 6-digit code sa keypad + R."
                                         else
                                             "No reserved songs in queue.\nReserve from Songbook or press 6-digit code on keypad + R.",
-                                        color = Color.Gray,
+                                        color = Color(theme.textMutedColor),
+                                        fontFamily = cleanFont,
                                         fontSize = 11.sp,
                                         textAlign = TextAlign.Center
                                     )
@@ -5263,14 +5270,16 @@ fun SongbookSearchOverlay(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF1E293B))
+                                    .background(Color(theme.surfaceColor))
+                                    .border(1.dp, Color(theme.buttonBorderColor), RoundedCornerShape(8.dp))
                                     .padding(horizontal = 9.dp, vertical = 6.dp),
                                 verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
                                 Text(
                                     text = "#${index + 1}  ${song.title}",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
+                                    color = Color(theme.textColor),
+                                    fontFamily = cleanFont,
+                                    fontWeight = FontWeight.Bold,
                                     fontSize = 12.5.sp,
                                     lineHeight = 15.sp,
                                     maxLines = 2,
@@ -5286,18 +5295,28 @@ fun SongbookSearchOverlay(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.weight(1f).padding(end = 6.dp)
                                     ) {
-                                        Text(
-                                            text = song.code,
-                                            color = Color(0xFFFFD54F),
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 11.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(5.dp))
+                                                .background(Color(theme.secondaryColor).copy(alpha = 0.18f))
+                                                .border(0.8.dp, Color(theme.secondaryColor).copy(alpha = 0.5f), RoundedCornerShape(5.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = song.code,
+                                                color = Color(theme.secondaryColor),
+                                                fontFamily = cleanFont,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.sp,
+                                                letterSpacing = 0.5.sp
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = song.artist,
-                                            color = Color(0xFF94A3B8),
-                                            fontSize = 10.sp,
+                                            text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
+                                            color = Color(theme.textMutedColor),
+                                            fontFamily = cleanFont,
+                                            fontSize = 10.5.sp,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -5310,30 +5329,34 @@ fun SongbookSearchOverlay(
                                         // Play from reserve
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = Color(0xFF00E676),
+                                            color = Color(theme.primaryColor),
                                             modifier = Modifier.clickable { onPlayReservedIndex(index) }
                                         ) {
+                                            val playTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
                                             Text(
-                                                text = "▶",
-                                                color = Color.Black,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Black,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                text = "▶ PLAY",
+                                                color = playTextColor,
+                                                fontFamily = cleanFont,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                                             )
                                         }
 
                                         // Remove from reserve
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = Color(0xFFEF4444),
+                                            color = Color(0xFFEF4444).copy(alpha = 0.18f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
                                             modifier = Modifier.clickable { onRemoveReservedIndex(index) }
                                         ) {
                                             Text(
                                                 text = "✕",
-                                                color = Color.White,
+                                                color = Color(0xFFFF5252),
+                                                fontFamily = cleanFont,
                                                 fontSize = 11.sp,
-                                                fontWeight = FontWeight.Black,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                                             )
                                         }
                                     }
@@ -5348,8 +5371,9 @@ fun SongbookSearchOverlay(
                     Text(
                         text = if (isTagalog) "MGA PABORITONG KANTA (${favoriteSongs.size})" else "FAVORITE SONGS (${favoriteSongs.size})",
                         color = Color(0xFFFF4081),
+                        fontFamily = cleanFont,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Black,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
 
@@ -5372,7 +5396,8 @@ fun SongbookSearchOverlay(
                                             "Walang naka-save na paboritong kanta.\nPindutin ang ❤️ sa alinmang kanta sa Songbook para i-save dito!"
                                         else
                                             "No favorite songs saved yet.\nTap ❤️ on any song in Songbook to save it here!",
-                                        color = Color.Gray,
+                                        color = Color(theme.textMutedColor),
+                                        fontFamily = cleanFont,
                                         fontSize = 11.sp,
                                         textAlign = TextAlign.Center
                                     )
@@ -5385,15 +5410,17 @@ fun SongbookSearchOverlay(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF1E293B))
+                                    .background(Color(theme.surfaceColor))
+                                    .border(1.dp, Color(theme.buttonBorderColor), RoundedCornerShape(8.dp))
                                     .clickable { onSelectSong(song) }
                                     .padding(horizontal = 9.dp, vertical = 6.dp),
                                 verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
                                 Text(
                                     text = song.title,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
+                                    color = Color(theme.textColor),
+                                    fontFamily = cleanFont,
+                                    fontWeight = FontWeight.Bold,
                                     fontSize = 12.5.sp,
                                     lineHeight = 15.sp,
                                     maxLines = 2,
@@ -5409,18 +5436,28 @@ fun SongbookSearchOverlay(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.weight(1f).padding(end = 6.dp)
                                     ) {
-                                        Text(
-                                            text = song.code,
-                                            color = Color(0xFFFFD54F),
-                                            fontWeight = FontWeight.Black,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 11.sp
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(5.dp))
+                                                .background(Color(theme.secondaryColor).copy(alpha = 0.18f))
+                                                .border(0.8.dp, Color(theme.secondaryColor).copy(alpha = 0.5f), RoundedCornerShape(5.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = song.code,
+                                                color = Color(theme.secondaryColor),
+                                                fontFamily = cleanFont,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.sp,
+                                                letterSpacing = 0.5.sp
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = song.artist,
-                                            color = Color(0xFF94A3B8),
-                                            fontSize = 10.sp,
+                                            text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
+                                            color = Color(theme.textMutedColor),
+                                            fontFamily = cleanFont,
+                                            fontSize = 10.5.sp,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -5433,8 +5470,8 @@ fun SongbookSearchOverlay(
                                         // Remove from Favorites (❤️)
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = Color(0xFF831843),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF4081)),
+                                            color = Color(0xFFFF4081).copy(alpha = 0.2f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF4081).copy(alpha = 0.6f)),
                                             modifier = Modifier.clickable { onToggleFavoriteSong(song) }
                                         ) {
                                             Text(
@@ -5444,34 +5481,37 @@ fun SongbookSearchOverlay(
                                             )
                                         }
 
-                                        // Reserve Button (R)
+                                        // Reserve Button (✓ RES)
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = Color(0xFF332000),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD54F)),
+                                            color = Color(theme.secondaryColor).copy(alpha = 0.18f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.secondaryColor).copy(alpha = 0.5f)),
                                             modifier = Modifier.clickable { onReserveSong(song) }
                                         ) {
                                             Text(
-                                                text = "R",
-                                                color = Color(0xFFFFD54F),
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Black,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                text = "✓ RES",
+                                                color = Color(theme.secondaryColor),
+                                                fontFamily = cleanFont,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                                             )
                                         }
 
-                                        // Play Button (▶)
+                                        // Play Button (▶ PLAY)
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = Color(0xFF00E676),
+                                            color = Color(theme.primaryColor),
                                             modifier = Modifier.clickable { onSelectSong(song) }
                                         ) {
+                                            val playTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
                                             Text(
-                                                text = "▶",
-                                                color = Color.Black,
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Black,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                text = "▶ PLAY",
+                                                color = playTextColor,
+                                                fontFamily = cleanFont,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                                             )
                                         }
                                     }

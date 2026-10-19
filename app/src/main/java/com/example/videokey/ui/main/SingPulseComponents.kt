@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import com.example.videokey.R
 import com.example.videokey.data.Song
 
+private val cleanFont = FontFamily(Font(R.font.radio_canada))
+
 /**
  * SingPulse Bottom Navigation Bar (4 Tabs: Home, Sing, Saved, Profile)
  * Synchronized with the active AppTheme.
@@ -118,6 +120,7 @@ fun SingPulseBottomNavBar(
                     Text(
                         text = title,
                         color = if (isSelected) activeColor else inactiveColor,
+                        fontFamily = cleanFont,
                         fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
@@ -168,8 +171,6 @@ fun SingPulseHomeScreen(
     val buttonBgColor = Color(theme.buttonBgColor)
     val textColor = Color(theme.textColor)
     val textMutedColor = Color(theme.textMutedColor)
-
-    val cleanFont = FontFamily(Font(R.font.radio_canada))
 
     val isTagalog = state.appLanguage == AppLanguage.TAGALOG
     val categories = listOf(
@@ -572,12 +573,14 @@ fun SingPulseSavedScreen(
         Text(
             text = if (isTagalog) "Mga Naka-save na Kanta" else "Saved Songs",
             fontSize = 22.sp,
+            fontFamily = cleanFont,
             fontWeight = FontWeight.ExtraBold,
             color = textColor
         )
         Text(
             text = if (isTagalog) "Iyong personal na karaoke songbook at nakareserbang pila" else "Your personal karaoke songbook & active queue",
             fontSize = 12.sp,
+            fontFamily = cleanFont,
             color = textMutedColor
         )
 
@@ -604,6 +607,7 @@ fun SingPulseSavedScreen(
                 Text(
                     text = if (isTagalog) "📋 Nakareserba (${state.reserveQueue.size})" else "📋 Reserved (${state.reserveQueue.size})",
                     color = if (selectedSavedTab == 0) getContrastingTextColor(primaryColor) else textMutedColor,
+                    fontFamily = cleanFont,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
@@ -620,6 +624,7 @@ fun SingPulseSavedScreen(
                 Text(
                     text = if (isTagalog) "❤️ Mga Paborito (${state.favoriteSongs.size})" else "❤️ Favorites (${state.favoriteSongs.size})",
                     color = if (selectedSavedTab == 1) getContrastingTextColor(primaryColor) else textMutedColor,
+                    fontFamily = cleanFont,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
                 )
@@ -647,6 +652,7 @@ fun SingPulseSavedScreen(
                             if (isTagalog) "Walang laman ang Mga Paborito" else "No favorite songs yet"
                         },
                         color = textMutedColor,
+                        fontFamily = cleanFont,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -671,29 +677,50 @@ fun SingPulseSavedScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "#${song.code}",
-                                    color = secondaryColor,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(secondaryColor.copy(alpha = 0.18f))
+                                        .border(0.8.dp, secondaryColor.copy(alpha = 0.5f), RoundedCornerShape(5.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = song.code,
+                                        color = secondaryColor,
+                                        fontFamily = cleanFont,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = song.title,
                                     color = textColor,
+                                    fontFamily = cleanFont,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
+                                    fontSize = 13.5.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            Text(text = song.artist, color = textMutedColor, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
+                                color = textMutedColor,
+                                fontFamily = cleanFont,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
@@ -703,8 +730,9 @@ fun SingPulseSavedScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = if (isTagalog) "Tugtugin" else "Play",
+                                    text = if (isTagalog) "▶ Patugtugin" else "▶ Play",
                                     color = getContrastingTextColor(primaryColor),
+                                    fontFamily = cleanFont,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp
                                 )
@@ -713,13 +741,19 @@ fun SingPulseSavedScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFFEF4444).copy(alpha = 0.2f))
+                                        .background(Color(0xFFEF4444).copy(alpha = 0.18f))
                                         .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                                         .clickable { onRemoveReserved(index) }
                                         .padding(horizontal = 10.dp, vertical = 6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(text = "✕", color = Color(0xFFF87171), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Text(
+                                        text = "✕",
+                                        color = Color(0xFFFF5252),
+                                        fontFamily = cleanFont,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
                                 }
                             }
                         }
