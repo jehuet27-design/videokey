@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.videokey.data.Song
 import com.example.videokey.R
+import androidx.compose.ui.zIndex
 
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -119,6 +120,7 @@ fun VideoKeyScreen(
             onStartSequentialDownload = { viewModel.startSequentialAutoDownload() },
             onCancelDownload = { viewModel.cancelContentDownload() },
             onOpenApp = { viewModel.passStartupGate() },
+            onMinimize = { viewModel.minimizeStartupGate() },
             modifier = modifier.fillMaxSize()
         )
         return
@@ -549,6 +551,30 @@ fun VideoKeyScreen(
                     viewModel.clearVipActivationError()
                 },
                 onDismiss = { viewModel.closeYouTubeDownloader() }
+            )
+        }
+
+        // Minimized Floating Background Download Pill (Dynamic Island style)
+        val downloadStatus = state.downloadStatus
+        val isDownloadingOrExtracting = downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading ||
+                downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting
+        val showMinimizedDownload = isDownloadingOrExtracting && !state.isDownloadCenterOpen
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showMinimizedDownload,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { -it },
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { -it },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = if (isLandscape) 8.dp else 12.dp)
+                .zIndex(99f)
+        ) {
+            MinimizedDownloadFloatingPill(
+                downloadStatus = downloadStatus,
+                downloadCatalog = state.downloadCatalog,
+                isTagalog = isTagalog,
+                onMaximize = { viewModel.openDownloadCenter() },
+                onCancel = { viewModel.cancelContentDownload() }
             )
         }
 
@@ -9914,8 +9940,33 @@ fun DownloadCenterDialog(
                             )
                         }
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF1E293B),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.6f)),
+                            modifier = Modifier.clickable { onDismiss() }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(text = "🗕", fontSize = 12.sp, color = Color(0xFF00E5FF))
+                                Text(
+                                    text = if (isTagalog) "MINIMIZE" else "MINIMIZE",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF00E5FF)
+                                )
+                            }
+                        }
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                            Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
@@ -9998,18 +10049,28 @@ fun DownloadCenterDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                val isAnyActive = currentStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading ||
+                        currentStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting
+
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isAnyActive) Color(0xFF0D9488) else Color(0xFF0284C7)
+                    ),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(42.dp)
+                        .height(44.dp)
                 ) {
                     Text(
-                        text = if (isTagalog) "ISARA ANG DOWNLOAD CENTER ✓" else "CLOSE DOWNLOAD CENTER ✓",
+                        text = if (isAnyActive) {
+                            if (isTagalog) "🗕 I-MINIMIZE (MAG-DOWNLOAD SA BACKGROUND) ✓" else "🗕 MINIMIZE (DOWNLOAD IN BACKGROUND) ✓"
+                        } else {
+                            if (isTagalog) "ISARA ANG DOWNLOAD CENTER ✓" else "CLOSE DOWNLOAD CENTER ✓"
+                        },
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = Color.White,
+                        fontSize = 12.sp
                     )
                 }
             }
@@ -10293,3 +10354,147 @@ fun ExitConfirmDialog(
         }
     )
 }
+
+/**
+ * Minimized Floating Background Download Pill:
+ * Displays a non-intrusive floating progress pill at the top of the videoke screen
+ * when a download is ongoing in the background, allowing the user to sing or choose songs
+ * uninterrupted. Users can tap to maximize back to Download Center or cancel.
+ */
+@Composable
+fun MinimizedDownloadFloatingPill(
+    downloadStatus: com.example.videokey.data.ContentDownloadManager.DownloadStatus,
+    downloadCatalog: List<com.example.videokey.data.ContentDownloadManager.DownloadItem>,
+    isTagalog: Boolean,
+    onMaximize: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val itemId = when (downloadStatus) {
+        is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading -> downloadStatus.itemId
+        is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting -> downloadStatus.itemId
+        else -> ""
+    }
+    val currentItem = downloadCatalog.find { it.id == itemId }
+    val title = currentItem?.title ?: if (isTagalog) "Nilalamang Media" else "Media Content"
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse_dl")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
+
+    Surface(
+        shape = RoundedCornerShape(30.dp),
+        color = Color(0xFF0F172A).copy(alpha = 0.95f),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF00E5FF).copy(alpha = pulseAlpha)),
+        shadowElevation = 8.dp,
+        modifier = Modifier
+            .wrapContentWidth()
+            .height(44.dp)
+            .clickable { onMaximize() }
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Animated Icon / Spinner
+            if (downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = Color(0xFF00FF88)
+                )
+            } else {
+                Text(text = "📥", fontSize = 14.sp)
+            }
+
+            // Info column & mini progress bar
+            Column(
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.widthIn(min = 140.dp, max = 240.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    if (downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading) {
+                        Text(
+                            text = "${downloadStatus.percent}%",
+                            fontSize = 10.5.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFFFFD54F)
+                        )
+                    } else if (downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting) {
+                        Text(
+                            text = if (isTagalog) "Inaayos..." else "Installing...",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00FF88)
+                        )
+                    }
+                }
+
+                if (downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading) {
+                    Spacer(modifier = Modifier.height(3.dp))
+                    LinearProgressIndicator(
+                        progress = { downloadStatus.percent / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = Color(0xFF00FF88),
+                        trackColor = Color(0xFF334155)
+                    )
+                }
+            }
+
+            // Action: Maximize Button
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF0284C7),
+                modifier = Modifier.clickable { onMaximize() }
+            ) {
+                Text(
+                    text = if (isTagalog) "🔍 BUKSAN" else "🔍 OPEN",
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                )
+            }
+
+            // Action: Cancel Download Button
+            IconButton(
+                onClick = onCancel,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Text(
+                    text = "✕",
+                    color = Color(0xFFEF4444),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+

@@ -2102,6 +2102,13 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun minimizeStartupGate() {
+        _uiState.update { it.copy(isStartupGatePassed = true, isDownloadCenterOpen = false) }
+        viewModelScope.launch {
+            scanInternalStorage(getApplication())
+        }
+    }
+
     fun refreshDownloadedMp4Songs() {
         val songsFolder = youTubeDownloader.getSongsFolder()
         val diskMp4Files = songsFolder.listFiles { f ->

@@ -39,6 +39,7 @@ fun StartupDownloadGateScreen(
     onStartSequentialDownload: () -> Unit = {},
     onCancelDownload: () -> Unit,
     onOpenApp: () -> Unit,
+    onMinimize: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val theme = state.appTheme
@@ -294,6 +295,25 @@ fun StartupDownloadGateScreen(
                         color = textColor
                     )
                 }
+            }
+
+            // Minimize Button: Allows background downloading without interruption
+            OutlinedButton(
+                onClick = onMinimize,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(theme.primaryColor)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.primaryColor).copy(alpha = 0.7f)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+            ) {
+                Text(
+                    text = if (isTagalog) "🗕 I-MINIMIZE (MAG-DOWNLOAD SA BACKGROUND)" else "🗕 MINIMIZE (DOWNLOAD IN BACKGROUND)",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.SansSerif,
+                    color = Color(theme.primaryColor)
+                )
             }
         }
     }

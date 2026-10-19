@@ -1,7 +1,15 @@
 package com.example.videokey.data
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.PowerManager
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.example.videokey.MainActivity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +26,7 @@ import java.util.zip.ZipInputStream
  * - Users can pick and choose which backgrounds to download to save storage.
  * - Downloads directly into the app's VideoKey storage.
  * - Live real-time progress tracking (MB & %).
+ * - Background persistence via WakeLock & System Notifications so download is never interrupted when minimized.
  */
 class ContentDownloadManager(private val context: Context) {
 
@@ -59,6 +68,70 @@ class ContentDownloadManager(private val context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var currentDownloadJob: Job? = null
+
+    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    private var wakeLock: PowerManager.WakeLock? = null
+    private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+    private val NOTIFICATION_ID = 2001
+    private val CHANNEL_ID = "videokey_content_downloads"
+
+    init {
+        createNotificationChannel()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "VideoKey Content Downloads",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Status ng pag-download ng mga kanta, SoundFont, at backgrounds"
+                setShowBadge(false)
+            }
+            notificationManager?.createNotificationChannel(channel)
+        }
+    }
+
+    private fun updateNotification(title: String, text: String, progress: Int = -1, ongoing: Boolean = true) {
+        try {
+            val intent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setOngoing(ongoing)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(pendingIntent)
+
+            if (progress in 0..100) {
+                builder.setProgress(100, progress, false)
+            } else if (ongoing) {
+                builder.setProgress(0, 0, true)
+            } else {
+                builder.setProgress(0, 0, false)
+            }
+
+            notificationManager?.notify(NOTIFICATION_ID, builder.build())
+        } catch (e: Exception) {
+            Log.e("ContentDownloadManager", "Failed to show download notification", e)
+        }
+    }
+
+    private fun cancelNotification() {
+        try {
+            notificationManager?.cancel(NOTIFICATION_ID)
+        } catch (_: Exception) {}
+    }
 
     // Base target storage directory
     fun getBaseStorageDir(): File {
@@ -229,6 +302,14 @@ class ContentDownloadManager(private val context: Context) {
                 totalBytes = 0L
             )
 
+            try {
+                wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "VideoKey:DownloadLock")
+                wakeLock?.acquire(60 * 60 * 1000L) // 1-hour max safety limit
+            } catch (e: Exception) {
+                Log.w("ContentDownloadManager", "WakeLock acquire failed", e)
+            }
+            updateNotification("VideoKey: Nagda-download...", item.title, 0, ongoing = true)
+
             val baseDir = getBaseStorageDir()
             val destFile = if (item.isZip) {
                 File(context.cacheDir, "${item.id}_temp.zip")
@@ -269,6 +350,7 @@ class ContentDownloadManager(private val context: Context) {
                 val contentLength = currentConn.contentLength.toLong()
                 var downloaded = 0L
                 var lastProgressUpdate = 0L
+                var lastNotificationUpdate = 0L
 
                 currentConn.inputStream.use { input ->
                     FileOutputStream(destFile).use { output ->
@@ -291,6 +373,14 @@ class ContentDownloadManager(private val context: Context) {
                                     downloadedBytes = downloaded,
                                     totalBytes = contentLength
                                 )
+
+                                if (now - lastNotificationUpdate > 1000) {
+                                    lastNotificationUpdate = now
+                                    val mbDl = downloaded / (1024f * 1024f)
+                                    val mbTot = contentLength / (1024f * 1024f)
+                                    val text = "${String.format("%.1f", mbDl)} MB / ${String.format("%.1f", mbTot)} MB ($percent%)"
+                                    updateNotification("Dina-download: ${item.title}", text, percent, ongoing = true)
+                                }
                             }
                         }
                         output.flush()
@@ -301,12 +391,19 @@ class ContentDownloadManager(private val context: Context) {
                 // If ZIP file, extract automatically to target directory
                 if (item.isZip) {
                     _downloadStatus.value = DownloadStatus.Extracting(item.id)
+                    updateNotification("Ina-unpack: ${item.title}", "Inaayos ang mga files para sa videoke...", -1, ongoing = true)
                     val targetExtractDir = File(baseDir, item.relativeDestinationPath).apply { mkdirs() }
                     extractZip(destFile, targetExtractDir)
                     destFile.delete()
                 }
 
                 _downloadStatus.value = DownloadStatus.Completed(item.id, "Matagumpay na na-download ang ${item.title}!")
+                updateNotification("✓ Tapos na ang download!", item.title, ongoing = false)
+                scope.launch {
+                    delay(5000)
+                    cancelNotification()
+                }
+
                 withContext(Dispatchers.Main) {
                     onFinish()
                 }
@@ -314,6 +411,7 @@ class ContentDownloadManager(private val context: Context) {
                 Log.d("ContentDownloadManager", "Download cancelled: ${item.id}")
                 destFile.delete()
                 _downloadStatus.value = DownloadStatus.Idle
+                cancelNotification()
             } catch (e: Exception) {
                 Log.e("ContentDownloadManager", "Download failed for ${item.id}", e)
                 destFile.delete()
@@ -321,6 +419,13 @@ class ContentDownloadManager(private val context: Context) {
                     itemId = item.id,
                     errorMessage = "Hindi natapos ang download: ${e.message ?: "Walang koneksyon"}"
                 )
+                updateNotification("✕ Hindi natapos ang download", item.title, ongoing = false)
+            } finally {
+                try {
+                    if (wakeLock?.isHeld == true) {
+                        wakeLock?.release()
+                    }
+                } catch (_: Exception) {}
             }
         }
     }
@@ -347,6 +452,12 @@ class ContentDownloadManager(private val context: Context) {
     fun cancelCurrentDownload() {
         currentDownloadJob?.cancel()
         _downloadStatus.value = DownloadStatus.Idle
+        cancelNotification()
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (_: Exception) {}
     }
 
     fun dismissStatus() {
