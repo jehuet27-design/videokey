@@ -593,6 +593,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 appTheme = initialTheme,
                 isMicScoringEnabled = initialScoreMode != ScoreMode.OFF,
                 isScoringSoundEnabled = initialFanfare != FanfareSoundLevel.OFF,
+                isKeypadVoiceEnabled = prefs.getBoolean("is_keypad_voice_enabled", true),
                 scoreMode = initialScoreMode,
                 scoringDifficulty = initialDifficulty,
                 fanfareSoundLevel = initialFanfare,
@@ -1337,7 +1338,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun onDigitPressed(digit: Char) {
-        if (!_uiState.value.isPlaying && _uiState.value.isKeypadVoiceEnabled && digit in '0'..'9') {
+        if (_uiState.value.isKeypadVoiceEnabled && digit in '0'..'9') {
             voiceManager.speakDigit(digit)
         }
         _uiState.update {
@@ -1348,6 +1349,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 enteredCode = newCode,
                 matchedEnteredSong = matched
             )
+        }
+    }
+
+    fun speakDigit(digit: Char) {
+        if (_uiState.value.isKeypadVoiceEnabled && digit in '0'..'9') {
+            voiceManager.speakDigit(digit)
         }
     }
 
@@ -2634,6 +2641,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleKeypadVoice(enabled: Boolean) {
+        prefs.edit().putBoolean("is_keypad_voice_enabled", enabled).apply()
         _uiState.update { it.copy(isKeypadVoiceEnabled = enabled) }
     }
 

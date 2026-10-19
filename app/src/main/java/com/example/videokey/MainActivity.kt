@@ -80,13 +80,15 @@ class MainActivity : ComponentActivity() {
                         return true
                     }
                     in android.view.KeyEvent.KEYCODE_0..android.view.KeyEvent.KEYCODE_9 -> {
-                        val digit = ('0' + (event.keyCode - android.view.KeyEvent.KEYCODE_0)).toString()
-                        viewModel.searchSongbook(state.songbookQuery + digit)
+                        val digitChar = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_0)
+                        viewModel.speakDigit(digitChar)
+                        viewModel.searchSongbook(state.songbookQuery + digitChar)
                         return true
                     }
                     in android.view.KeyEvent.KEYCODE_NUMPAD_0..android.view.KeyEvent.KEYCODE_NUMPAD_9 -> {
-                        val digit = ('0' + (event.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0)).toString()
-                        viewModel.searchSongbook(state.songbookQuery + digit)
+                        val digitChar = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0)
+                        viewModel.speakDigit(digitChar)
+                        viewModel.searchSongbook(state.songbookQuery + digitChar)
                         return true
                     }
                     android.view.KeyEvent.KEYCODE_DEL, android.view.KeyEvent.KEYCODE_FORWARD_DEL -> {
@@ -104,27 +106,22 @@ class MainActivity : ComponentActivity() {
             return super.dispatchKeyEvent(event)
         }
 
-        // Only intercept player digit keys and backspace when Player Keypad (Tab 1) or TV mode is active
-        val isPlayerKeypadActive = (state.selectedBottomNavTab == 1 || state.isTvMode) &&
-                !state.isYouTubeDownloaderOpen &&
-                !state.isSongFolderPickerOpen &&
-                !state.isSettingsDialogOpen
+        // Only intercept player digit keys and backspace when not in a modal overlay
+        val isDialogBlocking = state.isYouTubeDownloaderOpen ||
+                state.isSongFolderPickerOpen ||
+                state.isSettingsDialogOpen
 
-        if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+        if (event.action == android.view.KeyEvent.ACTION_DOWN && !isDialogBlocking) {
             when (event.keyCode) {
                 in android.view.KeyEvent.KEYCODE_0..android.view.KeyEvent.KEYCODE_9 -> {
-                    if (isPlayerKeypadActive) {
-                        val digit = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_0)
-                        viewModel.onDigitPressed(digit)
-                        return true
-                    }
+                    val digit = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_0)
+                    viewModel.onDigitPressed(digit)
+                    return true
                 }
                 in android.view.KeyEvent.KEYCODE_NUMPAD_0..android.view.KeyEvent.KEYCODE_NUMPAD_9 -> {
-                    if (isPlayerKeypadActive) {
-                        val digit = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0)
-                        viewModel.onDigitPressed(digit)
-                        return true
-                    }
+                    val digit = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0)
+                    viewModel.onDigitPressed(digit)
+                    return true
                 }
                 android.view.KeyEvent.KEYCODE_MEDIA_PLAY, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
                     viewModel.onPlay()
@@ -139,22 +136,16 @@ class MainActivity : ComponentActivity() {
                     return true
                 }
                 android.view.KeyEvent.KEYCODE_DEL, android.view.KeyEvent.KEYCODE_FORWARD_DEL -> {
-                    if (isPlayerKeypadActive) {
-                        viewModel.onDeleteDigit()
-                        return true
-                    }
+                    viewModel.onDeleteDigit()
+                    return true
                 }
                 android.view.KeyEvent.KEYCODE_CLEAR -> {
-                    if (isPlayerKeypadActive) {
-                        viewModel.onClearCode()
-                        return true
-                    }
+                    viewModel.onClearCode()
+                    return true
                 }
                 android.view.KeyEvent.KEYCODE_R -> {
-                    if (isPlayerKeypadActive) {
-                        viewModel.onRButtonPressed()
-                        return true
-                    }
+                    viewModel.onRButtonPressed()
+                    return true
                 }
                 android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_NUMPAD_ENTER, android.view.KeyEvent.KEYCODE_DPAD_CENTER -> {
                     if (viewModel.uiState.value.enteredCode.isNotEmpty()) {

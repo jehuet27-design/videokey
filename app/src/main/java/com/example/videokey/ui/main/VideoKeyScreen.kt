@@ -200,7 +200,8 @@ fun VideoKeyScreen(
                                 onReserveSong = { viewModel.reserveSong(it) },
                                 onEnterTvMode = { viewModel.enterTvLandscapeMode(activity) },
                                 onOpenProfile = { viewModel.selectBottomNavTab(3) },
-                                onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() }
+                                onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() },
+                                onSpeakDigit = { viewModel.speakDigit(it) }
                             )
                         }
                         1 -> {
@@ -1835,6 +1836,7 @@ fun VideokeTvScreen(
                                 onCloseReserveQueue()
                                 onCloseFavorites()
                             },
+                            onSpeakDigit = onDigit,
                             modifier = Modifier
                                 .weight(0.52f)
                                 .fillMaxHeight()
@@ -1937,6 +1939,7 @@ fun VideokeTvScreen(
                             onCloseReserveQueue()
                             onCloseFavorites()
                         },
+                        onSpeakDigit = onDigit,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
@@ -4731,8 +4734,10 @@ fun SongbookSearchOverlay(
     onPlayReservedIndex: (Int) -> Unit = {},
     onRemoveReservedIndex: (Int) -> Unit = {},
     onDismiss: () -> Unit,
+    onSpeakDigit: (Char) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val cleanFont = FontFamily(Font(R.font.radio_canada))
     var query by remember { mutableStateOf(searchQuery) }
     LaunchedEffect(searchQuery) {
         if (query != searchQuery) {
@@ -4944,14 +4949,21 @@ fun SongbookSearchOverlay(
                     OutlinedTextField(
                         value = query,
                         onValueChange = { newText ->
+                            if (newText.length > query.length) {
+                                val addedChar = newText.last()
+                                if (addedChar in '0'..'9') {
+                                    onSpeakDigit(addedChar)
+                                }
+                            }
                             query = newText
                             onQueryChange(newText)
                         },
                         placeholder = {
                             Text(
                                 text = if (isTagalog) "I-type ang titulo, artist, o numero ng kanta..." else "Type song title, artist, or code...",
-                                fontSize = 11.sp,
-                                color = Color(0xFF94A3B8)
+                                fontFamily = cleanFont,
+                                fontSize = 11.5.sp,
+                                color = Color(theme.textMutedColor).copy(alpha = 0.7f)
                             )
                         },
                         trailingIcon = {
@@ -4966,8 +4978,8 @@ fun SongbookSearchOverlay(
                                         modifier = Modifier
                                             .height(26.dp)
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(Color(0xFF334155))
-                                            .border(1.dp, Color(0xFFFFD54F), RoundedCornerShape(6.dp))
+                                            .background(Color(theme.buttonBgColor))
+                                            .border(1.dp, Color(theme.secondaryColor), RoundedCornerShape(6.dp))
                                             .clickable {
                                                 if (query.isNotEmpty()) {
                                                     val updated = query.dropLast(1)
@@ -4980,7 +4992,7 @@ fun SongbookSearchOverlay(
                                     ) {
                                         Text(
                                             text = "⌫",
-                                            color = Color(0xFFFFD54F),
+                                            color = Color(theme.secondaryColor),
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Black
                                         )
@@ -4990,7 +5002,7 @@ fun SongbookSearchOverlay(
                                         modifier = Modifier
                                             .size(26.dp)
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(Color(0xFF475569))
+                                            .background(Color(theme.buttonBorderColor))
                                             .clickable {
                                                 query = ""
                                                 onQueryChange("")
@@ -4999,7 +5011,7 @@ fun SongbookSearchOverlay(
                                     ) {
                                         Text(
                                             text = "✕",
-                                            color = Color.White,
+                                            color = Color(theme.textColor),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Black
                                         )
@@ -5012,10 +5024,20 @@ fun SongbookSearchOverlay(
                             imeAction = androidx.compose.ui.text.input.ImeAction.Search
                         ),
                         textStyle = TextStyle(
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            color = Color(theme.textColor),
+                            fontFamily = cleanFont,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold
                         ),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(theme.backgroundColor),
+                            unfocusedContainerColor = Color(theme.backgroundColor),
+                            focusedBorderColor = Color(theme.primaryColor),
+                            unfocusedBorderColor = Color(theme.buttonBorderColor),
+                            focusedTextColor = Color(theme.textColor),
+                            unfocusedTextColor = Color(theme.textColor)
+                        ),
+                        shape = RoundedCornerShape(10.dp),
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -5060,18 +5082,20 @@ fun SongbookSearchOverlay(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF1E293B))
+                                    .background(Color(theme.surfaceColor))
+                                    .border(1.dp, Color(theme.buttonBorderColor), RoundedCornerShape(8.dp))
                                     .clickable { onSelectSong(song) }
                                     .padding(horizontal = 9.dp, vertical = 6.dp),
                                 verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
-                                // Top Row: Full Song Title across the entire width (zero truncation!)
+                                // Top Row: Full Song Title across the entire width (clean theme font!)
                                 Text(
                                     text = song.title,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 12.5.sp,
-                                    lineHeight = 15.sp,
+                                    color = Color(theme.textColor),
+                                    fontFamily = cleanFont,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    lineHeight = 16.sp,
                                     maxLines = 2,
                                     softWrap = true,
                                     modifier = Modifier.fillMaxWidth()
@@ -5087,18 +5111,29 @@ fun SongbookSearchOverlay(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier.weight(1f).padding(end = 6.dp)
                                     ) {
-                                        Text(
-                                            text = song.code,
-                                            color = Color(0xFFFFD54F),
-                                            fontWeight = FontWeight.Black,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontSize = 11.sp
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(5.dp))
+                                                .background(Color(theme.secondaryColor).copy(alpha = 0.18f))
+                                                .border(0.8.dp, Color(theme.secondaryColor).copy(alpha = 0.5f), RoundedCornerShape(5.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = song.code,
+                                                color = Color(theme.secondaryColor),
+                                                fontFamily = cleanFont,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.sp,
+                                                letterSpacing = 0.5.sp
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
-                                            color = Color(0xFF94A3B8),
-                                            fontSize = 10.sp,
+                                            color = Color(theme.textMutedColor),
+                                            fontFamily = cleanFont,
+                                            fontWeight = FontWeight.Normal,
+                                            fontSize = 10.5.sp,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -5111,8 +5146,8 @@ fun SongbookSearchOverlay(
                                         // 1. Favorite Toggle (❤️)
                                         Surface(
                                             shape = RoundedCornerShape(7.dp),
-                                            color = if (isFav) Color(0xFF831843) else Color(0xFF0F172A),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isFav) Color(0xFFFF4081) else Color(0xFF334155)),
+                                            color = if (isFav) Color(0xFF831843) else Color(theme.buttonBgColor),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isFav) Color(0xFFFF4081) else Color(theme.buttonBorderColor)),
                                             modifier = Modifier
                                                 .height(27.dp)
                                                 .clickable { onToggleFavoriteSong(song) }
@@ -5131,8 +5166,8 @@ fun SongbookSearchOverlay(
                                         // 2. Reserve Button (+ RES)
                                         Surface(
                                             shape = RoundedCornerShape(7.dp),
-                                            color = if (isReserved) Color(0xFF064E3B) else Color(0xFF1E293B),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F)),
+                                            color = if (isReserved) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isReserved) Color(theme.primaryColor) else Color(theme.buttonBorderColor)),
                                             modifier = Modifier
                                                 .height(27.dp)
                                                 .clickable {
@@ -5146,7 +5181,8 @@ fun SongbookSearchOverlay(
                                             ) {
                                                 Text(
                                                     text = if (isReserved) "✓ RES" else "+ RES",
-                                                    color = if (isReserved) Color(0xFF00FF88) else Color(0xFFFFD54F),
+                                                    color = if (isReserved) Color(theme.primaryColor) else Color(theme.secondaryColor),
+                                                    fontFamily = cleanFont,
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Black
                                                 )
@@ -5154,9 +5190,12 @@ fun SongbookSearchOverlay(
                                         }
 
                                         // 3. Play Button (▶ TUGTOG / ▶ PLAY)
+                                        val playBtnBg = if (isPlayable) Color(theme.primaryColor) else Color(theme.buttonBgColor)
+                                        val playBtnText = if (isPlayable) getContrastingTextColor(theme.primaryColor) else Color(theme.textMutedColor)
                                         Surface(
                                             shape = RoundedCornerShape(7.dp),
-                                            color = if (isPlayable) Color(0xFF00E676) else Color(0xFF334155),
+                                            color = playBtnBg,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isPlayable) Color(theme.primaryColor) else Color(theme.buttonBorderColor)),
                                             modifier = Modifier
                                                 .height(27.dp)
                                                 .clickable { onSelectSong(song) }
@@ -5167,7 +5206,8 @@ fun SongbookSearchOverlay(
                                             ) {
                                                 Text(
                                                     text = if (isTagalog) "▶ TUGTOG" else "▶ PLAY",
-                                                    color = if (isPlayable) Color.Black else Color.White,
+                                                    color = playBtnText,
+                                                    fontFamily = cleanFont,
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Black
                                                 )
@@ -5454,6 +5494,8 @@ fun SongbookDialog(
     onlyShowPlayableSongs: Boolean = false,
     playableCodes: Set<String> = emptySet(),
     isTagalog: Boolean = false,
+    theme: AppTheme = AppTheme.CYBER_NEON,
+    onSpeakDigit: (Char) -> Unit = {},
     onToggleFilter: (Boolean) -> Unit = {},
     onOpenFolderLocator: () -> Unit,
     onQueryChange: (String) -> Unit,
@@ -5461,13 +5503,15 @@ fun SongbookDialog(
     onReserveSong: (Song) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val cleanFont = FontFamily(Font(R.font.radio_canada))
     var query by remember { mutableStateOf("") }
     val reservedCodes = remember { mutableStateMapOf<String, Boolean>() }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF0F172A),
+            color = Color(theme.surfaceColor),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(theme.primaryColor)),
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.85f)
@@ -5481,11 +5525,12 @@ fun SongbookDialog(
                     Text(
                         text = if (isTagalog) "📖 AKLAT NG MGA KANTA (SONGBOOK)" else "📖 VIDEOKEY SONGBOOK",
                         fontWeight = FontWeight.Black,
-                        color = Color(0xFFFFC107),
+                        fontFamily = cleanFont,
+                        color = Color(theme.primaryColor),
                         fontSize = 14.sp
                     )
                     IconButton(onClick = onDismiss) {
-                        Text(text = "✕", color = Color.White)
+                        Text(text = "✕", color = Color(theme.textColor), fontFamily = cleanFont, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -5591,10 +5636,38 @@ fun SongbookDialog(
                 OutlinedTextField(
                     value = query,
                     onValueChange = {
+                        if (it.length > query.length) {
+                            val lastChar = it.last()
+                            if (lastChar in '0'..'9') {
+                                onSpeakDigit(lastChar)
+                            }
+                        }
                         query = it
                         onQueryChange(it)
                     },
-                    placeholder = { Text(if (isTagalog) "Maghanap ng titulo, artist, o code..." else "Search title, artist, or code...", fontSize = 12.sp) },
+                    placeholder = {
+                        Text(
+                            text = if (isTagalog) "Maghanap ng titulo, artist, o numero ng kanta..." else "Search title, artist, or song code...",
+                            fontFamily = cleanFont,
+                            color = Color(theme.textMutedColor).copy(alpha = 0.7f),
+                            fontSize = 12.sp
+                        )
+                    },
+                    textStyle = TextStyle(
+                        color = Color(theme.textColor),
+                        fontFamily = cleanFont,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color(theme.backgroundColor),
+                        unfocusedContainerColor = Color(theme.backgroundColor),
+                        focusedBorderColor = Color(theme.primaryColor),
+                        unfocusedBorderColor = Color(theme.buttonBorderColor),
+                        focusedTextColor = Color(theme.textColor),
+                        unfocusedTextColor = Color(theme.textColor)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
                     trailingIcon = {
                         if (query.isNotEmpty()) {
                             Row(
@@ -5606,8 +5679,8 @@ fun SongbookDialog(
                                     modifier = Modifier
                                         .height(26.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF334155))
-                                        .border(1.dp, Color(0xFFFFD54F), RoundedCornerShape(6.dp))
+                                        .background(Color(theme.buttonBgColor))
+                                        .border(1.dp, Color(theme.secondaryColor), RoundedCornerShape(6.dp))
                                         .clickable {
                                             if (query.isNotEmpty()) {
                                                 val updated = query.dropLast(1)
@@ -5620,7 +5693,7 @@ fun SongbookDialog(
                                 ) {
                                     Text(
                                         text = "⌫",
-                                        color = Color(0xFFFFD54F),
+                                        color = Color(theme.secondaryColor),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Black
                                     )
@@ -5629,7 +5702,7 @@ fun SongbookDialog(
                                     modifier = Modifier
                                         .size(26.dp)
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF475569))
+                                        .background(Color(theme.buttonBorderColor))
                                         .clickable {
                                             query = ""
                                             onQueryChange("")
@@ -5638,7 +5711,7 @@ fun SongbookDialog(
                                 ) {
                                     Text(
                                         text = "✕",
-                                        color = Color.White,
+                                        color = Color(theme.textColor),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Black
                                     )
@@ -5673,7 +5746,8 @@ fun SongbookDialog(
                                         (if (isTagalog) "Nag-i-scan ng internal storage..." else "Scanning internal storage...")
                                     else
                                         (if (isTagalog) "Walang nahanap na kanta.\nPindutin ang 'Palitan' sa itaas." else "No songs found.\nTap 'Change' above."),
-                                    color = Color.Gray,
+                                    color = Color(theme.textMutedColor),
+                                    fontFamily = cleanFont,
                                     fontSize = 12.sp,
                                     textAlign = TextAlign.Center
                                 )
@@ -5687,7 +5761,8 @@ fun SongbookDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF1E293B))
+                                .background(Color(theme.backgroundColor))
+                                .border(1.dp, Color(theme.buttonBorderColor), RoundedCornerShape(10.dp))
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -5698,19 +5773,29 @@ fun SongbookDialog(
                                     .clickable { onSelectSong(song) }
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = song.code,
-                                        color = Color(0xFFFFC107),
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 12.sp
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(5.dp))
+                                            .background(Color(theme.secondaryColor).copy(alpha = 0.18f))
+                                            .border(0.8.dp, Color(theme.secondaryColor).copy(alpha = 0.5f), RoundedCornerShape(5.dp))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = song.code,
+                                            color = Color(theme.secondaryColor),
+                                            fontFamily = cleanFont,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.width(6.dp))
                                     if (isPlayable) {
                                         Text(
                                             text = "🎵 MIDI",
                                             color = Color(0xFF00E676),
                                             fontSize = 9.sp,
+                                            fontFamily = cleanFont,
                                             fontWeight = FontWeight.Black,
                                             modifier = Modifier
                                                 .background(Color(0xFF00381B), RoundedCornerShape(3.dp))
@@ -5720,29 +5805,32 @@ fun SongbookDialog(
                                     } else {
                                         Text(
                                             text = "📖 IDX",
-                                            color = Color.LightGray,
+                                            color = Color(theme.textMutedColor),
                                             fontSize = 9.sp,
+                                            fontFamily = cleanFont,
                                             modifier = Modifier
-                                                .background(Color(0xFF334155), RoundedCornerShape(3.dp))
+                                                .background(Color(theme.buttonBgColor), RoundedCornerShape(3.dp))
                                                 .padding(horizontal = 4.dp, vertical = 1.dp)
                                         )
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(3.dp))
-                                // Buong Titulo ng Kanta (Full Song Title - No cut off)
+                                // Buong Titulo ng Kanta (Full Song Title - clean theme font)
                                 Text(
                                     text = song.title,
-                                    color = Color.White,
+                                    color = Color(theme.textColor),
+                                    fontFamily = cleanFont,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
+                                    fontSize = 13.5.sp,
                                     maxLines = 4,
                                     softWrap = true
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
-                                // Buong Artist ng Kanta (Full Artist - No cut off)
+                                // Buong Artist ng Kanta (Full Artist - clean theme font)
                                 Text(
                                     text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else (if (isTagalog) "🎤 Hindi Kilalang Artist" else "🎤 Unknown Artist"),
-                                    color = Color(0xFF94A3B8),
+                                    color = Color(theme.textMutedColor),
+                                    fontFamily = cleanFont,
                                     fontSize = 11.sp,
                                     maxLines = 3,
                                     softWrap = true

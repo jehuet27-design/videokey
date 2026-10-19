@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import android.media.AudioManager
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -14,9 +15,8 @@ import java.util.concurrent.CopyOnWriteArraySet
 
 /**
  * Keypad Voice Feedback Manager:
- * Uses SoundPool with pre-cached audio samples for 0-9 numeric keys to guarantee
- * 0ms instant, lag-free pronunciation when typing on the keypad.
- * Non-number keys produce no voice.
+ * Uses SoundPool and active TextToSpeech over STREAM_MUSIC (Media Stream)
+ * to guarantee audible, instant voice feedback when typing on the keypad.
  */
 class KeypadVoiceManager(context: Context) : TextToSpeech.OnInitListener {
 
@@ -42,9 +42,10 @@ class KeypadVoiceManager(context: Context) : TextToSpeech.OnInitListener {
     )
 
     init {
+        // Direct to USAGE_MEDIA / CONTENT_TYPE_MUSIC to match karaoke audio volume (never muted by touch/system sounds)
         val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
 
         soundPool = SoundPool.Builder()
@@ -83,9 +84,18 @@ class KeypadVoiceManager(context: Context) : TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             val engine = tts ?: return
+            try {
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                engine.setAudioAttributes(audioAttributes)
+            } catch (e: Exception) {
+                Log.w("KeypadVoiceManager", "Error setting TTS AudioAttributes: ${e.message}")
+            }
             engine.language = Locale.US
-            engine.setSpeechRate(1.2f)
-            engine.setPitch(1.05f)
+            engine.setSpeechRate(1.15f)
+            engine.setPitch(1.0f)
             isTtsInitialized = true
 
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -121,24 +131,41 @@ class KeypadVoiceManager(context: Context) : TextToSpeech.OnInitListener {
     }
 
     /**
-     * Speaks the digit with 0ms instantaneous SoundPool playback if cached,
-     * or instant TTS fallback.
+     * Speaks the digit with SoundPool playback if cached,
+     * or active TTS on STREAM_MUSIC as instant fallback.
      */
     fun speakDigit(digit: Char) {
+        if (digit !in '0'..'9') return
+
+        var played = false
         val soundId = soundMap[digit]
         if (soundId != null && readySoundIds.contains(soundId)) {
-            // Instant 0ms latency playback via SoundPool
-            soundPool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
-            return
+            val streamId = soundPool.play(soundId, 1.0f, 1.0f, 1, 0, 1.0f)
+            if (streamId != 0) {
+                played = true
+            }
         }
 
-        // Fallback to active TTS engine
-        if (isTtsInitialized && tts != null) {
-            val word = digitWords[digit] ?: return
-            try {
-                tts?.speak(word, TextToSpeech.QUEUE_FLUSH, null, "digit_$digit")
-            } catch (e: Exception) {
-                Log.e("KeypadVoiceManager", "Error speaking digit $digit", e)
+        // Direct TTS speaking over STREAM_MUSIC if SoundPool didn't play
+        if (!played) {
+            val engine = tts
+            if (isTtsInitialized && engine != null) {
+                val word = digitWords[digit] ?: return
+                try {
+                    val params = Bundle().apply {
+                        putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC)
+                        putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+                    }
+                    engine.speak(word, TextToSpeech.QUEUE_FLUSH, params, "digit_$digit")
+                } catch (e: Exception) {
+                    Log.e("KeypadVoiceManager", "Error speaking digit $digit", e)
+                }
+            } else if (engine == null) {
+                try {
+                    tts = TextToSpeech(appContext, this)
+                } catch (e: Exception) {
+                    Log.e("KeypadVoiceManager", "Error re-initializing TTS", e)
+                }
             }
         }
     }

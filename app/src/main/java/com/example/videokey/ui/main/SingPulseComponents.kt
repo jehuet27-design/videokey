@@ -21,11 +21,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.videokey.R
 import com.example.videokey.data.Song
 
 /**
@@ -153,6 +156,7 @@ fun SingPulseHomeScreen(
     onEnterTvMode: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenYouTubeDownloader: () -> Unit = {},
+    onSpeakDigit: ((Char) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val theme = state.appTheme
@@ -164,6 +168,8 @@ fun SingPulseHomeScreen(
     val buttonBgColor = Color(theme.buttonBgColor)
     val textColor = Color(theme.textColor)
     val textMutedColor = Color(theme.textMutedColor)
+
+    val cleanFont = FontFamily(Font(R.font.radio_canada))
 
     val isTagalog = state.appLanguage == AppLanguage.TAGALOG
     val categories = listOf(
@@ -192,11 +198,13 @@ fun SingPulseHomeScreen(
                     text = if (isTagalog) "Maligayang pagbabalik," else "Welcome back,",
                     color = textMutedColor,
                     fontSize = 12.sp,
+                    fontFamily = cleanFont,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = "Jerome Huet ✨",
                     fontSize = 20.sp,
+                    fontFamily = cleanFont,
                     fontWeight = FontWeight.ExtraBold,
                     color = textColor
                 )
@@ -216,7 +224,7 @@ fun SingPulseHomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text("▶", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        Text("YT & MP4", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("YT & MP4", color = Color.White, fontSize = 11.sp, fontFamily = cleanFont, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -238,7 +246,7 @@ fun SingPulseHomeScreen(
                             .background(cardBg),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "JH", color = primaryColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(text = "JH", color = primaryColor, fontFamily = cleanFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }
@@ -246,13 +254,32 @@ fun SingPulseHomeScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 2. Search Bar (Directly bound to state.songbookQuery for instant backspace & typing)
+        // 2. Search Bar (Directly bound to state.songbookQuery with clean theme typography & digit voice)
         OutlinedTextField(
             value = state.songbookQuery,
             onValueChange = { newText ->
+                if (newText.length > state.songbookQuery.length) {
+                    val addedChar = newText.last()
+                    if (addedChar in '0'..'9') {
+                        onSpeakDigit?.invoke(addedChar)
+                    }
+                }
                 onQueryChange(newText)
             },
-            placeholder = { Text(if (isTagalog) "Maghanap ng OPM, rock, pop hits..." else "Search OPM, rock, pop hits...", color = textMutedColor.copy(alpha = 0.7f), fontSize = 13.sp) },
+            textStyle = TextStyle(
+                fontFamily = cleanFont,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
+                color = textColor
+            ),
+            placeholder = {
+                Text(
+                    text = if (isTagalog) "Maghanap ng titulo, artist, o numero ng kanta..." else "Search title, artist, or song code...",
+                    fontFamily = cleanFont,
+                    color = textMutedColor.copy(alpha = 0.7f),
+                    fontSize = 13.sp
+                )
+            },
             leadingIcon = { Text("🔍", fontSize = 14.sp) },
             trailingIcon = {
                 if (state.songbookQuery.isNotEmpty()) {
@@ -452,30 +479,44 @@ fun SingPulseHomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "#${song.code}",
-                                color = secondaryColor,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(secondaryColor.copy(alpha = 0.16f))
+                                    .border(0.8.dp, secondaryColor.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = song.code,
+                                    color = secondaryColor,
+                                    fontSize = 11.sp,
+                                    fontFamily = cleanFont,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = song.title,
                                 color = textColor,
+                                fontFamily = cleanFont,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = song.artist,
+                            text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Karaoke",
                             color = textMutedColor,
+                            fontFamily = cleanFont,
+                            fontWeight = FontWeight.Normal,
                             fontSize = 12.sp,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
