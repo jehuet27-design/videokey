@@ -6074,6 +6074,7 @@ fun LiveCameraBackground(modifier: Modifier = Modifier) {
     } else {
         var cameraInstance by remember { mutableStateOf<android.hardware.Camera?>(null) }
         var isFrontFacing by remember { mutableStateOf(true) }
+        val activity = context as? android.app.Activity
 
         DisposableEffect(isFrontFacing) {
             onDispose {
@@ -6090,6 +6091,42 @@ fun LiveCameraBackground(modifier: Modifier = Modifier) {
                 factory = { ctx ->
                     TextureView(ctx).apply {
                         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                            var currentCamWidth = 1280
+                            var currentCamHeight = 720
+                            var isPortraitOrientation = false
+
+                            fun applyNaturalAspectTransform(viewW: Int, viewH: Int) {
+                                if (viewW == 0 || viewH == 0 || currentCamWidth == 0 || currentCamHeight == 0) return
+                                val matrix = android.graphics.Matrix()
+
+                                val effectiveW = if (isPortraitOrientation) currentCamHeight else currentCamWidth
+                                val effectiveH = if (isPortraitOrientation) currentCamWidth else currentCamHeight
+
+                                val viewRatio = viewW.toFloat() / viewH.toFloat()
+                                val videoRatio = effectiveW.toFloat() / effectiveH.toFloat()
+
+                                var scaleX = 1.0f
+                                var scaleY = 1.0f
+
+                                // Center crop: Preserve natural proportions without stretching or letterboxing
+                                if (viewRatio > videoRatio) {
+                                    scaleY = (viewW.toFloat() / effectiveW.toFloat()) / (viewH.toFloat() / effectiveH.toFloat())
+                                } else {
+                                    scaleX = (viewH.toFloat() / effectiveH.toFloat()) / (viewW.toFloat() / effectiveW.toFloat())
+                                }
+
+                                val pivotX = viewW / 2.0f
+                                val pivotY = viewH / 2.0f
+                                matrix.setScale(scaleX, scaleY, pivotX, pivotY)
+
+                                // Mirror horizontally for front-facing camera like a natural mirror
+                                if (isFrontFacing) {
+                                    matrix.postScale(-1.0f, 1.0f, pivotX, pivotY)
+                                }
+
+                                setTransform(matrix)
+                            }
+
                             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                                 try {
                                     val count = android.hardware.Camera.getNumberOfCameras()
@@ -6105,16 +6142,74 @@ fun LiveCameraBackground(modifier: Modifier = Modifier) {
                                             break
                                         }
                                     }
+
                                     val cam = android.hardware.Camera.open(targetCamId)
-                                    cam.setDisplayOrientation(90)
+
+                                    // 1. Calculate proper display orientation based on device rotation
+                                    val rotation = activity?.windowManager?.defaultDisplay?.rotation ?: android.view.Surface.ROTATION_0
+                                    var degrees = 0
+                                    when (rotation) {
+                                        android.view.Surface.ROTATION_0 -> degrees = 0
+                                        android.view.Surface.ROTATION_90 -> degrees = 90
+                                        android.view.Surface.ROTATION_180 -> degrees = 180
+                                        android.view.Surface.ROTATION_270 -> degrees = 270
+                                    }
+
+                                    val displayOrientation = if (camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                                        val result = (camInfo.orientation + degrees) % 360
+                                        (360 - result) % 360
+                                    } else {
+                                        (camInfo.orientation - degrees + 360) % 360
+                                    }
+                                    cam.setDisplayOrientation(displayOrientation)
+                                    isPortraitOrientation = (displayOrientation == 90 || displayOrientation == 270)
+
+                                    // 2. Select best preview size that closely matches view aspect ratio
+                                    val params = cam.parameters
+                                    val supportedSizes = params.supportedPreviewSizes
+                                    if (!supportedSizes.isNullOrEmpty()) {
+                                        val targetAspect = if (isPortraitOrientation) {
+                                            height.toFloat() / width.toFloat()
+                                        } else {
+                                            width.toFloat() / height.toFloat()
+                                        }
+
+                                        val bestSize = supportedSizes.minByOrNull { size ->
+                                            val r = size.width.toFloat() / size.height.toFloat()
+                                            val aspectDiff = Math.abs(r - targetAspect)
+                                            val prefPenalty = if (size.width in 1280..1920) 0 else 500
+                                            aspectDiff * 1000 + prefPenalty
+                                        } ?: supportedSizes.first()
+
+                                        params.setPreviewSize(bestSize.width, bestSize.height)
+                                        currentCamWidth = bestSize.width
+                                        currentCamHeight = bestSize.height
+                                    }
+
+                                    // 3. Continuous video focus if available
+                                    val focusModes = params.supportedFocusModes
+                                    if (focusModes?.contains(android.hardware.Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO) == true) {
+                                        params.focusMode = android.hardware.Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO
+                                    }
+
+                                    cam.parameters = params
                                     cam.setPreviewTexture(surface)
                                     cam.startPreview()
                                     cameraInstance = cam
+
+                                    // 4. Apply natural non-stretch transform
+                                    post {
+                                        applyNaturalAspectTransform(width, height)
+                                    }
                                 } catch (e: Exception) {
                                     Log.w("CameraBg", "Failed to start camera preview: ${e.message}")
                                 }
                             }
-                            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+
+                            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+                                applyNaturalAspectTransform(width, height)
+                            }
+
                             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                                 try {
                                     cameraInstance?.stopPreview()
@@ -6123,6 +6218,7 @@ fun LiveCameraBackground(modifier: Modifier = Modifier) {
                                 cameraInstance = null
                                 return true
                             }
+
                             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
                         }
                     }
