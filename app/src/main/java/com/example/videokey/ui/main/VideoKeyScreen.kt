@@ -92,6 +92,7 @@ fun VideoKeyScreen(
     androidx.activity.compose.BackHandler(enabled = true) {
         when {
             showExitConfirmDialog -> showExitConfirmDialog = false
+            state.isEditNameDialogOpen -> viewModel.closeEditNameDialog()
             state.isYouTubeDownloaderOpen -> viewModel.closeYouTubeDownloader()
             state.isSettingsDialogOpen -> viewModel.closeSettingsDialog()
             state.isAudioMixerDialogOpen -> viewModel.closeAudioMixerDialog()
@@ -203,6 +204,7 @@ fun VideoKeyScreen(
                                 onReserveSong = { viewModel.reserveSong(it) },
                                 onEnterTvMode = { viewModel.enterTvLandscapeMode(activity) },
                                 onOpenProfile = { viewModel.selectBottomNavTab(3) },
+                                onOpenEditName = { viewModel.openEditNameDialog() },
                                 onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() },
                                 onSpeakDigit = { viewModel.speakDigit(it) }
                             )
@@ -313,7 +315,8 @@ fun VideoKeyScreen(
                                 onOpenSettingsDialog = { viewModel.openSettingsDialog() },
                                 onSelectTheme = { viewModel.setAppTheme(it) },
                                 onToggleRecording = { viewModel.toggleRecording() },
-                                onSelectLanguage = { viewModel.setAppLanguage(it) }
+                                onSelectLanguage = { viewModel.setAppLanguage(it) },
+                                onOpenEditName = { viewModel.openEditNameDialog() }
                             )
                         }
                     }
@@ -556,6 +559,19 @@ fun VideoKeyScreen(
                     viewModel.clearVipActivationError()
                 },
                 onDismiss = { viewModel.closeYouTubeDownloader() }
+            )
+        }
+
+        // Edit Profile Username Dialog
+        if (state.isEditNameDialogOpen) {
+            EditProfileNameDialog(
+                currentName = state.userName,
+                theme = state.appTheme,
+                isTagalog = state.appLanguage == AppLanguage.TAGALOG,
+                onSaveName = { newName ->
+                    viewModel.setUserName(newName)
+                },
+                onDismiss = { viewModel.closeEditNameDialog() }
             )
         }
 

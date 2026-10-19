@@ -25,13 +25,28 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.videokey.R
 import com.example.videokey.data.Song
 
 private val cleanFont = FontFamily(Font(R.font.radio_canada))
+
+/**
+ * Extracts 1-2 letter uppercase initials from the user's profile name.
+ */
+fun getInitials(name: String): String {
+    return name.trim().split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+        .map { it.first().toString() }
+        .take(2)
+        .joinToString("")
+        .uppercase()
+        .ifEmpty { "JH" }
+}
 
 /**
  * SingPulse Bottom Navigation Bar (4 Tabs: Home, Sing, Saved, Profile)
@@ -158,6 +173,7 @@ fun SingPulseHomeScreen(
     onReserveSong: (Song) -> Unit,
     onEnterTvMode: () -> Unit,
     onOpenProfile: () -> Unit,
+    onOpenEditName: () -> Unit = onOpenProfile,
     onOpenYouTubeDownloader: () -> Unit = {},
     onSpeakDigit: ((Char) -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -194,7 +210,9 @@ fun SingPulseHomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(
+                modifier = Modifier.clickable { onOpenEditName() }
+            ) {
                 Text(
                     text = if (isTagalog) "Maligayang pagbabalik," else "Welcome back,",
                     color = textMutedColor,
@@ -203,7 +221,7 @@ fun SingPulseHomeScreen(
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "Jerome Huet ✨",
+                    text = "${state.userName} ✨",
                     fontSize = 20.sp,
                     fontFamily = cleanFont,
                     fontWeight = FontWeight.ExtraBold,
@@ -247,7 +265,7 @@ fun SingPulseHomeScreen(
                             .background(cardBg),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "JH", color = primaryColor, fontFamily = cleanFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(text = getInitials(state.userName), color = primaryColor, fontFamily = cleanFont, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }
@@ -778,6 +796,7 @@ fun SingPulseProfileScreen(
     onSelectTheme: (AppTheme) -> Unit,
     onToggleRecording: () -> Unit,
     onSelectLanguage: (AppLanguage) -> Unit = {},
+    onOpenEditName: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val theme = state.appTheme
@@ -818,6 +837,7 @@ fun SingPulseProfileScreen(
                         .size(64.dp)
                         .clip(CircleShape)
                         .background(Brush.linearGradient(listOf(primaryColor, secondaryColor)))
+                        .clickable { onOpenEditName() }
                         .padding(2.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -828,11 +848,22 @@ fun SingPulseProfileScreen(
                             .background(bgColor),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "JH", color = primaryColor, fontWeight = FontWeight.Black, fontSize = 22.sp)
+                        Text(text = getInitials(state.userName), color = primaryColor, fontWeight = FontWeight.Black, fontSize = 22.sp)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Jerome Huet", color = textColor, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onOpenEditName() }
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(text = state.userName, color = textColor, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "✏️", fontSize = 13.sp)
+                }
                 Text(text = "✨ VIP Karaoke Superstar • Lvl 24", color = primaryColor, fontSize = 12.sp, fontWeight = FontWeight.Medium)
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -853,6 +884,58 @@ fun SingPulseProfileScreen(
                         Text(text = "98%", color = Color(0xFF10B981), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         Text(text = "PITCH AVG", color = textMutedColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+            }
+        }
+
+        // Dedicated Profile Username Card
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenEditName() }
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isTagalog) "👤 PANGALAN NG PROFILE" else "👤 PROFILE USERNAME",
+                        color = textMutedColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = state.userName,
+                        color = textColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = if (isTagalog) "Pindutin para palitan ang iyong pangalan" else "Tap to change your username anytime",
+                        color = textMutedColor,
+                        fontSize = 11.sp
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = primaryColor.copy(alpha = 0.15f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, primaryColor)
+                ) {
+                    Text(
+                        text = if (isTagalog) "PALITAN ✏️" else "CHANGE ✏️",
+                        color = primaryColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
                 }
             }
         }
@@ -1144,3 +1227,136 @@ fun SingPulseProfileScreen(
         Spacer(modifier = Modifier.height(60.dp))
     }
 }
+
+/**
+ * Dialog to edit user profile name with live initials preview and save to preferences.
+ */
+@Composable
+fun EditProfileNameDialog(
+    currentName: String,
+    theme: AppTheme = AppTheme.CYBER_NEON,
+    isTagalog: Boolean = false,
+    onSaveName: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var nameInput by remember(currentName) { mutableStateOf(currentName) }
+    val bgColor = Color(theme.surfaceColor)
+    val cardBorder = Color(theme.buttonBorderColor)
+    val primaryColor = Color(theme.primaryColor)
+    val secondaryColor = Color(theme.secondaryColor)
+    val textColor = Color(theme.textColor)
+    val textMutedColor = Color(theme.textMutedColor)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = bgColor,
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, primaryColor),
+            shadowElevation = 16.dp,
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Header & Avatar Preview
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(primaryColor, secondaryColor)))
+                        .padding(2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(Color(theme.backgroundColor)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = getInitials(nameInput),
+                            color = primaryColor,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 22.sp
+                        )
+                    }
+                }
+
+                Text(
+                    text = if (isTagalog) "Palitan ang Pangalan" else "Edit Profile Name",
+                    color = textColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    fontFamily = cleanFont
+                )
+
+                Text(
+                    text = if (isTagalog)
+                        "I-type ang iyong pangalan o palayaw na gagamitin sa karaoke:"
+                    else
+                        "Enter your name or nickname to display across SingPulse:",
+                    color = textMutedColor,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    fontFamily = cleanFont
+                )
+
+                OutlinedTextField(
+                    value = nameInput,
+                    onValueChange = { if (it.length <= 30) nameInput = it },
+                    singleLine = true,
+                    placeholder = { Text("e.g. Maria Santos", color = textMutedColor) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor,
+                        focusedBorderColor = primaryColor,
+                        unfocusedBorderColor = cardBorder,
+                        focusedContainerColor = Color(theme.backgroundColor).copy(alpha = 0.5f),
+                        unfocusedContainerColor = Color(theme.backgroundColor).copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textMutedColor),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder)
+                    ) {
+                        Text(if (isTagalog) "Kanselahin" else "Cancel", fontFamily = cleanFont, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = {
+                            val trimmed = nameInput.trim()
+                            if (trimmed.isNotEmpty()) {
+                                onSaveName(trimmed)
+                            }
+                        },
+                        enabled = nameInput.trim().isNotEmpty(),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = primaryColor,
+                            contentColor = getContrastingTextColor(primaryColor)
+                        )
+                    ) {
+                        Text(if (isTagalog) "I-save" else "Save", fontFamily = cleanFont, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
