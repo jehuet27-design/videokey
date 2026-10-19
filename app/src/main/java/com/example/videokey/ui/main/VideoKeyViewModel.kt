@@ -713,7 +713,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val hasBg = contentDownloadManager.isBackgroundVideoInstalled()
         val isSetupDone = prefs.getBoolean("is_initial_setup_completed", false)
 
-        val gatePassed = hasSongs && hasSf && hasBg && isSetupDone
+        val allFilesExist = hasSongs && hasSf && hasBg
+        val gatePassed = allFilesExist || isSetupDone
+        if (allFilesExist && !isSetupDone) {
+            prefs.edit().putBoolean("is_initial_setup_completed", true).apply()
+        }
         _uiState.update { it.copy(isStartupGatePassed = gatePassed) }
 
         if (!gatePassed) {
@@ -2021,6 +2025,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             scanSongFolder(File(_uiState.value.currentSongFolder))
             scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder))
         }
+    }
+
+    fun isContentItemInstalled(item: com.example.videokey.data.ContentDownloadManager.DownloadItem): Boolean {
+        return contentDownloadManager.isItemInstalled(item)
     }
 
     private var autoDownloadJob: kotlinx.coroutines.Job? = null

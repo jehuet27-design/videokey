@@ -176,7 +176,13 @@ class StorageScanner(private val context: Context) {
             folder.parentFile,
             File(folder, "songs"),
             File("/storage/emulated/0/VideoKey"),
-            File("/sdcard/VideoKey")
+            File("/storage/emulated/0/VideoKey/songs"),
+            File("/storage/emulated/0/SongHub"),
+            File("/storage/emulated/0/SongHub/songs"),
+            File("/sdcard/VideoKey"),
+            File("/sdcard/VideoKey/songs"),
+            File(context.getExternalFilesDir(null), "VideoKey"),
+            File(context.getExternalFilesDir(null), "VideoKey/songs")
         ).distinct().filter { it.exists() && it.isDirectory }
 
         for (dir in packCandidateDirs) {

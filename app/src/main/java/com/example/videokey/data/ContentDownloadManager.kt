@@ -115,75 +115,104 @@ class ContentDownloadManager(private val context: Context) {
      * Checks if a specific downloadable item is already installed on the phone.
      */
     fun isItemInstalled(item: DownloadItem): Boolean {
-        val base = getBaseStorageDir()
-        val target = File(base, item.checkFileRelativePath)
-        if (target.exists() && target.length() > 0) return true
-        val altTarget = File("/storage/emulated/0/SongHub", item.checkFileRelativePath)
-        return altTarget.exists() && altTarget.length() > 0
+        return when (item.id) {
+            "core_songs" -> hasAnySongsInstalled()
+            "all_soundfonts" -> isSoundFontInstalled()
+            "all_backgrounds" -> isBackgroundVideoInstalled()
+            else -> {
+                val base = getBaseStorageDir()
+                val target = File(base, item.checkFileRelativePath)
+                if (target.exists() && target.length() > 0) return true
+                val inSongs = File(base, "songs/${item.checkFileRelativePath}")
+                if (inSongs.exists() && inSongs.length() > 0) return true
+                val inSoundfonts = File(base, "soundfonts/${File(item.checkFileRelativePath).name}")
+                if (inSoundfonts.exists() && inSoundfonts.length() > 0) return true
+                val inSoundFontCap = File(base, "SoundFont/${File(item.checkFileRelativePath).name}")
+                if (inSoundFontCap.exists() && inSoundFontCap.length() > 0) return true
+                val inBackgrounds = File(base, "backgrounds/${File(item.checkFileRelativePath).name}")
+                if (inBackgrounds.exists() && inBackgrounds.length() > 0) return true
+                val altTarget = File("/storage/emulated/0/SongHub", item.checkFileRelativePath)
+                if (altTarget.exists() && altTarget.length() > 0) return true
+                val altSongs = File("/storage/emulated/0/SongHub/songs/${item.checkFileRelativePath}")
+                altSongs.exists() && altSongs.length() > 0
+            }
+        }
     }
 
     /**
-     * Checks if any songs exist in the base folder or SongHub directory.
+     * Checks if any songs exist in the base folder, songs subfolder, or SongHub directory.
      */
     fun hasAnySongsInstalled(): Boolean {
         val base = getBaseStorageDir()
-        val vkPack = File(base, "videokey_songs.vkpack")
-        if (vkPack.exists() && vkPack.length() > 1024) return true
-        val songsDir = File(base, "songs")
-        if (songsDir.exists() && (songsDir.listFiles()?.isNotEmpty() == true)) return true
-        val songHubPack = File("/storage/emulated/0/SongHub/videokey_songs.vkpack")
-        if (songHubPack.exists() && songHubPack.length() > 1024) return true
-        val songHubBlob = File("/storage/emulated/0/SongHub/blob")
-        if (songHubBlob.exists() && (songHubBlob.listFiles()?.isNotEmpty() == true)) return true
+        val checkFiles = listOf(
+            File(base, "videokey_songs.vkpack"),
+            File(base, "songs/videokey_songs.vkpack"),
+            File("/storage/emulated/0/VideoKey/videokey_songs.vkpack"),
+            File("/storage/emulated/0/VideoKey/songs/videokey_songs.vkpack"),
+            File("/storage/emulated/0/SongHub/videokey_songs.vkpack"),
+            File("/storage/emulated/0/SongHub/songs/videokey_songs.vkpack")
+        )
+        if (checkFiles.any { it.exists() && it.length() > 1024 }) return true
+
+        val songsDirs = listOf(
+            File(base, "songs"),
+            File(base, ""),
+            File("/storage/emulated/0/VideoKey/songs"),
+            File("/storage/emulated/0/SongHub/songs"),
+            File("/storage/emulated/0/SongHub/blob")
+        )
+        for (dir in songsDirs) {
+            if (dir.exists() && (dir.listFiles()?.any {
+                val n = it.name.lowercase()
+                (n.endsWith(".vkpack") || n.endsWith(".mid") || n.endsWith(".kar") || n.endsWith(".mp4") || n.endsWith(".mkv")) && it.length() > 1024
+            } == true)) {
+                return true
+            }
+        }
         return false
     }
 
     /**
-     * Checks if VideoKey Studio Minus-One, Dream SAM2634, or MegaPro SoundFont is installed.
+     * Checks if VideoKey Studio Minus-One, Dream SAM2634, MegaPro SoundFont, or any valid .sf2 is installed.
      */
     fun isSoundFontInstalled(): Boolean {
         val base = getBaseStorageDir()
-        val minusOneSf = File(base, "SoundFont/VideoKey_Studio_Minus1.sf2")
-        val dreamSf = File(base, "SoundFont/Dream SAM2634 (ver. 2.1).sf2")
-        val megaSf = File(base, "SoundFont/mega.sf2")
-        val altMinusOne = File("/storage/emulated/0/SongHub/SoundFont/VideoKey_Studio_Minus1.sf2")
-        val altDream = File("/storage/emulated/0/SongHub/SoundFont/Dream SAM2634 (ver. 2.1).sf2")
-        val altMega = File("/storage/emulated/0/SongHub/SoundFont/mega.sf2")
-        val legacy = File(base, "SoundFont/songhub.sf2")
-        return (minusOneSf.exists() && minusOneSf.length() > 1024) ||
-               (dreamSf.exists() && dreamSf.length() > 1024) ||
-               (megaSf.exists() && megaSf.length() > 1024) ||
-               (altMinusOne.exists() && altMinusOne.length() > 1024) ||
-               (altDream.exists() && altDream.length() > 1024) ||
-               (altMega.exists() && altMega.length() > 1024) ||
-               (legacy.exists() && legacy.length() > 1024)
+        val sfDirs = listOf(
+            File(base, "SoundFont"),
+            File(base, "soundfonts"),
+            File("/storage/emulated/0/VideoKey/SoundFont"),
+            File("/storage/emulated/0/VideoKey/soundfonts"),
+            File("/storage/emulated/0/SongHub/SoundFont"),
+            File("/storage/emulated/0/SongHub/soundfonts")
+        )
+        for (dir in sfDirs) {
+            if (dir.exists() && (dir.listFiles()?.any { it.name.endsWith(".sf2", ignoreCase = true) && it.length() > 1024 } == true)) {
+                return true
+            }
+        }
+        return false
     }
 
     /**
-     * Checks if background video (e.g. Drone Shoot or any mp4 video in backgrounds/videos folder) is installed.
+     * Checks if background video (e.g. Drone Shoot or any mp4/mkv video in backgrounds/videos folder) is installed.
      */
     fun isBackgroundVideoInstalled(): Boolean {
         val base = getBaseStorageDir()
-        val drone = File(base, "backgrounds/DRONE_SHOOT.mp4")
-        if (drone.exists() && drone.length() > 1024) return true
-        val altDrone = File("/storage/emulated/0/SongHub/backgrounds/DRONE_SHOOT.mp4")
-        if (altDrone.exists() && altDrone.length() > 1024) return true
-
-        val bgDir = File(base, "backgrounds")
-        if (bgDir.exists() && (bgDir.listFiles()?.any { it.name.endsWith(".mp4", ignoreCase = true) && it.length() > 1024 } == true)) {
-            return true
+        val bgDirs = listOf(
+            File(base, "backgrounds"),
+            File(base, "videos"),
+            File("/storage/emulated/0/VideoKey/backgrounds"),
+            File("/storage/emulated/0/VideoKey/videos"),
+            File("/storage/emulated/0/SongHub/backgrounds"),
+            File("/storage/emulated/0/SongHub/bgv")
+        )
+        for (dir in bgDirs) {
+            if (dir.exists() && (dir.listFiles()?.any { 
+                (it.name.endsWith(".mp4", ignoreCase = true) || it.name.endsWith(".mkv", ignoreCase = true)) && it.length() > 1024 
+            } == true)) {
+                return true
+            }
         }
-
-        val altBgDir = File("/storage/emulated/0/SongHub/backgrounds")
-        if (altBgDir.exists() && (altBgDir.listFiles()?.any { it.name.endsWith(".mp4", ignoreCase = true) && it.length() > 1024 } == true)) {
-            return true
-        }
-
-        val vidDir = File(base, "videos")
-        if (vidDir.exists() && (vidDir.listFiles()?.any { it.name.endsWith(".mp4", ignoreCase = true) && it.length() > 1024 } == true)) {
-            return true
-        }
-
         return false
     }
 

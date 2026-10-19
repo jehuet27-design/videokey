@@ -421,7 +421,8 @@ fun VideoKeyScreen(
                 isLandscape = isLandscape,
                 onDownloadItem = { viewModel.downloadContentItem(it) },
                 onCancelDownload = { viewModel.cancelContentDownload() },
-                onDismiss = { viewModel.closeDownloadCenter() }
+                onDismiss = { viewModel.closeDownloadCenter() },
+                isItemInstalled = { viewModel.isContentItemInstalled(it) }
             )
         }
 
@@ -9861,7 +9862,8 @@ fun DownloadCenterDialog(
     isLandscape: Boolean = false,
     onDownloadItem: (com.example.videokey.data.ContentDownloadManager.DownloadItem) -> Unit,
     onCancelDownload: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    isItemInstalled: (com.example.videokey.data.ContentDownloadManager.DownloadItem) -> Boolean = { false }
 ) {
     val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
     val currentStatus = state.downloadStatus
@@ -9955,6 +9957,7 @@ fun DownloadCenterDialog(
                             item = item,
                             isTagalog = isTagalog,
                             downloadStatus = currentStatus,
+                            isItemInstalled = isItemInstalled,
                             onDownload = { onDownloadItem(item) },
                             onCancel = onCancelDownload
                         )
@@ -9986,6 +9989,7 @@ fun DownloadCenterDialog(
                             item = item,
                             isTagalog = isTagalog,
                             downloadStatus = currentStatus,
+                            isItemInstalled = isItemInstalled,
                             onDownload = { onDownloadItem(item) },
                             onCancel = onCancelDownload
                         )
@@ -10018,6 +10022,7 @@ fun DownloadItemCard(
     item: com.example.videokey.data.ContentDownloadManager.DownloadItem,
     isTagalog: Boolean = false,
     downloadStatus: com.example.videokey.data.ContentDownloadManager.DownloadStatus,
+    isItemInstalled: (com.example.videokey.data.ContentDownloadManager.DownloadItem) -> Boolean = { false },
     onDownload: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -10025,11 +10030,13 @@ fun DownloadItemCard(
     val isExtractingThis = downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting && downloadStatus.itemId == item.id
     val isAnyDownloading = downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Downloading || downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Extracting
 
-    // Check if already installed on disk
+    // Check if already installed on disk or freshly completed in current session
     val isInstalled = remember(item, downloadStatus) {
-        val baseDir = File("/storage/emulated/0/VideoKey")
-        val checkFile = File(baseDir, item.checkFileRelativePath)
-        checkFile.exists() && checkFile.length() > 0
+        if (downloadStatus is com.example.videokey.data.ContentDownloadManager.DownloadStatus.Completed && downloadStatus.itemId == item.id) {
+            true
+        } else {
+            isItemInstalled(item)
+        }
     }
 
     Surface(
