@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -1078,39 +1079,42 @@ fun InstrumentalDisplay(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "instPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.75f,
-        targetValue = 1.0f,
+        initialValue = 0.65f,
+        targetValue = 0.90f,
         animationSpec = infiniteRepeatable(
-            animation = tween(650, easing = FastOutSlowInEasing),
+            animation = tween(700, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "instAlpha"
     )
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.98f,
-        targetValue = 1.04f,
+        targetValue = 1.02f,
         animationSpec = infiniteRepeatable(
-            animation = tween(650, easing = FastOutSlowInEasing),
+            animation = tween(700, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "instScale"
     )
 
-    val primaryColor = Color(theme.primaryColor)
-    val fontSize = if (isLandscape) 20.sp else 16.sp
-    val letterSpacing = if (isLandscape) 3.sp else 2.sp
+    // Subtle transparent grey styling with slightly smaller compact size
+    val transparentGrey = Color(0xFFE2E8F0).copy(alpha = 0.60f * pulseAlpha)
+    val fontSize = if (isLandscape) 15.sp else 12.sp
+    val iconSize = if (isLandscape) 15.sp else 12.sp
+    val letterSpacing = if (isLandscape) 2.sp else 1.5.sp
 
     Row(
         modifier = modifier.scale(pulseScale),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 8.dp)
+        horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 6.dp)
     ) {
         Text(
             text = "🎷",
-            fontSize = if (isLandscape) 20.sp else 16.sp
+            fontSize = iconSize,
+            modifier = Modifier.alpha(0.65f * pulseAlpha)
         )
         Box(contentAlignment = Alignment.Center) {
-            // Outlined stroke for clear readability over any video background without needing a box
+            // Subtle soft stroke so transparent grey text is softly readable over video without harshness
             Text(
                 text = "★  I N S T R U M E N T A L  ★",
                 fontWeight = FontWeight.Bold,
@@ -1118,26 +1122,27 @@ fun InstrumentalDisplay(
                 letterSpacing = letterSpacing,
                 fontSize = fontSize,
                 style = TextStyle(
-                    color = Color.Black,
+                    color = Color.Black.copy(alpha = 0.45f * pulseAlpha),
                     drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 5.5f,
+                        width = 3.5f,
                         join = androidx.compose.ui.graphics.StrokeJoin.Round
                     )
                 )
             )
-            // Themed colored bold text
+            // Transparent grey bold text
             Text(
                 text = "★  I N S T R U M E N T A L  ★",
                 fontWeight = FontWeight.Bold,
                 fontFamily = CleanFont,
                 letterSpacing = letterSpacing,
                 fontSize = fontSize,
-                color = primaryColor.copy(alpha = pulseAlpha)
+                color = transparentGrey
             )
         }
         Text(
             text = "🎸",
-            fontSize = if (isLandscape) 20.sp else 16.sp
+            fontSize = iconSize,
+            modifier = Modifier.alpha(0.65f * pulseAlpha)
         )
     }
 }
@@ -2165,7 +2170,7 @@ fun VideokeTvScreen(
                                 )
                         ) {
                             val screenWidthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.toFloat()
-                            val safeWidthDp = (screenWidthDp - (if (isLandscape) 64f else 32f)).coerceAtLeast(260f)
+                            val safeWidthDp = (screenWidthDp - (if (isLandscape) 56f else 28f)).coerceAtLeast(260f)
                             val showFourLines = !isLandscape && state.lyricConfig.lineCount == LyricLineCount.FOUR_LINES
                             if (showFourLines) {
                                 // 4 LINES DISPLAY (Portrait only if user selected 4 lines)
@@ -2175,12 +2180,8 @@ fun VideokeTvScreen(
                                     Pair(state.line3, 3),
                                     Pair(state.line4, 4)
                                 )
-                                val visibleTexts = linesList.map { it.first }.filter { it.isNotBlank() }
-                                val maxChars = visibleTexts.maxOfOrNull { it.length } ?: 1
+                                // Steady base font size for the song (never jumps back and forth when lines rotate!)
                                 val baseSizeSp = if (isLandscape) (effectiveLyricConfig.fontSizeLandscapeSp * 0.65f) else (effectiveLyricConfig.fontSizePortraitSp * 0.65f)
-                                val estMaxLineWidthDp = maxChars * baseSizeSp * effectiveLyricConfig.fontScale * 0.60f + 20f
-                                val uniformScale = if (estMaxLineWidthDp > safeWidthDp) (safeWidthDp / estMaxLineWidthDp).coerceIn(0.50f, 1.0f) else 1.0f
-                                val uniformFontSize = (baseSizeSp * uniformScale).sp
 
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
@@ -2191,11 +2192,20 @@ fun VideokeTvScreen(
                                         if (lineText.isNotEmpty()) {
                                             val isActive = state.activeLineNumber == lineNum
                                             val lineCountdown = if (lineNum == state.activeLineNumber) state.countdownDots else 0
+
+                                            // Per-line independent safe fit:
+                                            // Normal lines stay 100% steady at baseSizeSp.
+                                            // Only an exceptionally long line gently scales down to fit safeWidthDp, without moving or shrinking any other line!
+                                            val lineChars = lineText.length.coerceAtLeast(1)
+                                            val estLineWidthDp = lineChars * baseSizeSp * effectiveLyricConfig.fontScale * 0.58f + 16f
+                                            val lineScale = if (estLineWidthDp > safeWidthDp) (safeWidthDp / estLineWidthDp).coerceIn(0.60f, 1.0f) else 1.0f
+                                            val perLineFontSize = (baseSizeSp * lineScale).sp
+
                                             KaraokeLyricLine(
                                                 text = lineText,
                                                 isActive = isActive,
                                                 wipePercent = if (isActive) state.wipePercent else 0f,
-                                                fontSize = uniformFontSize,
+                                                fontSize = perLineFontSize,
                                                 lyricConfig = effectiveLyricConfig,
                                                 countdownNumber = lineCountdown,
                                                 isLandscape = isLandscape
@@ -2205,12 +2215,17 @@ fun VideokeTvScreen(
                                 }
                             } else {
                                 // 2 LINES DISPLAY (DEFAULT)
-                                val visibleTexts = listOf(state.landscapeLine1, state.landscapeLine2).filter { it.isNotBlank() }
-                                val maxChars = visibleTexts.maxOfOrNull { it.length } ?: 1
                                 val baseSizeSp = if (isLandscape) effectiveLyricConfig.fontSizeLandscapeSp else effectiveLyricConfig.fontSizePortraitSp
-                                val estMaxLineWidthDp = maxChars * baseSizeSp * effectiveLyricConfig.fontScale * 0.60f + 20f
-                                val uniformScale = if (estMaxLineWidthDp > safeWidthDp) (safeWidthDp / estMaxLineWidthDp).coerceIn(0.50f, 1.0f) else 1.0f
-                                val uniformFontSize = (baseSizeSp * uniformScale).sp
+
+                                val line1Chars = state.landscapeLine1.length.coerceAtLeast(1)
+                                val estLine1WidthDp = line1Chars * baseSizeSp * effectiveLyricConfig.fontScale * 0.58f + 16f
+                                val line1Scale = if (estLine1WidthDp > safeWidthDp) (safeWidthDp / estLine1WidthDp).coerceIn(0.60f, 1.0f) else 1.0f
+                                val line1FontSize = (baseSizeSp * line1Scale).sp
+
+                                val line2Chars = state.landscapeLine2.length.coerceAtLeast(1)
+                                val estLine2WidthDp = line2Chars * baseSizeSp * effectiveLyricConfig.fontScale * 0.58f + 16f
+                                val line2Scale = if (estLine2WidthDp > safeWidthDp) (safeWidthDp / estLine2WidthDp).coerceIn(0.60f, 1.0f) else 1.0f
+                                val line2FontSize = (baseSizeSp * line2Scale).sp
 
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
@@ -2226,7 +2241,7 @@ fun VideokeTvScreen(
                                         text = state.landscapeLine1,
                                         isActive = isTopActive,
                                         wipePercent = if (isTopActive) state.wipePercent else 0f,
-                                        fontSize = uniformFontSize,
+                                        fontSize = line1FontSize,
                                         lyricConfig = effectiveLyricConfig,
                                         countdownNumber = topCountdown,
                                         isLandscape = isLandscape
@@ -2235,7 +2250,7 @@ fun VideokeTvScreen(
                                         text = state.landscapeLine2,
                                         isActive = isBottomActive,
                                         wipePercent = if (isBottomActive) state.wipePercent else 0f,
-                                        fontSize = uniformFontSize,
+                                        fontSize = line2FontSize,
                                         lyricConfig = effectiveLyricConfig,
                                         countdownNumber = bottomCountdown,
                                         isLandscape = isLandscape
@@ -2652,102 +2667,36 @@ fun WelcomeSongSelectionScreen(
         ) {
             // Theme-reactive Header: ★ SELECT A SONG ★
             val titleText = if (isTagalog) "PUMILI NG KANTA" else "SELECT A SONG"
+            val titleFontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp
+            val starFontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 32.sp else 24.sp
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "★",
-                        fontWeight = FontWeight.Black,
-                        fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
-                        fontFamily = CleanFont,
-                        style = TextStyle(
-                            color = Color.Black,
-                            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isTvMode && isLandscape) 9.5f else if (isLandscape) 7.5f else 5.5f,
-                                join = androidx.compose.ui.graphics.StrokeJoin.Round
-                            )
-                        )
-                    )
-                    Text(
-                        text = "★",
-                        color = secondaryColor,
-                        fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
-                        fontFamily = CleanFont,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-                Box(contentAlignment = Alignment.Center) {
-                    // 3D Pop-Up Drop Shadow for Arcade Depth
-                    Text(
-                        text = titleText,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = CleanFont,
-                        fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
-                        letterSpacing = 2.sp,
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.offset(x = 2.5.dp, y = 3.5.dp),
-                        style = TextStyle(
-                            color = Color.Black.copy(alpha = 0.9f),
-                            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isTvMode && isLandscape) 10.5f else if (isLandscape) 8.5f else 6.5f,
-                                join = androidx.compose.ui.graphics.StrokeJoin.Round
-                            )
-                        )
-                    )
-                    // Crisp Black Outline Stroke
-                    Text(
-                        text = titleText,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = CleanFont,
-                        fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
-                        letterSpacing = 2.sp,
-                        maxLines = 1,
-                        softWrap = false,
-                        style = TextStyle(
-                            color = Color.Black,
-                            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isTvMode && isLandscape) 9.5f else if (isLandscape) 7.5f else 5.5f,
-                                join = androidx.compose.ui.graphics.StrokeJoin.Round
-                            )
-                        )
-                    )
-                    // Vibrant Theme Primary Color Text Fill
-                    Text(
-                        text = titleText,
-                        color = primaryColor,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = CleanFont,
-                        fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
-                        letterSpacing = 2.sp,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "★",
-                        fontWeight = FontWeight.Black,
-                        fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
-                        fontFamily = CleanFont,
-                        style = TextStyle(
-                            color = Color.Black,
-                            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isTvMode && isLandscape) 9.5f else if (isLandscape) 7.5f else 5.5f,
-                                join = androidx.compose.ui.graphics.StrokeJoin.Round
-                            )
-                        )
-                    )
-                    Text(
-                        text = "★",
-                        color = secondaryColor,
-                        fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
-                        fontFamily = CleanFont,
-                        fontWeight = FontWeight.Black
-                    )
-                }
+                Text(
+                    text = "★",
+                    color = secondaryColor,
+                    fontSize = starFontSize,
+                    fontFamily = CleanFont,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = titleText,
+                    color = primaryColor,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = CleanFont,
+                    fontSize = titleFontSize,
+                    letterSpacing = 2.sp,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Text(
+                    text = "★",
+                    color = secondaryColor,
+                    fontSize = starFontSize,
+                    fontFamily = CleanFont,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             Text(

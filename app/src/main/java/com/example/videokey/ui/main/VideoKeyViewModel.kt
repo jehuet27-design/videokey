@@ -2786,21 +2786,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun setAppTheme(theme: AppTheme) {
         prefs.edit().putString("app_theme", theme.name).apply()
-        val matchingWipe = when (theme) {
-            AppTheme.CYBER_NEON -> LyricWipeColor.HOT_PINK
-            AppTheme.SLATE_DARK -> LyricWipeColor.OCEAN_BLUE
-            AppTheme.EMERALD_STAGE -> LyricWipeColor.NEON_GREEN
-            AppTheme.WARM_AMBER -> LyricWipeColor.SUNSHINE_YELLOW
-            AppTheme.ROYAL_INDIGO -> LyricWipeColor.ELECTRIC_CYAN
-            AppTheme.CHARCOAL_MINIMAL -> LyricWipeColor.PURE_GOLD
-        }
         _uiState.update {
-            it.copy(
-                appTheme = theme,
-                lyricConfig = it.lyricConfig.copy(
-                    wipeColor = matchingWipe
-                )
-            )
+            it.copy(appTheme = theme)
         }
     }
 
