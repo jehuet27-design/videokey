@@ -2646,7 +2646,7 @@ fun WelcomeSongSelectionScreen(
                         text = "★",
                         fontWeight = FontWeight.Black,
                         fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         style = TextStyle(
                             color = Color.Black,
                             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
@@ -2659,7 +2659,7 @@ fun WelcomeSongSelectionScreen(
                         text = "★",
                         color = secondaryColor,
                         fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -2668,7 +2668,7 @@ fun WelcomeSongSelectionScreen(
                     Text(
                         text = titleText,
                         fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
                         letterSpacing = 2.sp,
                         maxLines = 1,
@@ -2686,7 +2686,7 @@ fun WelcomeSongSelectionScreen(
                     Text(
                         text = titleText,
                         fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
                         letterSpacing = 2.sp,
                         maxLines = 1,
@@ -2704,7 +2704,7 @@ fun WelcomeSongSelectionScreen(
                         text = titleText,
                         color = primaryColor,
                         fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
                         letterSpacing = 2.sp,
                         maxLines = 1,
@@ -2716,7 +2716,7 @@ fun WelcomeSongSelectionScreen(
                         text = "★",
                         fontWeight = FontWeight.Black,
                         fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         style = TextStyle(
                             color = Color.Black,
                             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
@@ -2729,7 +2729,7 @@ fun WelcomeSongSelectionScreen(
                         text = "★",
                         color = secondaryColor,
                         fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -2740,7 +2740,7 @@ fun WelcomeSongSelectionScreen(
                 color = secondaryColor,
                 fontSize = if (isTvMode && isLandscape) 14.sp else if (isLandscape) 12.sp else 10.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.SansSerif,
+                fontFamily = CleanFont,
                 letterSpacing = 1.sp,
                 modifier = Modifier.padding(top = if (isTvMode) 8.dp else 2.dp, bottom = if (isTvMode) 18.dp else if (isLandscape) 10.dp else 6.dp)
             )
@@ -2798,7 +2798,7 @@ fun WelcomeSongSelectionScreen(
                             Text(
                                 text = "$digitChar",
                                 color = digitColor,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 30.sp else 22.sp
                             )
@@ -2855,7 +2855,7 @@ fun WelcomeSongSelectionScreen(
                         text = "🎵 ${song.code}: ${song.title.uppercase()}",
                         color = primaryColor,
                         fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         fontSize = if (isTvMode) 19.sp else if (isLandscape) 16.sp else 13.sp,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -2869,7 +2869,7 @@ fun WelcomeSongSelectionScreen(
                         text = "👤 ${song.artist.uppercase()}",
                         color = textColor,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         fontSize = if (isTvMode) 15.sp else if (isLandscape) 13.sp else 11.sp,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -2883,7 +2883,7 @@ fun WelcomeSongSelectionScreen(
                     color = Color(0xFFFFCDD2),
                     fontSize = if (isLandscape) 13.sp else 11.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
+                    fontFamily = CleanFont,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -2897,7 +2897,7 @@ fun WelcomeSongSelectionScreen(
                     color = secondaryColor,
                     fontSize = if (isLandscape) 13.sp else 11.5.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
+                    fontFamily = CleanFont,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -2915,7 +2915,7 @@ fun WelcomeSongSelectionScreen(
                         color = textColor,
                         fontSize = if (isLandscape) 12.sp else 10.5.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -2928,7 +2928,7 @@ fun WelcomeSongSelectionScreen(
                         color = textMutedColor,
                         fontSize = if (isLandscape) 11.sp else 9.5.sp,
                         fontWeight = FontWeight.Medium,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -3272,7 +3272,7 @@ fun AudioMixerDialog(
                         Text(
                             text = if (isTagalog) "🎚️ TIMPLA NG MGA INSTRUMENTO AT TUNOG" else "🎚️ STUDIO INSTRUMENT & AUDIO MIXER",
                             fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.SansSerif,
+                            fontFamily = CleanFont,
                             fontSize = 13.sp,
                             color = Color(state.appTheme.primaryColor),
                             maxLines = 1,
@@ -3284,14 +3284,14 @@ fun AudioMixerDialog(
                             else
                                 "BASSMIDI 32-Bit Studio SoundFont • Anti-Clip Studio Mastering",
                             fontSize = 9.5.sp,
-                            fontFamily = FontFamily.SansSerif,
+                            fontFamily = CleanFont,
                             color = Color(state.appTheme.textMutedColor),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(26.dp)) {
-                        Text(text = "✕", color = Color(state.appTheme.textColor), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(state.appTheme.textColor), fontFamily = CleanFont, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -3314,14 +3314,14 @@ fun AudioMixerDialog(
                         Text(
                             text = "🎛️ SF2:",
                             fontSize = 10.sp,
-                            fontFamily = FontFamily.SansSerif,
+                            fontFamily = CleanFont,
                             color = Color(state.appTheme.primaryColor),
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             text = state.activeSoundFontName,
                             fontSize = 10.5.sp,
-                            fontFamily = FontFamily.SansSerif,
+                            fontFamily = CleanFont,
                             color = Color(state.appTheme.textColor),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -3340,7 +3340,8 @@ fun AudioMixerDialog(
                             Box(modifier = Modifier.padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     text = if (isTagalog) "Palitan SF2" else "Change SF2",
-                                    color = Color.White,
+                                    color = Color(state.appTheme.textColor),
+                                    fontFamily = CleanFont,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -3357,7 +3358,8 @@ fun AudioMixerDialog(
                             Box(modifier = Modifier.padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     text = if (isTagalog) "🔄 Reset" else "🔄 Reset",
-                                    color = Color.White,
+                                    color = Color(state.appTheme.textColor),
+                                    fontFamily = CleanFont,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -3376,7 +3378,7 @@ fun AudioMixerDialog(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF1E293B))
+                            .background(Color(state.appTheme.buttonBgColor))
                             .border(1.dp, uniformBtnBorder, RoundedCornerShape(8.dp))
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -3385,8 +3387,9 @@ fun AudioMixerDialog(
                         Text(
                             text = "🎹 KEY",
                             fontWeight = FontWeight.Black,
+                            fontFamily = CleanFont,
                             fontSize = 10.5.sp,
-                            color = Color.White
+                            color = Color(state.appTheme.textColor)
                         )
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -3401,12 +3404,12 @@ fun AudioMixerDialog(
                                     .clickable { onAdjustKey(-1) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                                Text(text = "−", color = Color(state.appTheme.textColor), fontFamily = CleanFont, fontWeight = FontWeight.Black, fontSize = 15.sp)
                             }
                             Text(
                                 text = if (state.keyTranspose > 0) "+${state.keyTranspose}" else "${state.keyTranspose}",
-                                color = Color(0xFFFFD54F),
-                                fontFamily = FontFamily.Monospace,
+                                color = Color(state.appTheme.secondaryColor),
+                                fontFamily = CleanFont,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
@@ -3421,7 +3424,7 @@ fun AudioMixerDialog(
                                     .clickable { onAdjustKey(1) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = "+", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                                Text(text = "+", color = Color(state.appTheme.textColor), fontFamily = CleanFont, fontWeight = FontWeight.Black, fontSize = 15.sp)
                             }
                         }
                     }
@@ -3431,7 +3434,7 @@ fun AudioMixerDialog(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF1E293B))
+                            .background(Color(state.appTheme.buttonBgColor))
                             .border(1.dp, uniformBtnBorder, RoundedCornerShape(8.dp))
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -3440,8 +3443,9 @@ fun AudioMixerDialog(
                         Text(
                             text = "⏱️ BPM",
                             fontWeight = FontWeight.Black,
+                            fontFamily = CleanFont,
                             fontSize = 10.5.sp,
-                            color = Color.White
+                            color = Color(state.appTheme.textColor)
                         )
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -3456,12 +3460,12 @@ fun AudioMixerDialog(
                                     .clickable { onAdjustTempo(-5) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                                Text(text = "−", color = Color(state.appTheme.textColor), fontFamily = CleanFont, fontWeight = FontWeight.Black, fontSize = 15.sp)
                             }
                             Text(
                                 text = "${state.tempoPercent}%",
-                                color = Color(0xFF00FF88),
-                                fontFamily = FontFamily.Monospace,
+                                color = Color(state.appTheme.primaryColor),
+                                fontFamily = CleanFont,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 11.5.sp,
                                 textAlign = TextAlign.Center,
@@ -3476,7 +3480,7 @@ fun AudioMixerDialog(
                                     .clickable { onAdjustTempo(5) },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = "+", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                                Text(text = "+", color = Color(state.appTheme.textColor), fontFamily = CleanFont, fontWeight = FontWeight.Black, fontSize = 15.sp)
                             }
                         }
                     }
@@ -3589,6 +3593,7 @@ fun AudioMixerDialog(
                     Text(
                         text = if (isTagalog) "TAPOS NA / ISARA ✓" else "DONE / CLOSE ✓",
                         color = Color.White,
+                        fontFamily = CleanFont,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
                     )
@@ -3613,7 +3618,7 @@ private fun InstrumentSliderRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF1E293B))
+            .background(btnBg)
             .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
             .padding(horizontal = 8.dp, vertical = 5.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -3626,6 +3631,7 @@ private fun InstrumentSliderRow(
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
+                fontFamily = CleanFont,
                 fontSize = 11.sp,
                 color = Color.White,
                 maxLines = 1,
@@ -3645,12 +3651,12 @@ private fun InstrumentSliderRow(
                         .clickable { onStep(-10) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "−", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                    Text(text = "−", color = Color.White, fontFamily = CleanFont, fontWeight = FontWeight.Black, fontSize = 14.sp)
                 }
                 Text(
                     text = if (percent == 0) "OFF" else "$percent%",
                     color = if (percent == 0) Color(0xFFFF5252) else accentColor,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = CleanFont,
                     fontWeight = FontWeight.Black,
                     fontSize = 11.5.sp,
                     textAlign = TextAlign.Center,
@@ -3665,7 +3671,7 @@ private fun InstrumentSliderRow(
                         .clickable { onStep(10) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "+", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                    Text(text = "+", color = Color.White, fontFamily = CleanFont, fontWeight = FontWeight.Black, fontSize = 14.sp)
                 }
             }
         }
@@ -6025,19 +6031,19 @@ fun SoundFontSelectionDialog(
                     Text(
                         text = if (isTagalog) "🎛️ PILIIN ANG SOUNDFONT (SF2)" else "🎛️ SELECT SOUNDFONT (SF2)",
                         fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         fontSize = 15.sp,
                         color = Color(theme.primaryColor)
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color(theme.textColor), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(theme.textColor), fontFamily = CleanFont, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 Text(
                     text = if (isTagalog) "Pumili ng Soundbank para sa tugtog ng VideoKey:" else "Select Soundbank for VideoKey audio timbre:",
                     fontSize = 11.sp,
-                    fontFamily = FontFamily.SansSerif,
+                    fontFamily = CleanFont,
                     color = Color(theme.textMutedColor),
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                 )
@@ -6054,7 +6060,7 @@ fun SoundFontSelectionDialog(
                                 text = if (isTagalog) "Walang nahanap na .sf2 sa /sdcard/VideoKey/SoundFont" else "No .sf2 files found in /sdcard/VideoKey/SoundFont",
                                 color = Color(theme.textMutedColor),
                                 fontSize = 12.sp,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 modifier = Modifier.padding(16.dp)
                             )
                         }
@@ -6092,7 +6098,7 @@ fun SoundFontSelectionDialog(
                                         color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 12.sp,
-                                        fontFamily = FontFamily.SansSerif,
+                                        fontFamily = CleanFont,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -6103,7 +6109,7 @@ fun SoundFontSelectionDialog(
                                         color = doneBtnTextClr,
                                         fontWeight = FontWeight.Black,
                                         fontSize = 10.sp,
-                                        fontFamily = FontFamily.SansSerif,
+                                        fontFamily = CleanFont,
                                         modifier = Modifier
                                             .background(Color(theme.primaryColor), RoundedCornerShape(4.dp))
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -6127,7 +6133,7 @@ fun SoundFontSelectionDialog(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(text = if (isTagalog) "🔄 I-SCAN MULI ANG SF2" else "🔄 RESCAN SF2", fontSize = 11.sp, color = Color(theme.textColor), fontFamily = FontFamily.SansSerif)
+                        Text(text = if (isTagalog) "🔄 I-SCAN MULI ANG SF2" else "🔄 RESCAN SF2", fontSize = 11.sp, color = Color(theme.textColor), fontFamily = CleanFont)
                     }
 
                     Button(
@@ -6135,7 +6141,7 @@ fun SoundFontSelectionDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(text = if (isTagalog) "TAPOS NA" else "DONE", fontSize = 11.sp, color = doneBtnTextClr, fontWeight = FontWeight.Bold, fontFamily = FontFamily.SansSerif)
+                        Text(text = if (isTagalog) "TAPOS NA" else "DONE", fontSize = 11.sp, color = doneBtnTextClr, fontWeight = FontWeight.Bold, fontFamily = CleanFont)
                     }
                 }
             }
@@ -6784,12 +6790,12 @@ fun BackgroundSelectionDialog(
                     Text(
                         text = if (isTagalog) "🎬 BACKGROUND NG VIDEOKEY" else "🎬 VIDEOKEY BACKGROUND",
                         fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         color = Color(theme.primaryColor),
                         fontSize = 13.5.sp
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color(theme.textColor), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(theme.textColor), fontFamily = CleanFont, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -6797,7 +6803,7 @@ fun BackgroundSelectionDialog(
                 Text(
                     text = if (isTagalog) "📹 BG MODE (URI NG BACKGROUND):" else "📹 BACKGROUND MODE:",
                     fontSize = 10.sp,
-                    fontFamily = FontFamily.SansSerif,
+                    fontFamily = CleanFont,
                     color = Color(theme.textMutedColor),
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
@@ -6828,7 +6834,7 @@ fun BackgroundSelectionDialog(
                                 text = "$icon ${mode.label(isTagalog)}",
                                 color = if (isModeSel) btnTextClr else Color(theme.textColor),
                                 fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 fontSize = 10.5.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -6859,7 +6865,7 @@ fun BackgroundSelectionDialog(
                             Text(
                                 text = if (isTagalog) "📁 BACKGROUND FOLDER:" else "📁 BACKGROUND FOLDER:",
                                 fontSize = 9.sp,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 color = Color(theme.primaryColor),
                                 fontWeight = FontWeight.Black
                             )
@@ -6869,13 +6875,13 @@ fun BackgroundSelectionDialog(
                                 color = Color(theme.textColor),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = if (isTagalog) "Nahanap: ${backgrounds.size} media files" else "Found: ${backgrounds.size} media files",
                                 fontSize = 9.sp,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 color = Color(theme.textMutedColor),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -6891,7 +6897,7 @@ fun BackgroundSelectionDialog(
                             Text(
                                 text = if (isTagalog) "📂 Palitan" else "📂 Change",
                                 fontSize = 10.sp,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 fontWeight = FontWeight.Bold,
                                 color = btnTextClr
                             )
@@ -6903,7 +6909,7 @@ fun BackgroundSelectionDialog(
                 Text(
                     text = if (isTagalog) "PARAAN NG PAGPALIT (CHANGE MODE):" else "BACKGROUND CHANGE MODE:",
                     fontSize = 10.sp,
-                    fontFamily = FontFamily.SansSerif,
+                    fontFamily = CleanFont,
                     color = Color(theme.textMutedColor),
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
@@ -6929,7 +6935,7 @@ fun BackgroundSelectionDialog(
                             text = if (isTagalog) "🔀 Bawat Kanta" else "🔀 Per Song",
                             color = if (isAuto) btnTextClr else Color(theme.textColor),
                             fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.SansSerif,
+                            fontFamily = CleanFont,
                             fontSize = 10.5.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -6952,7 +6958,7 @@ fun BackgroundSelectionDialog(
                             text = if (isTagalog) "🔁 Tuloy-tuloy" else "🔁 Continuous",
                             color = if (isContinuous) getContrastingTextColor(theme.secondaryColor) else Color(theme.textColor),
                             fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.SansSerif,
+                            fontFamily = CleanFont,
                             fontSize = 10.5.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -6975,6 +6981,7 @@ fun BackgroundSelectionDialog(
                         Text(
                             text = if (isTagalog) "Palitan ang clip bawat bagong kanta" else "Change clip on every new song",
                             fontSize = 10.sp,
+                            fontFamily = CleanFont,
                             fontWeight = FontWeight.Bold,
                             color = Color(theme.textColor)
                         )
@@ -6984,6 +6991,7 @@ fun BackgroundSelectionDialog(
                             else
                                 (if (isTagalog) "SARADO (Tuloy ang clip kahit magbago ang kanta)" else "OFF (Continuous playback across songs)"),
                             fontSize = 8.5.sp,
+                            fontFamily = CleanFont,
                             color = if (continuousVideoChangePerSong) Color(0xFF00FF88) else Color(theme.textMutedColor)
                         )
                     }
@@ -7025,7 +7033,7 @@ fun BackgroundSelectionDialog(
                                 text = tabTitle,
                                 color = if (isSel) btnTextClr else Color(theme.textColor),
                                 fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 fontSize = 10.sp
                             )
                         }
@@ -7074,7 +7082,7 @@ fun BackgroundSelectionDialog(
                                         text = bg.name,
                                         color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                                         fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.SansSerif,
+                                        fontFamily = CleanFont,
                                         fontSize = 12.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -7086,7 +7094,7 @@ fun BackgroundSelectionDialog(
                                             BackgroundType.STAGE -> if (isTagalog) "Stage Neon Canvas" else "Animated Stage Canvas"
                                         },
                                         color = Color(theme.textMutedColor),
-                                        fontFamily = FontFamily.SansSerif,
+                                        fontFamily = CleanFont,
                                         fontSize = 9.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -7100,7 +7108,7 @@ fun BackgroundSelectionDialog(
                                     text = if (isTagalog) "✓ GAMIT" else "✓ ACTIVE",
                                     color = Color(theme.primaryColor),
                                     fontWeight = FontWeight.Black,
-                                    fontFamily = FontFamily.SansSerif,
+                                    fontFamily = CleanFont,
                                     fontSize = 11.sp
                                 )
                             }
@@ -7178,7 +7186,7 @@ fun LyricStyleDialog(
                         Text(
                             text = if (isTagalog) "🔤 FONT, ESTILO AT POSISYON" else "🔤 LYRIC FONT, STYLE & POSITION",
                             fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.SansSerif,
+                            fontFamily = CleanFont,
                             color = Color(theme.primaryColor),
                             fontSize = if (isLandscape) 14.sp else 12.sp,
                             maxLines = 1,
@@ -7192,14 +7200,14 @@ fun LyricStyleDialog(
                                 text = if (isTagalog) "BAGUHIN" else "CUSTOMIZE",
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.SansSerif,
+                                fontFamily = CleanFont,
                                 color = Color(theme.primaryColor),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color(theme.textColor), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(theme.textColor), fontFamily = CleanFont, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -7227,6 +7235,7 @@ fun LyricStyleDialog(
                             LyricLineAndPositionControls(
                                 config = config,
                                 isTagalog = isTagalog,
+                                theme = theme,
                                 onSelectLineCount = onSelectLineCount,
                                 onSelectPosition = onSelectPosition
                             )
@@ -7245,6 +7254,7 @@ fun LyricStyleDialog(
                                 Text(
                                     text = if (isTagalog) "ILAPAT AT ISARA ✓" else "APPLY & CLOSE ✓",
                                     fontWeight = FontWeight.Black,
+                                    fontFamily = CleanFont,
                                     fontSize = 11.5.sp,
                                     color = btnTextColor,
                                     maxLines = 1
@@ -7290,6 +7300,7 @@ fun LyricStyleDialog(
                         LyricLineAndPositionControls(
                             config = config,
                             isTagalog = isTagalog,
+                            theme = theme,
                             onSelectLineCount = onSelectLineCount,
                             onSelectPosition = onSelectPosition
                         )
@@ -7326,6 +7337,7 @@ fun LyricStyleDialog(
                         Text(
                             text = if (isTagalog) "ILAPAT AT ISARA ✓" else "APPLY & CLOSE ✓",
                             fontWeight = FontWeight.Black,
+                            fontFamily = CleanFont,
                             fontSize = 12.sp,
                             color = btnTextColor,
                             maxLines = 1
@@ -7425,6 +7437,7 @@ private fun LyricLivePreviewCard(
 private fun LyricLineAndPositionControls(
     config: LyricCustomization,
     isTagalog: Boolean = false,
+    theme: AppTheme = AppTheme.CYBER_NEON,
     onSelectLineCount: (LyricLineCount) -> Unit,
     onSelectPosition: (LyricScreenPosition) -> Unit,
     modifier: Modifier = Modifier
@@ -7434,7 +7447,8 @@ private fun LyricLineAndPositionControls(
         Text(
             text = if (isTagalog) "📄 BILANG NG LINYA:" else "📄 LINE COUNT:",
             fontSize = 10.sp,
-            color = Color(0xFFFFD54F),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Row(
@@ -7445,10 +7459,10 @@ private fun LyricLineAndPositionControls(
                 val isSelected = config.lineCount == lineOption
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -7461,7 +7475,8 @@ private fun LyricLineAndPositionControls(
                         Text(
                             text = if (isSelected) "✓ ${lineOption.label(isTagalog)}" else lineOption.label(isTagalog),
                             fontSize = 9.5.sp,
-                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            fontFamily = CleanFont,
+                            color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -7475,7 +7490,8 @@ private fun LyricLineAndPositionControls(
         Text(
             text = if (isTagalog) "📍 POSISYON SA SCREEN:" else "📍 SCREEN POSITION:",
             fontSize = 10.sp,
-            color = Color(0xFFFFD54F),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Row(
@@ -7486,10 +7502,10 @@ private fun LyricLineAndPositionControls(
                 val isSelected = config.position == posOption
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -7502,7 +7518,8 @@ private fun LyricLineAndPositionControls(
                         Text(
                             text = if (isSelected) "✓ ${posOption.label(isTagalog)}" else posOption.label(isTagalog),
                             fontSize = 9.5.sp,
-                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            fontFamily = CleanFont,
+                            color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -7586,7 +7603,8 @@ private fun LyricControlsInner(
         Text(
             text = if (isTagalog) "⚡ MABILISANG TEMA (PRESETS):" else "⚡ QUICK STYLE PRESETS:",
             fontSize = 10.5.sp,
-            color = Color(0xFFA5B4FC),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -7610,8 +7628,8 @@ private fun LyricControlsInner(
                     rowPresets.forEach { (presetKey, presetLabel) ->
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF1E293B),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF475569)),
+                            color = Color(theme.buttonBgColor),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                             modifier = Modifier
                                 .weight(1f)
                                 .height(32.dp)
@@ -7624,7 +7642,8 @@ private fun LyricControlsInner(
                                 Text(
                                     text = presetLabel,
                                     fontSize = 9.5.sp,
-                                    color = Color.White,
+                                    fontFamily = CleanFont,
+                                    color = Color(theme.textColor),
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
@@ -7643,7 +7662,8 @@ private fun LyricControlsInner(
         Text(
             text = if (isTagalog) "🔤 ESTILO NG TITIK (12 FONTS):" else "🔤 FONT FAMILY (12 STYLES):",
             fontSize = 10.5.sp,
-            color = Color(0xFFA5B4FC),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -7662,10 +7682,10 @@ private fun LyricControlsInner(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B))
+                                .background(if (isSelected) Color(theme.primaryColor).copy(alpha = 0.22f) else Color(theme.buttonBgColor))
                                 .border(
                                     width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155),
+                                    color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor),
                                     shape = RoundedCornerShape(8.dp)
                                 )
                                 .clickable { onSelectFontFamily(family) }
@@ -7678,7 +7698,7 @@ private fun LyricControlsInner(
                                 fontFamily = sampleFont,
                                 fontWeight = sampleWeight,
                                 fontSize = 10.sp,
-                                color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                                color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
@@ -7686,7 +7706,7 @@ private fun LyricControlsInner(
                             if (isSelected) {
                                 Text(
                                     text = " ✓",
-                                    color = Color(0xFF00E676),
+                                    color = Color(theme.primaryColor),
                                     fontWeight = FontWeight.Black,
                                     fontSize = 11.sp
                                 )
@@ -7703,7 +7723,8 @@ private fun LyricControlsInner(
         Text(
             text = if (isTagalog) "🎨 KULAY NG KINAKANTA (WIPE COLOR):" else "🎨 SINGING WIPE COLOR:",
             fontSize = 10.5.sp,
-            color = Color(0xFFA5B4FC),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Spacer(modifier = Modifier.height(6.dp))
@@ -7745,7 +7766,8 @@ private fun LyricControlsInner(
         Text(
             text = if (isTagalog) "✨ ANINO AT EPEKTO (SHADOW STYLE):" else "✨ SHADOW & GLOW EFFECTS:",
             fontSize = 10.5.sp,
-            color = Color(0xFFA5B4FC),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -7757,10 +7779,10 @@ private fun LyricControlsInner(
                 val isSelected = config.shadowStyle == shadow
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -7769,7 +7791,8 @@ private fun LyricControlsInner(
                     Text(
                         text = shadow.label(isTagalog),
                         fontSize = 9.5.sp,
-                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                        fontFamily = CleanFont,
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -7786,7 +7809,8 @@ private fun LyricControlsInner(
         Text(
             text = if (isTagalog) "🖍️ KULAY NG OUTLINE NG TITIK:" else "🖍️ TEXT OUTLINE COLOR:",
             fontSize = 10.5.sp,
-            color = Color(0xFFA5B4FC),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Spacer(modifier = Modifier.height(6.dp))
@@ -7809,7 +7833,7 @@ private fun LyricControlsInner(
                             .background(c)
                             .border(
                                 width = if (isSelected) 2.5.dp else 1.dp,
-                                color = if (isSelected) Color(0xFF818CF8) else Color(0xFF475569),
+                                color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor),
                                 shape = CircleShape
                             ),
                         contentAlignment = Alignment.Center
@@ -7834,7 +7858,8 @@ private fun LyricControlsInner(
                     Text(
                         text = outlineColor.label(isTagalog),
                         fontSize = 8.5.sp,
-                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                        fontFamily = CleanFont,
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.textMutedColor),
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         maxLines = 1
                     )
@@ -7848,7 +7873,8 @@ private fun LyricControlsInner(
         Text(
             text = if (isTagalog) "✍️ AYOS NG MGA LETRA:" else "✍️ TEXT FORMAT & CASING:",
             fontSize = 10.5.sp,
-            color = Color(0xFFA5B4FC),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -7876,7 +7902,7 @@ private fun LyricControlsInner(
                     Text(
                         text = if (config.isAllCaps) "🔠 ALL CAPS: ON" else (if (isTagalog) "🔡 Normal na Titik" else "🔡 Normal Case"),
                         fontSize = 9.5.sp,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         color = if (config.isAllCaps) Color(theme.primaryColor) else Color(theme.textColor),
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -7905,7 +7931,7 @@ private fun LyricControlsInner(
                     Text(
                         text = if (config.isItalic) "🖋️ Italic: ON" else (if (isTagalog) "🖋️ Tuwid (Normal)" else "🖋️ Upright (Normal)"),
                         fontSize = 9.5.sp,
-                        fontFamily = FontFamily.SansSerif,
+                        fontFamily = CleanFont,
                         color = if (config.isItalic) Color(theme.primaryColor) else Color(theme.textColor),
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -7921,7 +7947,8 @@ private fun LyricControlsInner(
         Text(
             text = if (isTagalog) "📐 LAKI NG TITIK (FONT SIZE):" else "📐 FONT SIZE SCALE:",
             fontSize = 10.5.sp,
-            color = Color(0xFFA5B4FC),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -7940,10 +7967,10 @@ private fun LyricControlsInner(
                 val isSelected = Math.abs(config.fontScale - scale) < 0.05f
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -7952,7 +7979,8 @@ private fun LyricControlsInner(
                     Text(
                         text = label,
                         fontSize = 9.sp,
-                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                        fontFamily = CleanFont,
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -7975,7 +8003,8 @@ private fun LyricControlsInner(
                 Text(
                     text = if (isTagalog) "✨ 3D DROP SHADOW (PAMPALINAW):" else "✨ 3D DROP SHADOW (LEGIBILITY):",
                     fontSize = 10.5.sp,
-                    color = Color(0xFFA5B4FC),
+                    fontFamily = CleanFont,
+                    color = Color(theme.primaryColor),
                     fontWeight = FontWeight.Black
                 )
                 Text(
@@ -7984,7 +8013,8 @@ private fun LyricControlsInner(
                     else
                         (if (isTagalog) "SARADO (Flat text lamang)" else "OFF (Flat text only)"),
                     fontSize = 9.sp,
-                    color = if (config.hasDropShadow) Color(0xFF00FF88) else Color(0xFF94A3B8)
+                    fontFamily = CleanFont,
+                    color = if (config.hasDropShadow) Color(0xFF00FF88) else Color(theme.textMutedColor)
                 )
             }
             Switch(
@@ -8008,27 +8038,30 @@ private fun LyricControlsInner(
             Text(
                 text = if (isTagalog) "🖋️ KAPAL NG OUTLINE: ${config.outlineThickness.toInt()}px" else "🖋️ OUTLINE THICKNESS: ${config.outlineThickness.toInt()}px",
                 fontSize = 10.5.sp,
-                color = Color(0xFFA5B4FC),
+                fontFamily = CleanFont,
+                color = Color(theme.primaryColor),
                 fontWeight = FontWeight.Black
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Button(
                     onClick = { onAdjustOutlineThickness(config.outlineThickness - 1f) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("–", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("–", color = Color(theme.textColor), fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 13.sp)
                 }
                 Button(
                     onClick = { onAdjustOutlineThickness(config.outlineThickness + 1f) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    val plusTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
+                    Text("+", color = plusTextColor, fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 13.sp)
                 }
             }
         }
@@ -8047,10 +8080,10 @@ private fun LyricControlsInner(
                 val isSelected = Math.abs(config.outlineThickness - thick) < 0.2f
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -8060,8 +8093,9 @@ private fun LyricControlsInner(
                         Text(
                             text = if (isSelected) "✓ $label" else label,
                             fontSize = 8.5.sp,
+                            fontFamily = CleanFont,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -8084,7 +8118,8 @@ private fun LyricControlsInner(
                 else
                     "🔤 SIZE: P ${config.fontSizePortraitSp.toInt()}sp / L ${config.fontSizeLandscapeSp.toInt()}sp",
                 fontSize = 10.5.sp,
-                color = Color(0xFFA5B4FC),
+                fontFamily = CleanFont,
+                color = Color(theme.primaryColor),
                 fontWeight = FontWeight.Black
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -8092,23 +8127,25 @@ private fun LyricControlsInner(
                     onClick = {
                         onAdjustFontSize(config.fontSizePortraitSp - 3f, config.fontSizeLandscapeSp - 4.5f)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("–", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("–", color = Color(theme.textColor), fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 13.sp)
                 }
                 Button(
                     onClick = {
                         onAdjustFontSize(config.fontSizePortraitSp + 3f, config.fontSizeLandscapeSp + 4.5f)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    val plusTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
+                    Text("+", color = plusTextColor, fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 13.sp)
                 }
             }
         }
@@ -8126,10 +8163,10 @@ private fun LyricControlsInner(
                 val isSelected = Math.abs(config.fontSizePortraitSp - port) < 1f
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -8139,8 +8176,9 @@ private fun LyricControlsInner(
                         Text(
                             text = if (isSelected) "✓ $label" else label,
                             fontSize = 8.5.sp,
+                            fontFamily = CleanFont,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -8160,27 +8198,30 @@ private fun LyricControlsInner(
             Text(
                 text = if (isTagalog) "↕️ DISTANSYA NG LINYA: ${config.lineSpacingDp.toInt()}dp" else "↕️ LINE SPACING: ${config.lineSpacingDp.toInt()}dp",
                 fontSize = 10.5.sp,
-                color = Color(0xFFA5B4FC),
+                fontFamily = CleanFont,
+                color = Color(theme.primaryColor),
                 fontWeight = FontWeight.Black
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Button(
                     onClick = { onAdjustLineSpacing(config.lineSpacingDp - 2f) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("–", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("–", color = Color(theme.textColor), fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 13.sp)
                 }
                 Button(
                     onClick = { onAdjustLineSpacing(config.lineSpacingDp + 2f) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    val plusTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
+                    Text("+", color = plusTextColor, fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 13.sp)
                 }
             }
         }
@@ -8199,10 +8240,10 @@ private fun LyricControlsInner(
                 val isSelected = Math.abs(config.lineSpacingDp - spacing) < 1f
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -8212,8 +8253,9 @@ private fun LyricControlsInner(
                         Text(
                             text = if (isSelected) "✓ $label" else label,
                             fontSize = 8.5.sp,
+                            fontFamily = CleanFont,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -8228,7 +8270,8 @@ private fun LyricControlsInner(
         Text(
             text = if (isTagalog) "⏱️ ESTILO NG COUNTING (COUNTDOWN):" else "⏱️ COUNTDOWN & COUNTING STYLE:",
             fontSize = 10.5.sp,
-            color = Color(0xFFA5B4FC),
+            fontFamily = CleanFont,
+            color = Color(theme.primaryColor),
             fontWeight = FontWeight.Black
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -8240,10 +8283,10 @@ private fun LyricControlsInner(
                 val isSelected = config.countdownMode == mode
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -8253,8 +8296,9 @@ private fun LyricControlsInner(
                         Text(
                             text = if (isSelected) "✓ ${mode.label(isTagalog)}" else mode.label(isTagalog),
                             fontSize = 8.5.sp,
+                            fontFamily = CleanFont,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -8279,36 +8323,40 @@ private fun LyricControlsInner(
             Text(
                 text = if (isTagalog) "🎯 TIMING SYNC OFFSET: $offsetLabel" else "🎯 LYRIC TIMING SYNC: $offsetLabel",
                 fontSize = 10.5.sp,
-                color = Color(0xFFA5B4FC),
+                fontFamily = CleanFont,
+                color = Color(theme.primaryColor),
                 fontWeight = FontWeight.Black
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Button(
                     onClick = { onAdjustTimingOffset(config.timingOffsetMs - 25) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("–25ms", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    Text("–25ms", color = Color(theme.textColor), fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 11.sp)
                 }
                 Button(
                     onClick = { onAdjustTimingOffset(0) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF475569)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("Reset", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    Text("Reset", color = Color(theme.textMutedColor), fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 11.sp)
                 }
                 Button(
                     onClick = { onAdjustTimingOffset(config.timingOffsetMs + 25) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(24.dp)
                 ) {
-                    Text("+25ms", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    val plusTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
+                    Text("+25ms", color = plusTextColor, fontWeight = FontWeight.Bold, fontFamily = CleanFont, fontSize = 11.sp)
                 }
             }
         }
@@ -8327,10 +8375,10 @@ private fun LyricControlsInner(
                 val isSelected = config.timingOffsetMs == offsetVal
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    color = if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                     border = androidx.compose.foundation.BorderStroke(
                         width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                     ),
                     modifier = Modifier
                         .weight(1f)
@@ -8340,8 +8388,9 @@ private fun LyricControlsInner(
                         Text(
                             text = if (isSelected) "✓ $label" else label,
                             fontSize = 8.5.sp,
+                            fontFamily = CleanFont,
                             fontWeight = FontWeight.Bold,
-                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -9545,7 +9594,7 @@ fun RecordingsDialog(
                         Text(
                             text = if (isTagalog) "RECORDING NG BOSES AT TUGTOG" else "VOICE & MUSIC RECORDINGS",
                             fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.SansSerif,
+                            fontFamily = CleanFont,
                             color = Color(state.appTheme.primaryColor),
                             fontSize = 13.sp
                         )
@@ -9585,7 +9634,7 @@ fun RecordingsDialog(
                                 else
                                     String.format("🔴 RECORDING: %02d:%02d", recMins, recSecs),
                                 color = Color(0xFFFF5252),
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = CleanFont,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 18.sp
                             )
@@ -9594,7 +9643,8 @@ fun RecordingsDialog(
                                     "Nire-record nang buo at malinaw (48kHz True Stereo) ang lahat ng instrumento at boses."
                                 else
                                     "Recording full 48kHz True Stereo SoundFont instruments mixed with studio vocals.",
-                                color = Color(0xFFCBD5E1),
+                                color = Color(state.appTheme.textColor).copy(alpha = 0.85f),
+                                fontFamily = CleanFont,
                                 fontSize = 10.sp,
                                 textAlign = TextAlign.Center
                             )
@@ -9609,6 +9659,7 @@ fun RecordingsDialog(
                                 Text(
                                     text = if (isTagalog) "⏹ ITIGIL AT I-SAVE ANG RECORDING" else "⏹ STOP & SAVE RECORDING",
                                     fontWeight = FontWeight.Black,
+                                    fontFamily = CleanFont,
                                     fontSize = 11.5.sp,
                                     color = Color.White
                                 )
@@ -9616,7 +9667,8 @@ fun RecordingsDialog(
                         } else {
                             Text(
                                 text = if (isTagalog) "🎙️ HANDANG MAG-RECORD (TRUE STEREO)" else "🎙️ READY TO RECORD (TRUE STEREO)",
-                                color = Color(0xFF00FF88),
+                                color = Color(state.appTheme.primaryColor),
+                                fontFamily = CleanFont,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 14.sp
                             )
@@ -9625,13 +9677,15 @@ fun RecordingsDialog(
                                     "Pindutin ang pindutan sa ibaba habang kumakanta upang mai-save nang buo ang tugtog at boses bilang Stereo WAV."
                                 else
                                     "Press the button below while playing a song to save full stereo music and vocals as a WAV file.",
-                                color = Color(0xFF94A3B8),
+                                color = Color(state.appTheme.textMutedColor),
+                                fontFamily = CleanFont,
                                 fontSize = 10.sp,
                                 textAlign = TextAlign.Center
                             )
+                            val startBtnTextColor = if (state.appTheme.primaryColor == 0xFF00E676L || state.appTheme.primaryColor == 0xFFFFD54FL || state.appTheme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
                             Button(
                                 onClick = onToggleRecording,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(state.appTheme.primaryColor)),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier
                                     .fillMaxWidth(if (isLandscape) 0.6f else 0.85f)
@@ -9640,8 +9694,9 @@ fun RecordingsDialog(
                                 Text(
                                     text = if (isTagalog) "🔴 SIMULAN ANG RECORDING" else "🔴 START RECORDING",
                                     fontWeight = FontWeight.Black,
+                                    fontFamily = CleanFont,
                                     fontSize = 11.5.sp,
-                                    color = Color.White
+                                    color = startBtnTextColor
                                 )
                             }
                         }
@@ -9656,15 +9711,16 @@ fun RecordingsDialog(
                 ) {
                     Text(
                         text = if (isTagalog) "MGA NAI-SAVE NA RECORDING (${state.savedRecordings.size}):" else "SAVED RECORDINGS (${state.savedRecordings.size}):",
-                        color = Color(0xFFFFD54F),
+                        color = Color(state.appTheme.secondaryColor),
+                        fontFamily = CleanFont,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black
                     )
                     Text(
                         text = "/VideoKey/recordings",
-                        color = Color(0xFF64748B),
+                        color = Color(state.appTheme.textMutedColor),
                         fontSize = 9.sp,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = CleanFont
                     )
                 }
 
@@ -9688,7 +9744,8 @@ fun RecordingsDialog(
                                         "Wala pang nai-save na recording.\nPindutin ang 'SIMULAN ANG RECORDING' habang kumakanta!"
                                     else
                                         "No saved recordings yet.\nTap 'START RECORDING' while singing!",
-                                    color = Color.Gray,
+                                    color = Color(state.appTheme.textMutedColor),
+                                    fontFamily = CleanFont,
                                     fontSize = 11.sp,
                                     textAlign = TextAlign.Center
                                 )
@@ -9701,8 +9758,8 @@ fun RecordingsDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isPlayingThis) Color(0xFF0F3B24) else Color(0xFF1E293B))
-                                    .border(1.dp, if (isPlayingThis) Color(0xFF00FF88) else Color(0xFF334155), RoundedCornerShape(8.dp))
+                                    .background(if (isPlayingThis) Color(state.appTheme.primaryColor).copy(alpha = 0.2f) else Color(state.appTheme.buttonBgColor))
+                                    .border(1.dp, if (isPlayingThis) Color(state.appTheme.primaryColor) else Color(state.appTheme.buttonBorderColor), RoundedCornerShape(8.dp))
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -9710,17 +9767,18 @@ fun RecordingsDialog(
                                 Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                                     Text(
                                         text = rec.songTitle,
-                                        color = if (isPlayingThis) Color(0xFF00FF88) else Color.White,
+                                        color = if (isPlayingThis) Color(state.appTheme.primaryColor) else Color(state.appTheme.textColor),
                                         fontWeight = FontWeight.Bold,
+                                        fontFamily = CleanFont,
                                         fontSize = 12.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                         text = "${rec.dateLabel} • ${rec.durationLabel} • ${rec.sizeKb} KB",
-                                        color = Color(0xFF94A3B8),
+                                        color = Color(state.appTheme.textMutedColor),
                                         fontSize = 9.5.sp,
-                                        fontFamily = FontFamily.Monospace
+                                        fontFamily = CleanFont
                                     )
                                 }
 
@@ -9729,9 +9787,11 @@ fun RecordingsDialog(
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     // Play / Stop Playback Button
+                                    val playBtnColor = if (isPlayingThis) Color(0xFFFF1744) else Color(state.appTheme.primaryColor)
+                                    val playBtnTextColor = if (isPlayingThis) Color.White else if (state.appTheme.primaryColor == 0xFF00E676L || state.appTheme.primaryColor == 0xFFFFD54FL || state.appTheme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = if (isPlayingThis) Color(0xFFFF1744) else Color(0xFF00E676),
+                                        color = playBtnColor,
                                         modifier = Modifier.clickable { onPlayRecording(rec.filePath) }
                                     ) {
                                         Text(
@@ -9740,7 +9800,8 @@ fun RecordingsDialog(
                                             } else {
                                                 if (isTagalog) "▶ TUGTUGIN" else "▶ PLAY"
                                             },
-                                            color = if (isPlayingThis) Color.White else Color.Black,
+                                            color = playBtnTextColor,
+                                            fontFamily = CleanFont,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Black,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -9750,7 +9811,8 @@ fun RecordingsDialog(
                                     // Delete Button
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFF334155),
+                                        color = Color(state.appTheme.buttonBgColor),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(state.appTheme.buttonBorderColor)),
                                         modifier = Modifier.clickable { onDeleteRecording(rec.filePath) }
                                     ) {
                                         Text(
@@ -9766,9 +9828,10 @@ fun RecordingsDialog(
                 }
 
                 // Done Button
+                val doneBtnTextColor = if (state.appTheme.primaryColor == 0xFF00E676L || state.appTheme.primaryColor == 0xFFFFD54FL || state.appTheme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(state.appTheme.primaryColor)),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -9777,7 +9840,8 @@ fun RecordingsDialog(
                     Text(
                         text = if (isTagalog) "TAPOS NA / ISARA ✓" else "DONE / CLOSE ✓",
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        fontFamily = CleanFont,
+                        color = doneBtnTextColor
                     )
                 }
             }
