@@ -1072,59 +1072,72 @@ fun VideokeDotsCountdownBadge(
  */
 @Composable
 fun InstrumentalDisplay(
+    theme: AppTheme = AppTheme.CYBER_NEON,
     isLandscape: Boolean,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "instPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.65f,
+        initialValue = 0.75f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(600, easing = FastOutSlowInEasing),
+            animation = tween(650, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "instAlpha"
     )
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(650, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "instScale"
+    )
+
+    val primaryColor = Color(theme.primaryColor)
+    val fontSize = if (isLandscape) 20.sp else 16.sp
+    val letterSpacing = if (isLandscape) 3.sp else 2.sp
 
     Row(
-        modifier = modifier
-            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(if (isLandscape) 18.dp else 16.dp))
-            .border(1.5.dp, Color(0xFF00E5FF).copy(alpha = pulseAlpha), RoundedCornerShape(if (isLandscape) 18.dp else 16.dp))
-            .padding(horizontal = if (isLandscape) 16.dp else 12.dp, vertical = if (isLandscape) 6.dp else 4.dp),
+        modifier = modifier.scale(pulseScale),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 6.dp)
+        horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 8.dp)
     ) {
         Text(
             text = "🎷",
-            fontSize = if (isLandscape) 14.sp else 12.sp
+            fontSize = if (isLandscape) 20.sp else 16.sp
         )
         Box(contentAlignment = Alignment.Center) {
+            // Outlined stroke for clear readability over any video background without needing a box
             Text(
                 text = "★  I N S T R U M E N T A L  ★",
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.SansSerif,
-                letterSpacing = if (isLandscape) 2.sp else 1.5.sp,
-                fontSize = if (isLandscape) 14.sp else 12.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = CleanFont,
+                letterSpacing = letterSpacing,
+                fontSize = fontSize,
                 style = TextStyle(
                     color = Color.Black,
                     drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 4f,
+                        width = 5.5f,
                         join = androidx.compose.ui.graphics.StrokeJoin.Round
                     )
                 )
             )
+            // Themed colored bold text
             Text(
                 text = "★  I N S T R U M E N T A L  ★",
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.SansSerif,
-                letterSpacing = if (isLandscape) 2.sp else 1.5.sp,
-                fontSize = if (isLandscape) 14.sp else 12.sp,
-                color = Color(0xFF00E5FF)
+                fontWeight = FontWeight.Bold,
+                fontFamily = CleanFont,
+                letterSpacing = letterSpacing,
+                fontSize = fontSize,
+                color = primaryColor.copy(alpha = pulseAlpha)
             )
         }
         Text(
             text = "🎸",
-            fontSize = if (isLandscape) 14.sp else 12.sp
+            fontSize = if (isLandscape) 20.sp else 16.sp
         )
     }
 }
@@ -2098,6 +2111,7 @@ fun VideokeTvScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     InstrumentalDisplay(
+                        theme = state.appTheme,
                         isLandscape = isLandscape,
                         modifier = if (isLandscape) Modifier.offset(y = (-45).dp) else Modifier
                     )
