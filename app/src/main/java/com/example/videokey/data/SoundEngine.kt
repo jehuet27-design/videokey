@@ -114,6 +114,7 @@ class SoundEngine(
     private var guitarPianoPercent: Int = 100  // 0% to 150% (Guitar, Piano & Organ)
     private var stringsBrassPercent: Int = 100 // 0% to 150% (Strings, Brass, Sax & Synth)
     private var reverbPercent: Int = 50        // 0% to 100% (Studio Reverb / Ambience)
+    private var isAutoMixerEnabled: Boolean = true // Smart Auto-Mixer based on song analysis
 
     // Real-time BASSMIDI event filter to keep custom instrument mix & drum preset fallbacks locked
     private val midiFilterProc = BASSMIDI.MIDIFILTERPROC { handle, track, event, _, _ ->
@@ -659,6 +660,16 @@ class SoundEngine(
                 liveDrumChannels[ch] = (ch == 9) || (currentAnalysis?.drumChannels?.contains(ch) == true)
                 baseChannelVolumes[ch] = 100
             }
+            if (isAutoMixerEnabled) {
+                val autoStyle = currentAnalysis?.detectedMixStyle ?: MidiMelodyScaler.SongMixStyle.STANDARD_POP
+                melodyPercent = autoStyle.melody
+                drumsPercent = autoStyle.drums
+                bassPercent = autoStyle.bass
+                guitarPianoPercent = autoStyle.guitarPiano
+                stringsBrassPercent = autoStyle.stringsBrass
+                reverbPercent = autoStyle.reverb
+                Log.d(TAG, "Smart Auto-Mix applied for ${file.name}: ${autoStyle.name} (${autoStyle.labelEnglish}) BPM=${currentAnalysis?.detectedBpm}")
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Could not pre-analyze MIDI bytes: ${e.message}")
             currentAnalysis = null
@@ -990,6 +1001,25 @@ class SoundEngine(
         guitarPianoPercent = 100
         stringsBrassPercent = 100
         reverbPercent = 50
+        applyInstrumentMix()
+    }
+
+    fun setAutoMixerEnabled(enabled: Boolean) {
+        isAutoMixerEnabled = enabled
+    }
+
+    fun isAutoMixerEnabled(): Boolean = isAutoMixerEnabled
+
+    fun getDetectedMixStyle(): MidiMelodyScaler.SongMixStyle =
+        currentAnalysis?.detectedMixStyle ?: MidiMelodyScaler.SongMixStyle.STANDARD_POP
+
+    fun applyMixStyle(style: MidiMelodyScaler.SongMixStyle) {
+        melodyPercent = style.melody
+        drumsPercent = style.drums
+        bassPercent = style.bass
+        guitarPianoPercent = style.guitarPiano
+        stringsBrassPercent = style.stringsBrass
+        reverbPercent = style.reverb
         applyInstrumentMix()
     }
 

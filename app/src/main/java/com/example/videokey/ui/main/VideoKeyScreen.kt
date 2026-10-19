@@ -335,6 +335,7 @@ fun VideoKeyScreen(
             AudioMixerDialog(
                 state = state,
                 isLandscape = isLandscape,
+                onToggleAutoMixer = { viewModel.toggleAutoMixer(it) },
                 onAdjustKey = { viewModel.adjustKey(it) },
                 onAdjustTempo = { viewModel.adjustTempo(it) },
                 onAdjustMelody = { viewModel.adjustMelody(it) },
@@ -3221,6 +3222,7 @@ fun ConsoleIconButton(
 fun AudioMixerDialog(
     state: VideoKeyUiState,
     isLandscape: Boolean = false,
+    onToggleAutoMixer: (Boolean) -> Unit = {},
     onAdjustKey: (Int) -> Unit,
     onAdjustTempo: (Int) -> Unit,
     onAdjustMelody: (Int) -> Unit,
@@ -3366,6 +3368,82 @@ fun AudioMixerDialog(
                             }
                         }
                     }
+                }
+
+                // Smart Auto-Mixer Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (state.isAutoMixerEnabled) Color(state.appTheme.primaryColor).copy(alpha = 0.14f)
+                            else uniformBtnBg
+                        )
+                        .border(
+                            1.dp,
+                            if (state.isAutoMixerEnabled) Color(state.appTheme.primaryColor)
+                            else uniformBtnBorder,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(
+                                text = "🤖 SMART AUTO-MIX:",
+                                fontSize = 10.sp,
+                                fontFamily = CleanFont,
+                                color = Color(state.appTheme.primaryColor),
+                                fontWeight = FontWeight.Black
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (state.isAutoMixerEnabled) Color(state.appTheme.primaryColor).copy(alpha = 0.22f) else Color(state.appTheme.buttonBorderColor)
+                            ) {
+                                Text(
+                                    text = if (state.isAutoMixerEnabled) {
+                                        "${state.activeMixStyle.emoji} ${if (isTagalog) state.activeMixStyle.labelTagalog else state.activeMixStyle.labelEnglish}"
+                                    } else {
+                                        if (isTagalog) "MANUAL (OFF)" else "MANUAL (OFF)"
+                                    },
+                                    fontSize = 8.5.sp,
+                                    fontFamily = CleanFont,
+                                    color = if (state.isAutoMixerEnabled) Color(state.appTheme.primaryColor) else Color(state.appTheme.textColor),
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (state.isAutoMixerEnabled) {
+                                if (isTagalog) state.activeMixStyle.descriptionTagalog else state.activeMixStyle.descriptionEnglish
+                            } else {
+                                if (isTagalog) "Naka-manual mix. Kayo ang may buong kontrol sa mga sliders sa ibaba." else "Manual mode. You have full custom control of all sliders below."
+                            },
+                            fontSize = 8.sp,
+                            fontFamily = CleanFont,
+                            color = Color(state.appTheme.textMutedColor),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Switch(
+                        checked = state.isAutoMixerEnabled,
+                        onCheckedChange = { onToggleAutoMixer(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(state.appTheme.primaryColor),
+                            checkedTrackColor = Color(state.appTheme.primaryColor).copy(alpha = 0.4f),
+                            uncheckedThumbColor = Color.Gray,
+                            uncheckedTrackColor = Color(0xFF1E293B)
+                        ),
+                        modifier = Modifier.scale(0.75f)
+                    )
                 }
 
                 // Key Transpose & Tempo Compact Row

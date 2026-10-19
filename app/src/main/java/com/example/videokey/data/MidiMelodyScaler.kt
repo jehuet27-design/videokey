@@ -20,6 +20,86 @@ object MidiMelodyScaler {
         STRINGS_BRASS
     }
 
+    enum class SongMixStyle(
+        val labelTagalog: String,
+        val labelEnglish: String,
+        val emoji: String,
+        val melody: Int,
+        val drums: Int,
+        val bass: Int,
+        val guitarPiano: Int,
+        val stringsBrass: Int,
+        val reverb: Int,
+        val descriptionTagalog: String,
+        val descriptionEnglish: String
+    ) {
+        BALLAD(
+            labelTagalog = "Ballad / Mabagal",
+            labelEnglish = "Ballad & Love Song",
+            emoji = "🎻",
+            melody = 50,
+            drums = 85,
+            bass = 95,
+            guitarPiano = 110,
+            stringsBrass = 115,
+            reverb = 62,
+            descriptionTagalog = "Lutang ang piano & strings, banayad ang drums, may concert hall reverb.",
+            descriptionEnglish = "Lush piano & orchestral strings, soft drums, spacious concert reverb."
+        ),
+        ROCK_UPBEAT(
+            labelTagalog = "Rock / Mabilis na Beat",
+            labelEnglish = "Rock & Upbeat Band",
+            emoji = "🎸",
+            melody = 55,
+            drums = 118,
+            bass = 112,
+            guitarPiano = 100,
+            stringsBrass = 95,
+            reverb = 38,
+            descriptionTagalog = "Punchy drums at kalabit ng bass guitar, tight reverb para sa mabilis na tugtog.",
+            descriptionEnglish = "Punchy kick & snare, driven bass guitar, tight reverb for fast live rhythms."
+        ),
+        ACOUSTIC(
+            labelTagalog = "Acoustic / Unplugged",
+            labelEnglish = "Acoustic Unplugged",
+            emoji = "🎹",
+            melody = 55,
+            drums = 75,
+            bass = 90,
+            guitarPiano = 120,
+            stringsBrass = 95,
+            reverb = 45,
+            descriptionTagalog = "Malinaw na acoustic guitar & piano, natural na studio ambience.",
+            descriptionEnglish = "Warm acoustic guitar and piano upfront, gentle natural studio ambience."
+        ),
+        DANCE_DISCO(
+            labelTagalog = "Dance / Disco Party",
+            labelEnglish = "Dance & Disco Party",
+            emoji = "🪩",
+            melody = 60,
+            drums = 120,
+            bass = 115,
+            guitarPiano = 95,
+            stringsBrass = 105,
+            reverb = 42,
+            descriptionTagalog = "Mabigat na 4-on-the-floor beat at synth/groove bass, energetic party sound.",
+            descriptionEnglish = "High-energy dance groove, boosted kick & bass, dynamic party brass & synths."
+        ),
+        STANDARD_POP(
+            labelTagalog = "Balanseng Live Band",
+            labelEnglish = "Balanced Live Band",
+            emoji = "🎤",
+            melody = 60,
+            drums = 100,
+            bass = 100,
+            guitarPiano = 100,
+            stringsBrass = 100,
+            reverb = 50,
+            descriptionTagalog = "Pantay at balanseng timpla ng buong banda para sa standard pop songs.",
+            descriptionEnglish = "Even, studio-balanced mix across all instruments for classic pop karaoke."
+        )
+    }
+
     data class MidiAnalysis(
         val numTracks: Int,
         val melodyTracks: Set<Int>,
@@ -27,7 +107,9 @@ object MidiMelodyScaler {
         val exclusiveMelodyChannels: Set<Int>,
         val drumChannels: Set<Int>,
         val channelPrograms: IntArray,
-        val channelNoteCounts: IntArray
+        val channelNoteCounts: IntArray,
+        val detectedBpm: Int = 120,
+        val detectedMixStyle: SongMixStyle = SongMixStyle.STANDARD_POP
     ) {
         fun getCategoryForChannel(channel: Int, currentProgram: Int = -1): InstrumentCategory {
             val ch = channel.coerceIn(0, 15)
@@ -131,6 +213,7 @@ object MidiMelodyScaler {
         val len = midiBytes.size
         val lyricTicks = HashSet<Long>()
         val namedMelodyTracks = HashSet<Int>()
+        var initialBpm = 0
         val channelLyricMatchCounts = IntArray(16)
         val trackNoteCounts = HashMap<Int, Int>()
         val trackLyricMatchCounts = HashMap<Int, Int>()
@@ -204,6 +287,13 @@ object MidiMelodyScaler {
                                         lyricTicks.add(baseBucket + 1L)
                                         lyricTicks.add(baseBucket - 2L)
                                         lyricTicks.add(baseBucket + 2L)
+                                    }
+                                } else if (metaType == 0x51 && metaLen == 3 && p + 3 <= trackEnd) {
+                                    val tempoMicros = ((midiBytes[p].toInt() and 0xFF) shl 16) or
+                                            ((midiBytes[p + 1].toInt() and 0xFF) shl 8) or
+                                            (midiBytes[p + 2].toInt() and 0xFF)
+                                    if (tempoMicros > 0 && initialBpm == 0) {
+                                        initialBpm = (60000000L / tempoMicros).toInt().coerceIn(40, 260)
                                     }
                                 }
                             }
@@ -401,6 +491,42 @@ object MidiMelodyScaler {
         }
         val exclusiveMelodyChannels = melodyChannels.filter { !nonMelodyChannels.contains(it) }.toSet()
 
+        val finalBpm = if (initialBpm > 0) initialBpm else 120
+        val totalNotes = noteCounts.sum()
+        val drumNotes = noteCounts[9] + drumChannels.filter { it != 9 }.sumOf { noteCounts[it] }
+
+        var hasDistortionGuitar = false
+        var hasPianoOrStrings = false
+        var hasSynth = false
+
+        for (ch in 0..15) {
+            if (ch in drumChannels) continue
+            val prog = defaultPrograms[ch]
+            val notes = noteCounts[ch]
+            if (notes > 25) {
+                if (prog in 29..31) hasDistortionGuitar = true
+                if (prog in 0..5 || prog in 40..51) hasPianoOrStrings = true
+                if (prog in 38..39 || prog in 80..103) hasSynth = true
+            }
+        }
+
+        val detectedStyle = when {
+            // 1. Acoustic / Unplugged: Very low drum notes or no drums at all
+            totalNotes > 50 && (drumNotes < 20 || (drumNotes.toFloat() / totalNotes) < 0.07f) -> SongMixStyle.ACOUSTIC
+
+            // 2. Rock / Heavy Overdrive: Distortion / Overdriven guitar or Fast Tempo with heavy drums
+            hasDistortionGuitar || (finalBpm >= 132 && drumNotes > 100) -> SongMixStyle.ROCK_UPBEAT
+
+            // 3. Dance / Disco: Fast 118-138 BPM with synths or very heavy drum density
+            finalBpm in 118..138 && (hasSynth || drumNotes > totalNotes * 0.28f) -> SongMixStyle.DANCE_DISCO
+
+            // 4. Ballad / Slow Love Songs: BPM <= 88, or BPM <= 98 with heavy piano/strings and no distortion
+            finalBpm in 1..88 || (finalBpm in 89..98 && hasPianoOrStrings && !hasDistortionGuitar) -> SongMixStyle.BALLAD
+
+            // 5. Default: Balanced standard pop
+            else -> SongMixStyle.STANDARD_POP
+        }
+
         return MidiAnalysis(
             numTracks = totalTracks,
             melodyTracks = namedMelodyTracks,
@@ -408,7 +534,9 @@ object MidiMelodyScaler {
             exclusiveMelodyChannels = if (exclusiveMelodyChannels.isNotEmpty()) exclusiveMelodyChannels else melodyChannels,
             drumChannels = drumChannels,
             channelPrograms = defaultPrograms,
-            channelNoteCounts = noteCounts
+            channelNoteCounts = noteCounts,
+            detectedBpm = finalBpm,
+            detectedMixStyle = detectedStyle
         )
     }
 

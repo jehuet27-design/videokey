@@ -297,6 +297,8 @@ data class VideoKeyUiState(
     val stringsBrassPercent: Int = 100,
     val reverbPercent: Int = 50,
     val micEchoPercent: Int = 50,
+    val isAutoMixerEnabled: Boolean = true,
+    val activeMixStyle: com.example.videokey.data.MidiMelodyScaler.SongMixStyle = com.example.videokey.data.MidiMelodyScaler.SongMixStyle.STANDARD_POP,
     val selectedBottomNavTab: Int = 0, // 0 = Home, 1 = Sing, 2 = Saved, 3 = Profile
     val selectedCategoryFilter: String = "ALL",
     val appTheme: AppTheme = AppTheme.CYBER_NEON,
@@ -472,6 +474,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         soundEngine.setGuitarPianoVolume(initialGuitarPiano)
         soundEngine.setStringsBrassVolume(initialStringsBrass)
         soundEngine.setReverbVolume(initialReverb)
+        val initialAutoMixer = prefs.getBoolean("auto_mixer_enabled", true)
+        soundEngine.setAutoMixerEnabled(initialAutoMixer)
 
         val savedThemeName = prefs.getString("app_theme", AppTheme.CYBER_NEON.name) ?: AppTheme.CYBER_NEON.name
         val initialTheme = try {
@@ -590,6 +594,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 guitarPianoPercent = initialGuitarPiano,
                 stringsBrassPercent = initialStringsBrass,
                 reverbPercent = initialReverb,
+                isAutoMixerEnabled = initialAutoMixer,
                 appTheme = initialTheme,
                 isMicScoringEnabled = initialScoreMode != ScoreMode.OFF,
                 isScoringSoundEnabled = initialFanfare != FanfareSoundLevel.OFF,
@@ -885,6 +890,22 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     songStartTimeMs = System.currentTimeMillis()
                     soundEngine.playMidi(midiFile.absolutePath, deleteAfterOpen = isTempFile) {
                         onSongCompleted()
+                    }
+                    val autoStyle = soundEngine.getDetectedMixStyle()
+                    if (_uiState.value.isAutoMixerEnabled) {
+                        _uiState.update {
+                            it.copy(
+                                activeMixStyle = autoStyle,
+                                melodyPercent = soundEngine.getMelodyVolume(),
+                                drumsPercent = soundEngine.getDrumsVolume(),
+                                bassPercent = soundEngine.getBassVolume(),
+                                guitarPianoPercent = soundEngine.getGuitarPianoVolume(),
+                                stringsBrassPercent = soundEngine.getStringsBrassVolume(),
+                                reverbPercent = soundEngine.getReverbVolume()
+                            )
+                        }
+                    } else {
+                        _uiState.update { it.copy(activeMixStyle = autoStyle) }
                     }
                     startRealtimeLyricLoop()
                 } else {
@@ -1833,6 +1854,51 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 stringsBrassPercent = 100,
                 reverbPercent = 50
             )
+        }
+    }
+
+    fun toggleAutoMixer(enabled: Boolean) {
+        soundEngine.setAutoMixerEnabled(enabled)
+        prefs.edit().putBoolean("auto_mixer_enabled", enabled).apply()
+        val autoStyle = soundEngine.getDetectedMixStyle()
+        if (enabled) {
+            soundEngine.applyMixStyle(autoStyle)
+            _uiState.update {
+                it.copy(
+                    isAutoMixerEnabled = true,
+                    activeMixStyle = autoStyle,
+                    melodyPercent = soundEngine.getMelodyVolume(),
+                    drumsPercent = soundEngine.getDrumsVolume(),
+                    bassPercent = soundEngine.getBassVolume(),
+                    guitarPianoPercent = soundEngine.getGuitarPianoVolume(),
+                    stringsBrassPercent = soundEngine.getStringsBrassVolume(),
+                    reverbPercent = soundEngine.getReverbVolume()
+                )
+            }
+        } else {
+            val manualMelody = prefs.getInt("melody_percent", 60)
+            val manualDrums = prefs.getInt("drums_percent", 100)
+            val manualBass = prefs.getInt("bass_percent", 100)
+            val manualGuitarPiano = prefs.getInt("guitar_piano_percent", 100)
+            val manualStringsBrass = prefs.getInt("strings_brass_percent", 100)
+            val manualReverb = prefs.getInt("reverb_percent", 50)
+            soundEngine.setMelodyVolume(manualMelody)
+            soundEngine.setDrumsVolume(manualDrums)
+            soundEngine.setBassVolume(manualBass)
+            soundEngine.setGuitarPianoVolume(manualGuitarPiano)
+            soundEngine.setStringsBrassVolume(manualStringsBrass)
+            soundEngine.setReverbVolume(manualReverb)
+            _uiState.update {
+                it.copy(
+                    isAutoMixerEnabled = false,
+                    melodyPercent = manualMelody,
+                    drumsPercent = manualDrums,
+                    bassPercent = manualBass,
+                    guitarPianoPercent = manualGuitarPiano,
+                    stringsBrassPercent = manualStringsBrass,
+                    reverbPercent = manualReverb
+                )
+            }
         }
     }
 
