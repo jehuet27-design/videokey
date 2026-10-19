@@ -2190,7 +2190,7 @@ fun VideokeTvScreen(
                                     linesList.forEach { (lineText, lineNum) ->
                                         if (lineText.isNotEmpty()) {
                                             val isActive = state.activeLineNumber == lineNum
-                                            val lineCountdown = if (lineNum == 1) state.countdownDots else 0
+                                            val lineCountdown = if (lineNum == state.activeLineNumber) state.countdownDots else 0
                                             KaraokeLyricLine(
                                                 text = lineText,
                                                 isActive = isActive,
@@ -2219,8 +2219,8 @@ fun VideokeTvScreen(
                                 ) {
                                     val isTopActive = state.activeLyricPosition == ActiveLyricPosition.TOP
                                     val isBottomActive = state.activeLyricPosition == ActiveLyricPosition.BOTTOM
-                                    val topCountdown = state.countdownDots
-                                    val bottomCountdown = 0
+                                    val topCountdown = if (isTopActive) state.countdownDots else 0
+                                    val bottomCountdown = if (isBottomActive) state.countdownDots else 0
 
                                     KaraokeLyricLine(
                                         text = state.landscapeLine1,

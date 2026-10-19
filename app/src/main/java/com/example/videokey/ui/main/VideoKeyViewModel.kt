@@ -1073,7 +1073,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     for (i in cachedLineIdx until lines.size) {
                         val cur = lines[i]
                         val nextStart = lines.getOrNull(i + 1)?.startMs ?: (cur.endMs + 500L)
-                        val holdEnd = minOf(cur.endMs + 420L, (nextStart - 60L).coerceAtLeast(cur.endMs))
+                        val holdEnd = minOf(cur.endMs + 280L, (nextStart - 40L).coerceAtLeast(cur.endMs))
                         if (posMs in cur.startMs..holdEnd) {
                             activeIndex = i
                             cachedLineIdx = i
@@ -1085,7 +1085,6 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                     if (activeIndex != -1) {
                         val currentLine = lines[activeIndex]
-                        val nextLine = lines.getOrNull(activeIndex + 1)
                         val wipe = computeMelodyWipe(currentLine, posMs)
 
                         val wipeDelta = kotlin.math.abs(wipe - lastEmittedWipe)
@@ -1100,27 +1099,22 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                             lastEmittedInst = false
                             lastEmittedDots = 0
 
-                            // 1. Portrait 4-line calculation (Page of 4 lines)
-                            val pageStart = (activeIndex / 4) * 4
-                            val p1 = lines.getOrNull(pageStart)?.fullText ?: ""
-                            val p2 = lines.getOrNull(pageStart + 1)?.fullText ?: ""
-                            val p3 = lines.getOrNull(pageStart + 2)?.fullText ?: ""
-                            val p4 = lines.getOrNull(pageStart + 3)?.fullText ?: ""
+                            // 1. Continuous rolling 4-line calculation:
+                            // The moment a line's highlight finishes, that slot immediately rolls to the next upcoming line not on screen!
+                            val rolling4 = computeRollingLyrics4(lines, activeIndex)
                             val lineInPage = (activeIndex % 4) + 1
 
-                            // 2. Landscape 2-line alternating calculation
-                            val isEven = activeIndex % 2 == 0
-                            val land1 = if (isEven) currentLine.fullText else (nextLine?.fullText ?: "")
-                            val land2 = if (isEven) (nextLine?.fullText ?: "") else currentLine.fullText
-                            val landPos = if (isEven) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
+                            // 2. Continuous rolling 2-line alternating calculation
+                            val (land1, land2) = computeRollingLyrics2(lines, activeIndex)
+                            val landPos = if (activeIndex % 2 == 0) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
 
                             _uiState.update {
                                 it.copy(
                                     showSongTitleIntro = false,
-                                    line1 = p1,
-                                    line2 = p2,
-                                    line3 = p3,
-                                    line4 = p4,
+                                    line1 = rolling4[0],
+                                    line2 = rolling4[1],
+                                    line3 = rolling4[2],
+                                    line4 = rolling4[3],
                                     activeLineNumber = lineInPage,
                                     landscapeLine1 = land1,
                                     landscapeLine2 = land2,
@@ -1151,7 +1145,6 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                         if (upcomingIndex != -1) {
                             val upcoming = lines[upcomingIndex]
-                            val nextUpcoming = lines.getOrNull(upcomingIndex + 1)
                             val timeUntilStart = upcoming.startMs - posMs
 
                             // Long instrumental gap detection:
@@ -1187,25 +1180,19 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                                 lastEmittedIntro = isTitleIntroActive
                                 lastEmittedInst = showInstrumental
 
-                                val pageStart = (upcomingIndex / 4) * 4
-                                val p1 = lines.getOrNull(pageStart)?.fullText ?: ""
-                                val p2 = lines.getOrNull(pageStart + 1)?.fullText ?: ""
-                                val p3 = lines.getOrNull(pageStart + 2)?.fullText ?: ""
-                                val p4 = lines.getOrNull(pageStart + 3)?.fullText ?: ""
+                                val rolling4 = computeRollingLyrics4(lines, upcomingIndex)
                                 val lineInPage = (upcomingIndex % 4) + 1
 
-                                val isEven = upcomingIndex % 2 == 0
-                                val land1 = if (isEven) upcoming.fullText else (nextUpcoming?.fullText ?: "")
-                                val land2 = if (isEven) (nextUpcoming?.fullText ?: "") else upcoming.fullText
-                                val landPos = if (isEven) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
+                                val (land1, land2) = computeRollingLyrics2(lines, upcomingIndex)
+                                val landPos = if (upcomingIndex % 2 == 0) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
 
                                 _uiState.update {
                                     it.copy(
                                         showSongTitleIntro = isTitleIntroActive,
-                                        line1 = p1,
-                                        line2 = p2,
-                                        line3 = p3,
-                                        line4 = p4,
+                                        line1 = rolling4[0],
+                                        line2 = rolling4[1],
+                                        line3 = rolling4[2],
+                                        line4 = rolling4[3],
                                         activeLineNumber = lineInPage,
                                         landscapeLine1 = land1,
                                         landscapeLine2 = land2,
@@ -1297,6 +1284,35 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             }
         }
         return (charsPassed.toFloat() / totalChars.toFloat()).coerceIn(0f, 1f)
+    }
+
+    /**
+     * Authentic Videoke 4-Line Continuous Rolling Queue:
+     * As soon as a line finishes being highlighted (sung), that exact slot immediately rotates
+     * to the next upcoming lyric line that is not yet on screen.
+     */
+    private fun computeRollingLyrics4(lines: List<KaraokeLine>, currIdx: Int): List<String> {
+        val activeSlot = currIdx % 4
+        return (0..3).map { s ->
+            val lineIdx = if (s >= activeSlot) {
+                currIdx + (s - activeSlot)
+            } else {
+                currIdx + (4 - activeSlot) + s
+            }
+            lines.getOrNull(lineIdx)?.fullText ?: ""
+        }
+    }
+
+    /**
+     * Authentic Videoke 2-Line Alternating Rolling Queue (Top / Bottom):
+     * When Top finishes, it immediately becomes the next upcoming line.
+     * When Bottom finishes, it immediately becomes the next upcoming line.
+     */
+    private fun computeRollingLyrics2(lines: List<KaraokeLine>, currIdx: Int): Pair<String, String> {
+        val activeSlot = currIdx % 2
+        val land1 = lines.getOrNull(if (activeSlot == 0) currIdx else currIdx + 1)?.fullText ?: ""
+        val land2 = lines.getOrNull(if (activeSlot == 1) currIdx else currIdx + 1)?.fullText ?: ""
+        return Pair(land1, land2)
     }
 
     fun onSongCompleted() {
