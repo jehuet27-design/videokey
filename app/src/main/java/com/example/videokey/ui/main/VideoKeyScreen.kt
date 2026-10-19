@@ -57,6 +57,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.io.File
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1507,12 +1509,13 @@ fun VideokeTvScreen(
         }
         val currentBg = state.selectedBackground
         val videoSongPath = if (state.isVideoSong) state.currentSong.filePath else null
-        key(currentBg?.id, currentBg?.path, videoSongPath) {
+        key(currentBg?.id, currentBg?.path, videoSongPath, state.isPlaying) {
             VideokeBackgroundLayer(
                 background = currentBg,
                 hasMultipleMedia = mediaCount > 1,
                 videoSongPath = videoSongPath,
                 isVideoSong = state.isVideoSong,
+                isPlaying = state.isPlaying,
                 bgVisualMode = state.bgVisualMode,
                 onBackgroundCompleted = {
                     if (state.isVideoSong) {
@@ -6441,6 +6444,7 @@ fun VideokeBackgroundLayer(
     hasMultipleMedia: Boolean = true,
     videoSongPath: String? = null,
     isVideoSong: Boolean = false,
+    isPlaying: Boolean = false,
     bgVisualMode: BackgroundVisualMode = BackgroundVisualMode.VIDEOS,
     onBackgroundCompleted: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -6449,7 +6453,7 @@ fun VideokeBackgroundLayer(
 
     Box(modifier = modifier.fillMaxSize()) {
         when {
-            isVideoSong && !videoSongPath.isNullOrBlank() && File(videoSongPath).exists() -> {
+            isPlaying && isVideoSong && !videoSongPath.isNullOrBlank() && File(videoSongPath).exists() -> {
                 KaraokeVideoPlayer(
                     videoPath = videoSongPath,
                     hasMultipleMedia = false,
@@ -6542,6 +6546,7 @@ fun KaraokeVideoPlayer(
     var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
     var isPlayerPrepared by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
 
     // Dynamically update audio volume whenever isMuted changes
     LaunchedEffect(isMuted, isPlayerPrepared) {
@@ -6669,16 +6674,41 @@ fun KaraokeVideoPlayer(
                     }
                     true
                 }
+                setOnSeekCompleteListener { seekedMp ->
+                    if (isMuted) {
+                        try { seekedMp.setVolume(0.0f, 0.0f) } catch (ignored: Exception) {}
+                    }
+                }
                 setOnPreparedListener { preparedMp ->
                     isPlayerPrepared = true
-                    try {
-                        if (!isMuted) {
-                            preparedMp.setVolume(1.0f, 1.0f)
-                        } else {
-                            preparedMp.setVolume(0.0f, 0.0f)
+                    if (isMuted) {
+                        // 1. Programmatically deselect all audio tracks so Android decoders never process or route audio
+                        try {
+                            val trackInfo = preparedMp.trackInfo
+                            for (i in trackInfo.indices) {
+                                if (trackInfo[i].trackType == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO) {
+                                    try {
+                                        preparedMp.deselectTrack(i)
+                                        Log.i("VideoPlayer", "Deselected audio track $i on background video: $videoPath")
+                                    } catch (e: Exception) {
+                                        Log.w("VideoPlayer", "Could not deselect audio track $i: ${e.message}")
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w("VideoPlayer", "Error getting trackInfo: ${e.message}")
                         }
-                    } catch (e: Exception) {
-                        Log.w("VideoPlayer", "Volume setting warning", e)
+                        try {
+                            preparedMp.setVolume(0.0f, 0.0f)
+                        } catch (e: Exception) {
+                            Log.w("VideoPlayer", "Volume setting warning", e)
+                        }
+                    } else {
+                        try {
+                            preparedMp.setVolume(1.0f, 1.0f)
+                        } catch (e: Exception) {
+                            Log.w("VideoPlayer", "Volume setting warning", e)
+                        }
                     }
                     try {
                         preparedMp.setVideoScalingMode(
@@ -6695,6 +6725,17 @@ fun KaraokeVideoPlayer(
                         preparedMp.start()
                         if (isMuted) {
                             preparedMp.setVolume(0.0f, 0.0f)
+                            // Repeatedly clamp volume to 0 to prevent async hardware AudioSink volume reset
+                            coroutineScope.launch {
+                                for (d in listOf(30L, 70L, 120L, 250L, 500L, 1000L)) {
+                                    kotlinx.coroutines.delay(d)
+                                    try {
+                                        if (isMuted) {
+                                            preparedMp.setVolume(0.0f, 0.0f)
+                                        }
+                                    } catch (ignored: Exception) {}
+                                }
+                            }
                         }
                     } catch (e: Exception) {
                         Log.w("VideoPlayer", "Error starting prepared video", e)

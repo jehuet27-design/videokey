@@ -1748,6 +1748,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     isPlaying = false,
+                    isVideoSong = false,
                     enteredCode = "",
                     matchedEnteredSong = null,
                     wipePercent = 0f,
@@ -1772,6 +1773,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     isPlaying = false,
+                    isVideoSong = false,
                     isPlayingYouTubeStream = false,
                     activeYouTubeStreamVideoId = null,
                     activeYouTubeStreamTitle = null,
