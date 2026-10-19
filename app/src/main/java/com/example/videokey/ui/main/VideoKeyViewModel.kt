@@ -667,18 +667,36 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                             if (sfItem != null) {
                                 contentDownloadManager.downloadItem(sfItem)
                             }
+                        } else if (!contentDownloadManager.isBackgroundVideoInstalled()) {
+                            val bgItem = contentDownloadManager.getAvailableCatalog().find { it.id == "all_backgrounds" }
+                            if (bgItem != null) {
+                                contentDownloadManager.downloadItem(bgItem)
+                            }
                         } else {
                             passStartupGate()
                         }
                     } else if (status.itemId == "all_soundfonts") {
                         scanSongFolder(File(_uiState.value.currentSongFolder))
-                        if (contentDownloadManager.hasAnySongsInstalled() || repository.getTotalSongsCount() > 0) {
-                            passStartupGate()
-                        } else {
+                        val hasSongs = contentDownloadManager.hasAnySongsInstalled() || repository.getTotalSongsCount() > 0
+                        if (!hasSongs) {
                             val songsItem = contentDownloadManager.getAvailableCatalog().find { it.id == "core_songs" }
                             if (songsItem != null) {
                                 contentDownloadManager.downloadItem(songsItem)
                             }
+                        } else if (!contentDownloadManager.isBackgroundVideoInstalled()) {
+                            val bgItem = contentDownloadManager.getAvailableCatalog().find { it.id == "all_backgrounds" }
+                            if (bgItem != null) {
+                                contentDownloadManager.downloadItem(bgItem)
+                            }
+                        } else {
+                            passStartupGate()
+                        }
+                    } else if (status.itemId == "all_backgrounds") {
+                        scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder), forcePickVideo = true)
+                        val hasSongs = contentDownloadManager.hasAnySongsInstalled() || repository.getTotalSongsCount() > 0
+                        val hasSf = contentDownloadManager.isSoundFontInstalled()
+                        if (hasSongs && hasSf) {
+                            passStartupGate()
                         }
                     } else {
                         scanSongFolder(File(_uiState.value.currentSongFolder))
@@ -689,30 +707,18 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
         refreshDownloadCatalog()
 
-        // Startup Gate: check if required soundfont & songs exist on device
+        // Startup Gate: check if required soundfont, songs & background video exist on device
         val hasSongs = repository.getTotalSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()
         val hasSf = contentDownloadManager.isSoundFontInstalled()
+        val hasBg = contentDownloadManager.isBackgroundVideoInstalled()
         val isSetupDone = prefs.getBoolean("is_initial_setup_completed", false)
 
-        val gatePassed = hasSongs && hasSf && isSetupDone
+        val gatePassed = hasSongs && hasSf && hasBg && isSetupDone
         _uiState.update { it.copy(isStartupGatePassed = gatePassed) }
 
         if (!gatePassed) {
-            // Automatically launch download of missing core items
-            viewModelScope.launch {
-                delay(600)
-                if (!hasSf) {
-                    val sfItem = contentDownloadManager.getAvailableCatalog().find { it.id == "all_soundfonts" }
-                    if (sfItem != null) {
-                        contentDownloadManager.downloadItem(sfItem)
-                    }
-                } else if (!hasSongs) {
-                    val songsItem = contentDownloadManager.getAvailableCatalog().find { it.id == "core_songs" }
-                    if (songsItem != null) {
-                        contentDownloadManager.downloadItem(songsItem)
-                    }
-                }
-            }
+            // Automatically launch sequential auto-download of missing SoundFont, Songs, and Background Video
+            startSequentialAutoDownload()
         }
 
         // Background OTA Update Check across any internet connection (Wi-Fi, Data)
@@ -2017,7 +2023,66 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private var autoDownloadJob: kotlinx.coroutines.Job? = null
+
+    fun startSequentialAutoDownload() {
+        autoDownloadJob?.cancel()
+        autoDownloadJob = viewModelScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(500)
+            val catalog = contentDownloadManager.getAvailableCatalog()
+            val sfItem = catalog.find { it.id == "all_soundfonts" }
+            val songsItem = catalog.find { it.id == "core_songs" }
+            val bgItem = catalog.find { it.id == "all_backgrounds" }
+
+            // 1. Check & download SoundFont if missing
+            if (!contentDownloadManager.isSoundFontInstalled() && sfItem != null) {
+                val deferred = kotlinx.coroutines.CompletableDeferred<Boolean>()
+                contentDownloadManager.downloadItem(sfItem) {
+                    deferred.complete(true)
+                }
+                deferred.await()
+                scanSongFolder(File(_uiState.value.currentSongFolder))
+                refreshDownloadCatalog()
+            }
+
+            // 2. Check & download Songs if missing
+            val songsExist = repository.getTotalSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()
+            if (!songsExist && songsItem != null) {
+                val deferred = kotlinx.coroutines.CompletableDeferred<Boolean>()
+                contentDownloadManager.downloadItem(songsItem) {
+                    deferred.complete(true)
+                }
+                deferred.await()
+                scanSongFolder(File(_uiState.value.currentSongFolder))
+                refreshDownloadCatalog()
+            }
+
+            // 3. Check & download Background Video if missing
+            if (!contentDownloadManager.isBackgroundVideoInstalled() && bgItem != null) {
+                val deferred = kotlinx.coroutines.CompletableDeferred<Boolean>()
+                contentDownloadManager.downloadItem(bgItem) {
+                    deferred.complete(true)
+                }
+                deferred.await()
+                scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder))
+                refreshDownloadCatalog()
+            }
+
+            // Final check: if all 3 are now fully installed, pass startup gate automatically!
+            val allReady = contentDownloadManager.isSoundFontInstalled() &&
+                    (repository.getTotalSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()) &&
+                    contentDownloadManager.isBackgroundVideoInstalled()
+
+            if (allReady) {
+                prefs.edit().putBoolean("is_initial_setup_completed", true).apply()
+                _uiState.update { it.copy(isStartupGatePassed = true) }
+                scanInternalStorage(getApplication())
+            }
+        }
+    }
+
     fun cancelContentDownload() {
+        autoDownloadJob?.cancel()
         contentDownloadManager.cancelCurrentDownload()
     }
 

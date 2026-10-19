@@ -109,11 +109,14 @@ fun VideoKeyScreen(
     if (!state.isStartupGatePassed) {
         val hasSoundFont = viewModel.contentDownloadManager.isSoundFontInstalled()
         val hasSongs = state.searchResults.isNotEmpty() || viewModel.contentDownloadManager.hasAnySongsInstalled()
+        val hasBackgrounds = viewModel.contentDownloadManager.isBackgroundVideoInstalled()
         StartupDownloadGateScreen(
             state = state,
             hasSoundFont = hasSoundFont,
             hasSongs = hasSongs,
+            hasBackgrounds = hasBackgrounds,
             onStartDownload = { viewModel.downloadContentItem(it) },
+            onStartSequentialDownload = { viewModel.startSequentialAutoDownload() },
             onCancelDownload = { viewModel.cancelContentDownload() },
             onOpenApp = { viewModel.passStartupGate() },
             modifier = modifier.fillMaxSize()

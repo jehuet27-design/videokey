@@ -34,7 +34,9 @@ fun StartupDownloadGateScreen(
     state: VideoKeyUiState,
     hasSoundFont: Boolean,
     hasSongs: Boolean,
+    hasBackgrounds: Boolean,
     onStartDownload: (ContentDownloadManager.DownloadItem) -> Unit,
+    onStartSequentialDownload: () -> Unit = {},
     onCancelDownload: () -> Unit,
     onOpenApp: () -> Unit,
     modifier: Modifier = Modifier
@@ -42,13 +44,14 @@ fun StartupDownloadGateScreen(
     val theme = state.appTheme
     val isTagalog = state.appLanguage == AppLanguage.TAGALOG
 
-    val isAllReady = hasSoundFont && hasSongs
+    val isAllReady = hasSoundFont && hasSongs && hasBackgrounds
     val downloadStatus = state.downloadStatus
     val isDownloading = downloadStatus is ContentDownloadManager.DownloadStatus.Downloading
     val isExtracting = downloadStatus is ContentDownloadManager.DownloadStatus.Extracting
 
     val sfItem = state.downloadCatalog.find { it.id == "all_soundfonts" }
     val songsItem = state.downloadCatalog.find { it.id == "core_songs" }
+    val bgItem = state.downloadCatalog.find { it.id == "all_backgrounds" }
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseGlow by infiniteTransition.animateFloat(
@@ -111,9 +114,9 @@ fun StartupDownloadGateScreen(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (isTagalog)
-                        "Kinakailangang ma-download muna ang SoundFont at mga kanta bago mabuksan ang app. Isang beses lang ito idodownload."
+                        "Awtomatikong dina-download ang kinakailangang SoundFont, mga kanta, at background video para sa unang paggamit. Isang beses lang ito idodownload."
                     else
-                        "Required SoundFont audio bank and songs must be downloaded before opening the player. Only needed once.",
+                        "Automatically downloading required SoundFont, songs, and background video for initial setup. Only needed once.",
                     fontSize = 11.5.sp,
                     color = Color(theme.textMutedColor),
                     fontFamily = FontFamily.SansSerif,
@@ -142,6 +145,17 @@ fun StartupDownloadGateScreen(
                 isInstalled = hasSongs,
                 isCurrentlyDownloading = isDownloading && (downloadStatus as? ContentDownloadManager.DownloadStatus.Downloading)?.itemId == "core_songs",
                 isCurrentlyExtracting = isExtracting && (downloadStatus as? ContentDownloadManager.DownloadStatus.Extracting)?.itemId == "core_songs",
+                theme = theme,
+                isTagalog = isTagalog
+            )
+
+            // Item 3: HD Background Videos Pack
+            GateItemCard(
+                title = "🎬 HD Background Videos Pack",
+                subtitle = "204 MB • HD Drone Shoot nature backgrounds para sa videoke stage",
+                isInstalled = hasBackgrounds,
+                isCurrentlyDownloading = isDownloading && (downloadStatus as? ContentDownloadManager.DownloadStatus.Downloading)?.itemId == "all_backgrounds",
+                isCurrentlyExtracting = isExtracting && (downloadStatus as? ContentDownloadManager.DownloadStatus.Extracting)?.itemId == "all_backgrounds",
                 theme = theme,
                 isTagalog = isTagalog
             )
@@ -264,13 +278,7 @@ fun StartupDownloadGateScreen(
                 }
             } else {
                 Button(
-                    onClick = {
-                        if (!hasSoundFont && sfItem != null) {
-                            onStartDownload(sfItem)
-                        } else if (!hasSongs && songsItem != null) {
-                            onStartDownload(songsItem)
-                        }
-                    },
+                    onClick = onStartSequentialDownload,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier

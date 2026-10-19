@@ -139,20 +139,52 @@ class ContentDownloadManager(private val context: Context) {
     }
 
     /**
-     * Checks if Dream SAM2634 or MegaPro SoundFont is installed.
+     * Checks if VideoKey Studio Minus-One, Dream SAM2634, or MegaPro SoundFont is installed.
      */
     fun isSoundFontInstalled(): Boolean {
         val base = getBaseStorageDir()
+        val minusOneSf = File(base, "SoundFont/VideoKey_Studio_Minus1.sf2")
         val dreamSf = File(base, "SoundFont/Dream SAM2634 (ver. 2.1).sf2")
         val megaSf = File(base, "SoundFont/mega.sf2")
+        val altMinusOne = File("/storage/emulated/0/SongHub/SoundFont/VideoKey_Studio_Minus1.sf2")
         val altDream = File("/storage/emulated/0/SongHub/SoundFont/Dream SAM2634 (ver. 2.1).sf2")
         val altMega = File("/storage/emulated/0/SongHub/SoundFont/mega.sf2")
         val legacy = File(base, "SoundFont/songhub.sf2")
-        return (dreamSf.exists() && dreamSf.length() > 1024) ||
+        return (minusOneSf.exists() && minusOneSf.length() > 1024) ||
+               (dreamSf.exists() && dreamSf.length() > 1024) ||
                (megaSf.exists() && megaSf.length() > 1024) ||
+               (altMinusOne.exists() && altMinusOne.length() > 1024) ||
                (altDream.exists() && altDream.length() > 1024) ||
                (altMega.exists() && altMega.length() > 1024) ||
                (legacy.exists() && legacy.length() > 1024)
+    }
+
+    /**
+     * Checks if background video (e.g. Drone Shoot or any mp4 video in backgrounds/videos folder) is installed.
+     */
+    fun isBackgroundVideoInstalled(): Boolean {
+        val base = getBaseStorageDir()
+        val drone = File(base, "backgrounds/DRONE_SHOOT.mp4")
+        if (drone.exists() && drone.length() > 1024) return true
+        val altDrone = File("/storage/emulated/0/SongHub/backgrounds/DRONE_SHOOT.mp4")
+        if (altDrone.exists() && altDrone.length() > 1024) return true
+
+        val bgDir = File(base, "backgrounds")
+        if (bgDir.exists() && (bgDir.listFiles()?.any { it.name.endsWith(".mp4", ignoreCase = true) && it.length() > 1024 } == true)) {
+            return true
+        }
+
+        val altBgDir = File("/storage/emulated/0/SongHub/backgrounds")
+        if (altBgDir.exists() && (altBgDir.listFiles()?.any { it.name.endsWith(".mp4", ignoreCase = true) && it.length() > 1024 } == true)) {
+            return true
+        }
+
+        val vidDir = File(base, "videos")
+        if (vidDir.exists() && (vidDir.listFiles()?.any { it.name.endsWith(".mp4", ignoreCase = true) && it.length() > 1024 } == true)) {
+            return true
+        }
+
+        return false
     }
 
     /**
