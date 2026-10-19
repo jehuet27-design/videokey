@@ -6568,7 +6568,12 @@ fun KaraokeVideoPlayer(
                             if (isPlayerPrepared && mp.isPlaying) mp.pause()
                         }
                         androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
-                            if (isPlayerPrepared && !mp.isPlaying && videoPath.isNotBlank()) mp.start()
+                            if (isPlayerPrepared && !mp.isPlaying && videoPath.isNotBlank()) {
+                                mp.start()
+                                if (isMuted) {
+                                    mp.setVolume(0.0f, 0.0f)
+                                }
+                            }
                         }
                         else -> {}
                     }
@@ -6634,12 +6639,14 @@ fun KaraokeVideoPlayer(
         isPlayerPrepared = false
         val mp = MediaPlayer().apply {
             try {
-                setAudioAttributes(
-                    android.media.AudioAttributes.Builder()
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                        .build()
-                )
+                if (!isMuted) {
+                    setAudioAttributes(
+                        android.media.AudioAttributes.Builder()
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                            .build()
+                    )
+                }
                 setDataSource(file.absolutePath)
                 setSurface(surface)
                 setVolume(if (isMuted) 0f else 1f, if (isMuted) 0f else 1f)
@@ -6686,6 +6693,9 @@ fun KaraokeVideoPlayer(
                     }
                     try {
                         preparedMp.start()
+                        if (isMuted) {
+                            preparedMp.setVolume(0.0f, 0.0f)
+                        }
                     } catch (e: Exception) {
                         Log.w("VideoPlayer", "Error starting prepared video", e)
                     }
