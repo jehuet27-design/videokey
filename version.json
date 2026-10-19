@@ -1,7 +1,7 @@
 {
-  "versionCode": 3,
-  "versionName": "2.1",
-  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.1/VideoKey.apk",
-  "forceUpdate": true,
-  "releaseNotes": "🎉 VIDEOKEY V2.1 PERFORMANCE UPDATE:\n• 100% Buttery-smooth lyric highlight na walang lag o stutter\n• Hardware-accelerated background video player na walang frame drops\n• Full Android TV Mode na may Verdana Wide lyrics\n• Instant side-by-side songbook search habang tumutugtog ang kanta"
+  "versionCode": 5,
+  "versionName": "2.5",
+  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.5/VideoKey-v2.5.apk",
+  "forceUpdate": false,
+  "releaseNotes": "🎉 VIDEOKEY V2.5 UPDATE:\n• Videoke 4-Dots countdown na nawawala mula kanan pakaliwa (4 -> 3 -> 2 -> 1)\n• Mas malinaw at pantay-pantay na laki ng lyrics na hindi lumalagpas sa screen\n• VIP Activation details (₱99 lamang, One-time lifetime access)\n• Mas maayos na Karaoke Studio controls na walang scroll"
 }
