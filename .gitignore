@@ -17,3 +17,5 @@ local.properties
 *.vkpack
 *.apk
 backgrounds_device/
+*.png
+*.py

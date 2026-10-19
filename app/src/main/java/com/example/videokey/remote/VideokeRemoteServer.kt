@@ -242,6 +242,14 @@ class VideokeRemoteServer(
                         viewModel.setAppTheme(AppTheme.valueOf(themeName))
                     } catch (e: Exception) {}
                 }
+                "tab" -> {
+                    val tabIdx = params["index"]?.toIntOrNull() ?: params["tab"]?.toIntOrNull() ?: 0
+                    viewModel.selectBottomNavTab(tabIdx)
+                }
+                "filter", "category" -> {
+                    val cat = params["cat"] ?: params["category"] ?: "ALL"
+                    viewModel.selectCategoryFilter(cat)
+                }
                 "font_family" -> {
                     val fontName = params["font"]?.uppercase() ?: ""
                     try {
@@ -275,6 +283,8 @@ class VideokeRemoteServer(
                         viewModel.setLyricLineCount(LyricLineCount.TWO_LINES)
                     }
                 }
+                "open_lyric_dialog" -> viewModel.openLyricStyleDialog()
+                "close_lyric_dialog" -> viewModel.closeLyricStyleDialog()
                 "toggle_mic_scoring" -> {
                     val enabled = params["enabled"]?.toBooleanStrictOrNull() ?: !viewModel.uiState.value.isMicScoringEnabled
                     viewModel.toggleMicScoring(enabled)

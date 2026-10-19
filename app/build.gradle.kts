@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.videokey"
         minSdk = 24
         targetSdk = 36
-        versionCode = 3
-        versionName = "2.1"
+        versionCode = 5
+        versionName = "2.5"
     }
 
     buildTypes {

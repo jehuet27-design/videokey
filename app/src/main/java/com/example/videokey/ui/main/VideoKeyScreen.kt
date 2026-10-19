@@ -6,6 +6,7 @@ import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -51,6 +53,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.webkit.WebChromeClient
 import java.io.File
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,10 +76,49 @@ fun VideoKeyScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = context as? android.app.Activity
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE || state.isTvMode
+    val isTagalog = state.appLanguage == AppLanguage.TAGALOG
 
     // Automatically trigger internal storage scan on app launch
     LaunchedEffect(Unit) {
         viewModel.scanInternalStorage(context)
+    }
+
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
+
+    androidx.activity.compose.BackHandler(enabled = true) {
+        when {
+            showExitConfirmDialog -> showExitConfirmDialog = false
+            state.isYouTubeDownloaderOpen -> viewModel.closeYouTubeDownloader()
+            state.isSettingsDialogOpen -> viewModel.closeSettingsDialog()
+            state.isAudioMixerDialogOpen -> viewModel.closeAudioMixerDialog()
+            state.isSoundFontDialogOpen -> viewModel.closeSoundFontDialog()
+            state.isBackgroundDialogOpen -> viewModel.closeBackgroundDialog()
+            state.isLyricStyleDialogOpen -> viewModel.closeLyricStyleDialog()
+            state.isRecordingsDialogOpen -> viewModel.closeRecordingsDialog()
+            state.isSongFolderPickerOpen -> viewModel.closeSongFolderPicker()
+            state.showScoreModal -> viewModel.closeScoreModal()
+            state.isSongbookOpen -> viewModel.closeSongbook()
+            state.isReserveQueueOpen -> viewModel.closeReserveQueueOverlay()
+            state.isFavoritesOpen -> viewModel.closeFavoritesOverlay()
+            state.isTvMode -> viewModel.exitLandscapeMode(activity)
+            state.selectedBottomNavTab != 0 -> viewModel.selectBottomNavTab(0)
+            else -> showExitConfirmDialog = true
+        }
+    }
+
+    if (!state.isStartupGatePassed) {
+        val hasSoundFont = viewModel.contentDownloadManager.isSoundFontInstalled()
+        val hasSongs = state.searchResults.isNotEmpty() || viewModel.contentDownloadManager.hasAnySongsInstalled()
+        StartupDownloadGateScreen(
+            state = state,
+            hasSoundFont = hasSoundFont,
+            hasSongs = hasSongs,
+            onStartDownload = { viewModel.downloadContentItem(it) },
+            onCancelDownload = { viewModel.cancelContentDownload() },
+            onOpenApp = { viewModel.passStartupGate() },
+            modifier = modifier.fillMaxSize()
+        )
+        return
     }
 
     Box(
@@ -91,6 +135,7 @@ fun VideoKeyScreen(
                     viewModel.exitLandscapeMode(activity)
                 },
                 onTriggerScore = { viewModel.triggerScoreModal() },
+                onSongCompleted = { viewModel.onSongCompleted() },
                 onOpenSongbook = {
                     if (state.isSongbookOpen) viewModel.closeSongbook() else viewModel.openSongbook()
                 },
@@ -113,6 +158,7 @@ fun VideoKeyScreen(
                 onOpenLyricStyleDialog = { viewModel.openLyricStyleDialog() },
                 onOpenAudioMixerDialog = { viewModel.openAudioMixerDialog() },
                 onOpenSettingsDialog = { viewModel.openSettingsDialog() },
+                onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() },
                 onAdvanceBackground = { viewModel.advanceNextBackground() },
                 onPlay = { viewModel.onPlay() },
                 onNext = { viewModel.onNext() },
@@ -125,92 +171,154 @@ fun VideoKeyScreen(
                 onAdjustKey = { viewModel.adjustKey(it) },
                 onAdjustTempo = { viewModel.adjustTempo(it) },
                 onAdjustMelody = { viewModel.adjustMelody(it) },
+                onStopYouTubeStream = { viewModel.stopYouTubeKaraokeDirect(activity) },
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            // Split-Screen Portrait Mode for Android Phone
+            // SingPulse Modern Multi-Tab Layout for Android Phone (Portrait)
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Top Half: Videoke TV Screen
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
-                    VideokeTvScreen(
-                        state = state,
-                        isLandscape = false,
-                        onToggleTvMode = { viewModel.enterTvLandscapeMode(activity) },
-                        onTriggerScore = { viewModel.triggerScoreModal() },
-                        onOpenSongbook = {
-                            if (state.isSongbookOpen) viewModel.closeSongbook() else viewModel.openSongbook()
-                        },
-                        onCloseSongbook = { viewModel.closeSongbook() },
-                        onToggleReserveQueue = { viewModel.toggleReserveQueueOverlay() },
-                        onCloseReserveQueue = { viewModel.closeReserveQueueOverlay() },
-                        onRemoveReservedSong = { viewModel.removeFromReserveQueue(it) },
-                        onPlayReservedSong = { viewModel.playFromReserveQueue(it) },
-                        onToggleFavorites = { viewModel.toggleFavoritesOverlay() },
-                        onCloseFavorites = { viewModel.closeFavoritesOverlay() },
-                        onToggleFavoriteSong = { viewModel.toggleFavoriteSong(it) },
-                        onOpenRecordingsDialog = { viewModel.openRecordingsDialog() },
-                        onToggleSongbookFilter = { viewModel.toggleSongbookFilter(it) },
-                        onOpenSongFolderLocator = { viewModel.openSongFolderPicker() },
-                        onQuerySongbook = { viewModel.searchSongbook(it) },
-                        onSelectSongFromBook = { viewModel.selectSong(it) },
-                        onReserveSongFromBook = { viewModel.reserveSong(it) },
-                        onOpenSoundFontDialog = { viewModel.openSoundFontDialog() },
-                        onOpenBackgroundDialog = { viewModel.openBackgroundDialog() },
-                        onOpenLyricStyleDialog = { viewModel.openLyricStyleDialog() },
-                        onOpenAudioMixerDialog = { viewModel.openAudioMixerDialog() },
-                        onOpenSettingsDialog = { viewModel.openSettingsDialog() },
-                        onAdvanceBackground = { viewModel.advanceNextBackground() },
-                        onPlay = { viewModel.onPlay() },
-                        onNext = { viewModel.onNext() },
-                        onStop = { viewModel.onStop() },
-                        onDigit = { viewModel.onDigitPressed(it) },
-                        onClear = { viewModel.onClearCode() },
-                        onDelete = { viewModel.onDeleteDigit() },
-                        onReserve = { viewModel.onReserve() },
-                        onRButtonPressed = { viewModel.onRButtonPressed() },
-                        onAdjustKey = { viewModel.adjustKey(it) },
-                        onAdjustTempo = { viewModel.adjustTempo(it) },
-                        onAdjustMelody = { viewModel.adjustMelody(it) },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    when (state.selectedBottomNavTab) {
+                        0 -> {
+                            // TAB 0: HOME SCREEN (SingPulse Discovery, Categories, Featured Hit, Trending)
+                            SingPulseHomeScreen(
+                                state = state,
+                                onQueryChange = { viewModel.searchSongbook(it) },
+                                onSelectCategory = { viewModel.selectCategoryFilter(it) },
+                                onPlaySong = { viewModel.playSong(it) },
+                                onReserveSong = { viewModel.reserveSong(it) },
+                                onEnterTvMode = { viewModel.enterTvLandscapeMode(activity) },
+                                onOpenProfile = { viewModel.selectBottomNavTab(3) },
+                                onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() }
+                            )
+                        }
+                        1 -> {
+                            // TAB 1: SING (Split-Screen Player: Top TV lyrics + Bottom Keypad Remote Console)
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                ) {
+                                    VideokeTvScreen(
+                                        state = state,
+                                        isLandscape = false,
+                                        onToggleTvMode = { viewModel.enterTvLandscapeMode(activity) },
+                                        onTriggerScore = { viewModel.triggerScoreModal() },
+                                        onSongCompleted = { viewModel.onSongCompleted() },
+                                        onOpenSongbook = {
+                                            if (state.isSongbookOpen) viewModel.closeSongbook() else viewModel.openSongbook()
+                                        },
+                                        onCloseSongbook = { viewModel.closeSongbook() },
+                                        onToggleReserveQueue = { viewModel.toggleReserveQueueOverlay() },
+                                        onCloseReserveQueue = { viewModel.closeReserveQueueOverlay() },
+                                        onRemoveReservedSong = { viewModel.removeFromReserveQueue(it) },
+                                        onPlayReservedSong = { viewModel.playFromReserveQueue(it) },
+                                        onToggleFavorites = { viewModel.toggleFavoritesOverlay() },
+                                        onCloseFavorites = { viewModel.closeFavoritesOverlay() },
+                                        onToggleFavoriteSong = { viewModel.toggleFavoriteSong(it) },
+                                        onOpenRecordingsDialog = { viewModel.openRecordingsDialog() },
+                                        onToggleSongbookFilter = { viewModel.toggleSongbookFilter(it) },
+                                        onOpenSongFolderLocator = { viewModel.openSongFolderPicker() },
+                                        onQuerySongbook = { viewModel.searchSongbook(it) },
+                                        onSelectSongFromBook = { viewModel.selectSong(it) },
+                                        onReserveSongFromBook = { viewModel.reserveSong(it) },
+                                        onOpenSoundFontDialog = { viewModel.openSoundFontDialog() },
+                                        onOpenBackgroundDialog = { viewModel.openBackgroundDialog() },
+                                        onOpenLyricStyleDialog = { viewModel.openLyricStyleDialog() },
+                                        onOpenAudioMixerDialog = { viewModel.openAudioMixerDialog() },
+                                        onOpenSettingsDialog = { viewModel.openSettingsDialog() },
+                                        onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() },
+                                        onAdvanceBackground = { viewModel.advanceNextBackground() },
+                                        onPlay = { viewModel.onPlay() },
+                                        onNext = { viewModel.onNext() },
+                                        onStop = { viewModel.onStop() },
+                                        onDigit = { viewModel.onDigitPressed(it) },
+                                        onClear = { viewModel.onClearCode() },
+                                        onDelete = { viewModel.onDeleteDigit() },
+                                        onReserve = { viewModel.onReserve() },
+                                        onRButtonPressed = { viewModel.onRButtonPressed() },
+                                        onAdjustKey = { viewModel.adjustKey(it) },
+                                        onAdjustTempo = { viewModel.adjustTempo(it) },
+                                        onAdjustMelody = { viewModel.adjustMelody(it) },
+                                        onStopYouTubeStream = { viewModel.stopYouTubeKaraokeDirect(activity) },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+
+                                if (!state.isPlayingYouTubeStream) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .wrapContentHeight()
+                                    ) {
+                                        VideokeRemoteConsole(
+                                            state = state,
+                                            onDigit = { viewModel.onDigitPressed(it) },
+                                            onClear = { viewModel.onClearCode() },
+                                            onDelete = { viewModel.onDeleteDigit() },
+                                            onReserve = { viewModel.onRButtonPressed() },
+                                            onPlay = { viewModel.onPlay() },
+                                            onNext = { viewModel.onNext() },
+                                            onStop = { viewModel.onStop() },
+                                            onOpenSongbook = {
+                                                if (state.isSongbookOpen) viewModel.closeSongbook() else viewModel.openSongbook()
+                                            },
+                                            onToggleReserveQueue = { viewModel.toggleReserveQueueOverlay() },
+                                            onToggleFavorites = { viewModel.toggleFavoritesOverlay() },
+                                            onOpenRecordingsDialog = { viewModel.openRecordingsDialog() },
+                                            onOpenSoundFontDialog = { viewModel.openSoundFontDialog() },
+                                            onOpenBackgroundDialog = { viewModel.openBackgroundDialog() },
+                                            onOpenLyricStyleDialog = { viewModel.openLyricStyleDialog() },
+                                            onOpenAudioMixerDialog = { viewModel.openAudioMixerDialog() },
+                                            onToggleTvMode = { viewModel.enterTvLandscapeMode(activity) },
+                                            onOpenSettingsDialog = { viewModel.openSettingsDialog() },
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        2 -> {
+                            // TAB 2: SAVED (Reserved Queue & Favorites)
+                            SingPulseSavedScreen(
+                                state = state,
+                                onPlaySong = { viewModel.playSong(it) },
+                                onRemoveReserved = { viewModel.removeFromReserveQueue(it) }
+                            )
+                        }
+                        3 -> {
+                            // TAB 3: PROFILE & STUDIO SETTINGS
+                            SingPulseProfileScreen(
+                                state = state,
+                                onEnterTvMode = { viewModel.enterTvLandscapeMode(activity) },
+                                onOpenSoundFontDialog = { viewModel.openSoundFontDialog() },
+                                onOpenAudioMixerDialog = { viewModel.openAudioMixerDialog() },
+                                onOpenBackgroundDialog = { viewModel.openBackgroundDialog() },
+                                onOpenSettingsDialog = { viewModel.openSettingsDialog() },
+                                onSelectTheme = { viewModel.setAppTheme(it) },
+                                onToggleRecording = { viewModel.toggleRecording() },
+                                onSelectLanguage = { viewModel.setAppLanguage(it) }
+                            )
+                        }
+                    }
                 }
 
-                // Bottom Half: Videoke Machine Remote Console (Clean Keypad + Icon-only Controls)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                ) {
-                    VideokeRemoteConsole(
-                        state = state,
-                        onDigit = { viewModel.onDigitPressed(it) },
-                        onClear = { viewModel.onClearCode() },
-                        onDelete = { viewModel.onDeleteDigit() },
-                        onReserve = { viewModel.onRButtonPressed() },
-                        onPlay = { viewModel.onPlay() },
-                        onNext = { viewModel.onNext() },
-                        onStop = { viewModel.onStop() },
-                        onOpenSongbook = {
-                            if (state.isSongbookOpen) viewModel.closeSongbook() else viewModel.openSongbook()
-                        },
-                        onToggleReserveQueue = { viewModel.toggleReserveQueueOverlay() },
-                        onToggleFavorites = { viewModel.toggleFavoritesOverlay() },
-                        onOpenRecordingsDialog = { viewModel.openRecordingsDialog() },
-                        onOpenSoundFontDialog = { viewModel.openSoundFontDialog() },
-                        onOpenBackgroundDialog = { viewModel.openBackgroundDialog() },
-                        onOpenLyricStyleDialog = { viewModel.openLyricStyleDialog() },
-                        onOpenAudioMixerDialog = { viewModel.openAudioMixerDialog() },
-                        onToggleTvMode = { viewModel.enterTvLandscapeMode(activity) },
-                        onOpenSettingsDialog = { viewModel.openSettingsDialog() },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                // SingPulse Bottom Navigation Bar (Always available in Portrait mode!)
+                SingPulseBottomNavBar(
+                    selectedTab = state.selectedBottomNavTab,
+                    isPlaying = state.isPlaying,
+                    reserveCount = state.reserveQueue.size,
+                    theme = state.appTheme,
+                    isTagalog = state.appLanguage == AppLanguage.TAGALOG,
+                    onSelectTab = { viewModel.selectBottomNavTab(it) }
+                )
             }
         }
 
@@ -260,6 +368,10 @@ fun VideoKeyScreen(
                 state = state,
                 isLandscape = isLandscape,
                 onToggleMicScoring = { viewModel.toggleMicScoring(it) },
+                onSelectScoreMode = { viewModel.setScoreMode(it) },
+                onSelectScoringDifficulty = { viewModel.setScoringDifficulty(it) },
+                onSelectFanfareSoundLevel = { viewModel.setFanfareSoundLevel(it) },
+                onTestFanfare = { viewModel.testScoringFanfare() },
                 onToggleScoringSound = { viewModel.toggleScoringSound(it) },
                 onAdjustMicSensitivity = { viewModel.setMicSensitivity(it) },
                 onToggleKeypadVoice = { viewModel.toggleKeypadVoice(it) },
@@ -316,6 +428,7 @@ fun VideoKeyScreen(
                 config = state.lyricConfig,
                 isLandscape = isLandscape,
                 isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG,
+                theme = state.appTheme,
                 onSelectFontFamily = { viewModel.setLyricFontFamily(it) },
                 onSelectWipeColor = { viewModel.setLyricWipeColor(it) },
                 onSelectShadowStyle = { viewModel.setLyricShadowStyle(it) },
@@ -323,8 +436,14 @@ fun VideoKeyScreen(
                 onToggleAllCaps = { viewModel.toggleLyricAllCaps() },
                 onToggleItalic = { viewModel.toggleLyricItalic() },
                 onAdjustFontScale = { viewModel.setLyricFontScale(it) },
+                onAdjustOutlineThickness = { viewModel.setLyricOutlineThickness(it) },
+                onAdjustFontSize = { port, land -> viewModel.setLyricFontSize(port, land) },
+                onAdjustLineSpacing = { viewModel.setLyricLineSpacing(it) },
+                onToggleDropShadow = { viewModel.toggleLyricDropShadow(!state.lyricConfig.hasDropShadow) },
                 onSelectLineCount = { viewModel.setLyricLineCount(it) },
                 onSelectPosition = { viewModel.setLyricPosition(it) },
+                onSelectCountdownMode = { viewModel.setLyricCountdownMode(it) },
+                onAdjustTimingOffset = { viewModel.setLyricTimingOffset(it) },
                 onApplyPreset = { viewModel.applyLyricPreset(it) },
                 onDismiss = { viewModel.closeLyricStyleDialog() }
             )
@@ -337,10 +456,15 @@ fun VideoKeyScreen(
                 selectedBackground = state.selectedBackground,
                 changeMode = state.backgroundChangeMode,
                 currentBackgroundFolder = state.currentBackgroundFolder,
+                bgVisualMode = state.bgVisualMode,
+                continuousVideoChangePerSong = state.continuousVideoChangePerSong,
                 isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG,
+                theme = state.appTheme,
                 onOpenFolderLocator = { viewModel.openBgFolderPicker() },
                 onSelectBackground = { viewModel.selectBackground(it) },
                 onChangeMode = { viewModel.setBackgroundChangeMode(it) },
+                onSelectBgVisualMode = { viewModel.setBackgroundVisualMode(it) },
+                onToggleContinuousVideoChangePerSong = { viewModel.toggleContinuousVideoChangePerSong(it) },
                 onRescanMedia = { viewModel.scanBackgroundMedia() },
                 onDismiss = { viewModel.closeBackgroundDialog() }
             )
@@ -352,6 +476,7 @@ fun VideoKeyScreen(
                 soundFonts = state.availableSoundFonts,
                 activeSoundFont = state.activeSoundFontName,
                 isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG,
+                theme = state.appTheme,
                 onSelectSoundFont = { viewModel.selectSoundFont(it) },
                 onScanStorage = { viewModel.scanInternalStorage(context) },
                 onDismiss = { viewModel.closeSoundFontDialog() }
@@ -393,8 +518,414 @@ fun VideoKeyScreen(
             ScoreCelebrationDialog(
                 score = state.score,
                 isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG,
+                theme = state.appTheme,
                 onDismiss = { viewModel.closeScoreModal() }
             )
+        }
+
+        // YouTube Downloader Modal
+        if (state.isYouTubeDownloaderOpen) {
+            YouTubeDownloaderDialog(
+                state = state,
+                onSearch = { viewModel.searchYouTube(it) },
+                onPlayDirect = { viewModel.playYouTubeKaraokeDirect(it) },
+                onDownloadSong = { viewModel.downloadYouTubeSong(it) },
+                onDownloadBackground = { viewModel.downloadYouTubeBackground(it) },
+                onPlayDownloadedSong = { song ->
+                    viewModel.closeYouTubeDownloader()
+                    viewModel.playSong(song)
+                },
+                onDeleteDownloadedSong = { song ->
+                    viewModel.deleteDownloadedMp4Song(song)
+                },
+                onActivateVip = { key ->
+                    viewModel.activateVip(key)
+                },
+                onClearVipError = {
+                    viewModel.clearVipActivationError()
+                },
+                onDismiss = { viewModel.closeYouTubeDownloader() }
+            )
+        }
+
+        // Exit Confirmation Dialog
+        if (showExitConfirmDialog) {
+            ExitConfirmDialog(
+                isTagalog = isTagalog,
+                primaryColor = state.appTheme.primaryColor,
+                onConfirmExit = {
+                    showExitConfirmDialog = false
+                    activity?.finishAffinity()
+                },
+                onDismiss = {
+                    showExitConfirmDialog = false
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Ad-Free, Hardware-Accelerated Responsive YouTube Karaoke Stream Player.
+ * Automatically fits the player screen cleanly, continuously auto-skips any ads,
+ * and allows instant singing without waiting for the file to download!
+ */
+@Composable
+fun AdFreeYouTubeStreamPlayer(
+    videoId: String,
+    title: String,
+    theme: AppTheme,
+    onStop: () -> Unit,
+    onScore: () -> Unit,
+    onToggleLandscape: (() -> Unit)? = null,
+    isLandscape: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val embedHtml = remember(videoId) {
+        """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <style>
+                * {
+                    box-sizing: border-box;
+                    margin: 0;
+                    padding: 0;
+                }
+                html, body {
+                    width: 100%;
+                    height: 100%;
+                    background-color: #000000;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .player-box {
+                    position: relative;
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background-color: #000000;
+                }
+                iframe {
+                    width: 100%;
+                    height: 100%;
+                    border: 0;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="player-box">
+                <iframe 
+                    id="yt-player"
+                    src="https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&mute=0&controls=1&enablejsapi=1&playsinline=1&rel=0&iv_load_policy=3&modestbranding=1"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen>
+                </iframe>
+            </div>
+            <script>
+                function triggerPlay() {
+                    try {
+                        var f = document.getElementById('yt-player');
+                        if (f && f.contentWindow) {
+                            f.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                        }
+                    } catch(e) {}
+                }
+                setTimeout(triggerPlay, 600);
+                setTimeout(triggerPlay, 1500);
+                setTimeout(triggerPlay, 3000);
+
+                // Auto Ad Skip
+                setInterval(function() {
+                    try {
+                        var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button.ytp-ad-overlay-close-button');
+                        if (skipBtn) skipBtn.click();
+                        var adOverlays = document.querySelectorAll('.video-ads, .ytp-ad-module, .ad-showing, .ad-interrupting');
+                        adOverlays.forEach(function(el) { el.style.display = 'none'; });
+                    } catch(e) {}
+                }, 500);
+            </script>
+        </body>
+        </html>
+        """.trimIndent()
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        key(videoId) {
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                        val cm = android.webkit.CookieManager.getInstance()
+                        cm.setAcceptCookie(true)
+                        cm.setAcceptThirdPartyCookies(this, true)
+                        cm.setCookie("https://youtube.com", "CONSENT=YES+cb; Path=/; Domain=.youtube.com")
+                        cm.setCookie("https://youtube.com", "SOCS=CAESEwgDEgk0ODE3Nzk3MjQaAmVuIAEaBgiA_LyaBg; Path=/; Domain=.youtube.com")
+                        cm.setCookie("https://m.youtube.com", "CONSENT=YES+cb; Path=/; Domain=.youtube.com")
+                        cm.setCookie("https://m.youtube.com", "SOCS=CAESEwgDEgk0ODE3Nzk3MjQaAmVuIAEaBgiA_LyaBg; Path=/; Domain=.youtube.com")
+                        cm.flush()
+                        settings.apply {
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            databaseEnabled = true
+                            mediaPlaybackRequiresUserGesture = false
+                            useWideViewPort = true
+                            loadWithOverviewMode = true
+                            allowFileAccess = true
+                            allowContentAccess = true
+                            javaScriptCanOpenWindowsAutomatically = true
+                            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                        }
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onConsoleMessage(cm: android.webkit.ConsoleMessage?): Boolean {
+                                Log.i("YouTubePlayer", "Console: ${cm?.message()}")
+                                return true
+                            }
+                        }
+                        val ytHeaders = mapOf(
+                            "Referer" to "https://www.youtube.com/",
+                            "Origin" to "https://www.youtube.com"
+                        )
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                                val reqUrl = request?.url?.toString() ?: return false
+                                view?.loadUrl(reqUrl, ytHeaders)
+                                return true
+                            }
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                Log.i("YouTubePlayer", "Page finished: $url")
+                                view?.evaluateJavascript(
+                                    """
+                                    (function() {
+                                        var isLandscapeMode = $isLandscape;
+                                        function cleanAndCenterPlayer() {
+                                            // Auto-dismiss Google/YouTube consent dialog
+                                            var consentButtons = document.querySelectorAll('button, form button, input[type="submit"], [role="button"]');
+                                            consentButtons.forEach(function(b) {
+                                                var txt = (b.innerText || b.value || '').toLowerCase();
+                                                if (txt.includes('accept all') || txt.includes('agree') || txt.includes('i agree') || txt.includes('tanggapin') || txt.includes('accept')) {
+                                                    b.click();
+                                                }
+                                            });
+
+                                            var pageText = document.body ? document.body.innerText : '';
+                                            if (pageText.indexOf('Error 153') !== -1 || pageText.indexOf('Error 150') !== -1 || document.querySelector('.ytp-error')) {
+                                                window.location.replace('https://m.youtube.com/watch?v=' + '$videoId');
+                                                return;
+                                            }
+
+                                            if (window.location.hostname.indexOf('m.youtube.com') !== -1) {
+                                                var styleId = 'videokey-clean-yt';
+                                                var existingStyle = document.getElementById(styleId);
+                                                if (!existingStyle) {
+                                                    var style = document.createElement('style');
+                                                    style.id = styleId;
+                                                    if (isLandscapeMode) {
+                                                        style.innerHTML = `
+                                                            #header-bar, ytm-mobile-topbar-renderer, ytm-pivot-bar-renderer, 
+                                                            .related-items-container, ytm-item-section-renderer, 
+                                                            ytm-single-column-watch-next-results-renderer, #player-control-overlay, 
+                                                            .ytm-comments-entry-point-header, #related, .ytm-app-promo,
+                                                            .consent-bump-v2, ytm-consent-bump-v2-renderer,
+                                                            .watch-below-the-player, ytm-watch-metadata, .slim-video-metadata-header {
+                                                                display: none !important;
+                                                            }
+                                                            body, html {
+                                                                background: #000000 !important;
+                                                                overflow: hidden !important;
+                                                                margin: 0 !important;
+                                                                padding: 0 !important;
+                                                            }
+                                                            .player-container, #player-container-id, .video-stream {
+                                                                width: 100vw !important;
+                                                                height: 100vh !important;
+                                                                position: fixed !important;
+                                                                top: 0 !important;
+                                                                left: 0 !important;
+                                                                z-index: 999999 !important;
+                                                            }
+                                                        `;
+                                                    } else {
+                                                        style.innerHTML = `
+                                                            #header-bar, ytm-mobile-topbar-renderer, ytm-pivot-bar-renderer, 
+                                                            .related-items-container, ytm-item-section-renderer, 
+                                                            ytm-single-column-watch-next-results-renderer, #player-control-overlay, 
+                                                            .ytm-comments-entry-point-header, #related, .ytm-app-promo,
+                                                            .consent-bump-v2, ytm-consent-bump-v2-renderer,
+                                                            .watch-below-the-player, ytm-watch-metadata, .slim-video-metadata-header {
+                                                                display: none !important;
+                                                            }
+                                                            body, html {
+                                                                background: #000000 !important;
+                                                                overflow: hidden !important;
+                                                                margin: 0 !important;
+                                                                padding: 0 !important;
+                                                            }
+                                                            .player-container, #player-container-id {
+                                                                position: fixed !important;
+                                                                top: 50% !important;
+                                                                left: 50% !important;
+                                                                transform: translate(-50%, -50%) !important;
+                                                                width: 100vw !important;
+                                                                height: 56.25vw !important;
+                                                                max-height: 100vh !important;
+                                                                z-index: 999999 !important;
+                                                            }
+                                                            video {
+                                                                width: 100% !important;
+                                                                height: 100% !important;
+                                                                object-fit: contain !important;
+                                                            }
+                                                        `;
+                                                    }
+                                                    document.head.appendChild(style);
+                                                }
+                                            }
+
+                                            var v = document.querySelector('video');
+                                            if (v) {
+                                                v.muted = false;
+                                                if (v.paused) v.play();
+                                            }
+                                            var btn = document.querySelector('.ytp-large-play-button, .video-stream');
+                                            if (btn) btn.click();
+                                            var unmute = document.querySelector('.ytp-unmute, .ytp-volume-panel, button[aria-label*="unmute" i], .ytp-mute-button');
+                                            if (unmute) unmute.click();
+
+                                            var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button.ytp-ad-overlay-close-button');
+                                            if (skipBtn) skipBtn.click();
+                                            var adOverlays = document.querySelectorAll('.video-ads, .ytp-ad-module, .ad-showing, .ad-interrupting');
+                                            adOverlays.forEach(function(el) { el.style.display = 'none'; });
+                                        }
+
+                                        cleanAndCenterPlayer();
+                                        setInterval(cleanAndCenterPlayer, 400);
+                                    })();
+                                    """.trimIndent(),
+                                    null
+                                )
+                            }
+                            override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
+                                super.onReceivedError(view, request, error)
+                                Log.e("YouTubePlayer", "Error: ${error?.description}")
+                            }
+                        }
+                        loadUrl("https://www.youtube.com/embed/$videoId?autoplay=1&mute=0&controls=1&enablejsapi=1&playsinline=1&rel=0&iv_load_policy=3&modestbranding=1", ytHeaders)
+                    }
+                },
+                update = { view ->
+                    val ytHeaders = mapOf(
+                        "Referer" to "https://www.youtube.com/",
+                        "Origin" to "https://www.youtube.com"
+                    )
+                    view.loadUrl("https://www.youtube.com/embed/$videoId?autoplay=1&mute=0&controls=1&enablejsapi=1&playsinline=1&rel=0&iv_load_policy=3&modestbranding=1", ytHeaders)
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // Top Control Ribbon (Title + Live Badge + Score + Stop)
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)
+                    )
+                )
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFFE50914)
+                ) {
+                    Text(
+                        text = "LIVE YOUTUBE (NO ADS)",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (onToggleLandscape != null) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF374151),
+                        modifier = Modifier.clickable { onToggleLandscape() }
+                    ) {
+                        Text(
+                            text = if (isLandscape) "📱 PORTRAIT" else "📺 TV / FULL",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFFFD700),
+                    modifier = Modifier.clickable { onScore() }
+                ) {
+                    Text(
+                        text = "🏆 SCORE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Black,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFE53935),
+                    modifier = Modifier.clickable { onStop() }
+                ) {
+                    Text(
+                        text = "✕ ITIGIL",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -453,6 +984,50 @@ fun SingleCountdownBadge(
                 )
             )
         )
+    }
+}
+
+/**
+ * Classic Philippine Videoke 4-Dots Countdown.
+ * Starts with 4 dots and disappears one-by-one from right to left (●●●● -> ●●●○ -> ●●○○ -> ●○○○ -> 0).
+ */
+@Composable
+fun VideokeDotsCountdownBadge(
+    number: Int,
+    isLandscape: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (number !in 1..4) return
+    val dotSize = if (isLandscape) 13.dp else 10.5.dp
+    val activeCount = number // 4 dots active at beat 4 -> rightmost disappears at beat 3 -> dot 3 at 2 -> dot 2 at 1 -> lyrics wipe
+    Row(
+        modifier = modifier
+            .background(Color(0xCC000000), RoundedCornerShape(10.dp))
+            .border(1.dp, Color(0xFFFFD54F).copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 1..4) {
+            val isActive = i <= activeCount
+            val dotColor = when (i) {
+                1 -> Color(0xFFFF1744) // Beat 1 (Final warning right above the first syllable) - Vivid Red
+                2 -> Color(0xFFFF9100) // Beat 2 - Bright Orange
+                3 -> Color(0xFFFFD600) // Beat 3 - Golden Yellow
+                else -> Color(0xFF00E676) // Beat 4 (Rightmost dot that disappears first) - Neon Green
+            }
+            Box(
+                modifier = Modifier
+                    .size(dotSize)
+                    .clip(CircleShape)
+                    .background(if (isActive) dotColor else Color.Transparent)
+                    .border(
+                        width = if (isActive) 1.dp else 0.dp,
+                        color = if (isActive) Color.White else Color.Transparent,
+                        shape = CircleShape
+                    )
+            )
+        }
     }
 }
 
@@ -763,6 +1338,7 @@ fun VideokeTvScreen(
     isLandscape: Boolean = false,
     onToggleTvMode: () -> Unit,
     onTriggerScore: () -> Unit,
+    onSongCompleted: () -> Unit = {},
     onOpenSongbook: () -> Unit,
     onCloseSongbook: () -> Unit = {},
     onToggleReserveQueue: () -> Unit = {},
@@ -783,6 +1359,7 @@ fun VideokeTvScreen(
     onOpenLyricStyleDialog: () -> Unit = {},
     onOpenAudioMixerDialog: () -> Unit = {},
     onOpenSettingsDialog: () -> Unit = {},
+    onOpenYouTubeDownloader: () -> Unit = {},
     onAdvanceBackground: () -> Unit = {},
     onPlay: () -> Unit = {},
     onNext: () -> Unit = {},
@@ -795,6 +1372,7 @@ fun VideokeTvScreen(
     onAdjustKey: (Int) -> Unit = {},
     onAdjustTempo: (Int) -> Unit = {},
     onAdjustMelody: (Int) -> Unit = {},
+    onStopYouTubeStream: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
@@ -860,11 +1438,21 @@ fun VideokeTvScreen(
             state.availableBackgrounds.count { it.type == BackgroundType.VIDEO || it.type == BackgroundType.IMAGE }
         }
         val currentBg = state.selectedBackground
-        key(currentBg?.id, currentBg?.path) {
+        val videoSongPath = if (state.isVideoSong) state.currentSong.filePath else null
+        key(currentBg?.id, currentBg?.path, videoSongPath) {
             VideokeBackgroundLayer(
                 background = currentBg,
                 hasMultipleMedia = mediaCount > 1,
-                onBackgroundCompleted = onAdvanceBackground,
+                videoSongPath = videoSongPath,
+                isVideoSong = state.isVideoSong,
+                bgVisualMode = state.bgVisualMode,
+                onBackgroundCompleted = {
+                    if (state.isVideoSong) {
+                        onSongCompleted()
+                    } else {
+                        onAdvanceBackground()
+                    }
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -903,7 +1491,7 @@ fun VideokeTvScreen(
 
                             val badgeLabel = when {
                                 !state.isPlaying && hasReserve -> if (isTagalog) "SUSUNOD:" else "NEXT:"
-                                !state.isPlaying -> "VIDEOKEY V1:"
+                                !state.isPlaying -> "VIDEOKEY:"
                                 isShowingNext -> if (isTagalog) "SUSUNOD:" else "NEXT:"
                                 else -> if (isTagalog) "TUMUTUGTOG:" else "PLAYING:"
                             }
@@ -924,8 +1512,8 @@ fun VideokeTvScreen(
                             )
 
                             val headerMarquee = when {
-                                !state.isPlaying && hasReserve -> "DEVELOPED BY JEROME HUET ITO PO AY FREE : $nextSongText"
-                                !state.isPlaying -> "DEVELOPED BY JEROME HUET ITO PO AY FREE : SELECT A SONG"
+                                !state.isPlaying && hasReserve -> if (isTagalog) "DEVELOPED BY JEROME HUET ITO PO AY FREE : $nextSongText" else "DEVELOPED BY JEROME HUET THIS IS FREE : $nextSongText"
+                                !state.isPlaying -> if (isTagalog) "DEVELOPED BY JEROME HUET ITO PO AY FREE : PUMILI NG KANTA" else "DEVELOPED BY JEROME HUET THIS IS FREE : SELECT A SONG"
                                 isShowingNext -> nextSongText
                                 else -> {
                                     if (hasReserve) {
@@ -990,24 +1578,6 @@ fun VideokeTvScreen(
                                     }
                                 )
                                 TvHeaderIconButton(
-                                    icon = "R",
-                                    borderColor = uniformBorder,
-                                    isActive = state.isReserveQueueOpen,
-                                    onClick = {
-                                        interactionTick++
-                                        onToggleReserveQueue()
-                                    }
-                                )
-                                TvHeaderIconButton(
-                                    icon = "❤️",
-                                    borderColor = uniformBorder,
-                                    isActive = state.isFavoritesOpen,
-                                    onClick = {
-                                        interactionTick++
-                                        onToggleFavorites()
-                                    }
-                                )
-                                TvHeaderIconButton(
                                     icon = if (state.isRecording) "🔴" else "🎙️",
                                     borderColor = uniformBorder,
                                     isActive = state.isRecording || state.isRecordingsDialogOpen,
@@ -1061,43 +1631,56 @@ fun VideokeTvScreen(
                                         showTvKeypadModal = true
                                     }
                                 )
-                                TvHeaderIconButton(
-                                    icon = "⚙️",
-                                    borderColor = uniformBorder,
-                                    isActive = state.isSettingsDialogOpen,
-                                    onClick = {
-                                        interactionTick++
-                                        onOpenSettingsDialog()
+                                Surface(
+                                    onClick = onToggleTvMode,
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(state.appTheme.primaryColor),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text("📱", fontSize = 12.sp)
+                                        Text(
+                                            "PORTRAIT",
+                                            color = Color.Black,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
-                                )
-                                TvHeaderIconButton(
-                                    icon = "◀",
-                                    borderColor = uniformBorder,
-                                    isActive = false,
-                                    onClick = onToggleTvMode
-                                )
+                                }
                             }
                         }
 
-                        // When right buttons auto-hide in Landscape, show Bold Black-Outlined Top-Right Header Info
+                        // When right buttons auto-hide in Landscape, show clean Return to Portrait button
                         if (!showLandscapeControls) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .padding(start = 10.dp, end = 4.dp)
-                                    .clickable {
-                                        showLandscapeControls = true
-                                        interactionTick++
-                                    }
+                                modifier = Modifier.padding(start = 10.dp, end = 4.dp)
                             ) {
-                                OutlinedHeaderText(
-                                    text = "R: ${state.reserveQueue.size}  •  ❤️ ${state.favoriteSongs.size}",
-                                    color = Color(0xFFFFD54F),
-                                    fontSize = 12.sp,
-                                    isLandscape = true,
-                                    fontFamily = FontFamily.Monospace
-                                )
+                                Surface(
+                                    onClick = onToggleTvMode,
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.Black.copy(alpha = 0.7f),
+                                    border = BorderStroke(1.dp, uniformBorder)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text("📱", fontSize = 11.sp)
+                                        Text(
+                                            "PORTRAIT",
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1133,7 +1716,7 @@ fun VideokeTvScreen(
                                 .clickable { onToggleReserveQueue() }
                         )
                     }
-                } else if (!isTvMode) {
+                } else if (!isTvMode && state.reserveQueue.isNotEmpty()) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1188,6 +1771,7 @@ fun VideokeTvScreen(
                             reserveQueue = state.reserveQueue,
                             favoriteSongs = state.favoriteSongs,
                             favoriteCodes = state.favoriteCodes,
+                            theme = state.appTheme,
                             activeTab = when {
                                 state.isReserveQueueOpen -> 1
                                 state.isFavoritesOpen -> 2
@@ -1209,6 +1793,7 @@ fun VideokeTvScreen(
                             },
                             onToggleFilter = onToggleSongbookFilter,
                             onOpenFolderLocator = onOpenSongFolderLocator,
+                            onOpenYouTubeDownloader = onOpenYouTubeDownloader,
                             onQueryChange = onQuerySongbook,
                             onSelectSong = onSelectSongFromBook,
                             onReserveSong = onReserveSongFromBook,
@@ -1288,6 +1873,7 @@ fun VideokeTvScreen(
                         reserveQueue = state.reserveQueue,
                         favoriteSongs = state.favoriteSongs,
                         favoriteCodes = state.favoriteCodes,
+                        theme = state.appTheme,
                         activeTab = when {
                             state.isReserveQueueOpen -> 1
                             state.isFavoritesOpen -> 2
@@ -1309,6 +1895,7 @@ fun VideokeTvScreen(
                         },
                         onToggleFilter = onToggleSongbookFilter,
                         onOpenFolderLocator = onOpenSongFolderLocator,
+                        onOpenYouTubeDownloader = onOpenYouTubeDownloader,
                         onQueryChange = onQuerySongbook,
                         onSelectSong = onSelectSongFromBook,
                         onReserveSong = onReserveSongFromBook,
@@ -1375,7 +1962,7 @@ fun VideokeTvScreen(
                         .fillMaxWidth()
                         .weight(1f)
                 )
-            } else if (state.showSongTitleIntro) {
+            } else if (state.showSongTitleIntro && !state.isVideoSong && !state.isPlayingYouTubeStream) {
                 // Song Title & Artist Intro Banner on Song Selection (Elevated and enlarged in TV mode!)
                 Box(
                     modifier = Modifier
@@ -1390,6 +1977,81 @@ fun VideokeTvScreen(
                         isTvMode = isTvMode,
                         modifier = if (isTvMode) Modifier.padding(top = 36.dp) else Modifier
                     )
+                }
+            } else if (state.isPlayingYouTubeStream && !state.activeYouTubeStreamVideoId.isNullOrBlank()) {
+                // AD-FREE DIRECT YOUTUBE STREAM PLAYER
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AdFreeYouTubeStreamPlayer(
+                        videoId = state.activeYouTubeStreamVideoId,
+                        title = state.activeYouTubeStreamTitle ?: state.currentSong.title,
+                        theme = state.appTheme,
+                        onStop = onStopYouTubeStream,
+                        onScore = {
+                            onStopYouTubeStream()
+                            onTriggerScore()
+                        },
+                        onToggleLandscape = onToggleTvMode,
+                        isLandscape = isLandscape,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else if (state.isVideoSong) {
+                // VIDEO KARAOKE (MP4 with embedded lyrics & audio) - Title box auto-hides quickly!
+                var showMp4TitleBox by remember(state.currentSong.code, state.currentSong.filePath) {
+                    mutableStateOf(true)
+                }
+                LaunchedEffect(state.currentSong.code, state.currentSong.filePath) {
+                    showMp4TitleBox = true
+                    kotlinx.coroutines.delay(3500)
+                    showMp4TitleBox = false
+                }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showMp4TitleBox,
+                    enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) + androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(300)) { -it },
+                    exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(500)) + androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(500)) { -it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(16.dp)
+                ) {
+                    Box(contentAlignment = Alignment.TopStart) {
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.75f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(state.appTheme.primaryColor).copy(alpha = 0.8f)),
+                            modifier = Modifier.clickable { showMp4TitleBox = false }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text("🎬", fontSize = 16.sp)
+                                Column {
+                                    Text(
+                                        text = state.currentSong.title,
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = state.currentSong.artist,
+                                        color = Color(state.appTheme.primaryColor),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             } else if (state.isInstrumental) {
                 // INSTRUMENTAL PLAYING (NO MELODY/SINGING) -> DEAD CENTER OF PLAYER SCREEN
@@ -1452,20 +2114,29 @@ fun VideokeTvScreen(
                                     top = if (state.countdownDots > 0) 24.dp else 0.dp
                                 )
                         ) {
+                            val screenWidthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.toFloat()
+                            val safeWidthDp = (screenWidthDp - (if (isLandscape) 64f else 32f)).coerceAtLeast(260f)
                             val showFourLines = !isLandscape && state.lyricConfig.lineCount == LyricLineCount.FOUR_LINES
                             if (showFourLines) {
                                 // 4 LINES DISPLAY (Portrait only if user selected 4 lines)
+                                val linesList = listOf(
+                                    Pair(state.line1, 1),
+                                    Pair(state.line2, 2),
+                                    Pair(state.line3, 3),
+                                    Pair(state.line4, 4)
+                                )
+                                val visibleTexts = linesList.map { it.first }.filter { it.isNotBlank() }
+                                val maxChars = visibleTexts.maxOfOrNull { it.length } ?: 1
+                                val baseSizeSp = if (isLandscape) (effectiveLyricConfig.fontSizeLandscapeSp * 0.65f) else (effectiveLyricConfig.fontSizePortraitSp * 0.65f)
+                                val estMaxLineWidthDp = maxChars * baseSizeSp * effectiveLyricConfig.fontScale * 0.60f + 20f
+                                val uniformScale = if (estMaxLineWidthDp > safeWidthDp) (safeWidthDp / estMaxLineWidthDp).coerceIn(0.50f, 1.0f) else 1.0f
+                                val uniformFontSize = (baseSizeSp * uniformScale).sp
+
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    verticalArrangement = Arrangement.spacedBy((effectiveLyricConfig.lineSpacingDp * 0.65f).dp)
                                 ) {
-                                    val linesList = listOf(
-                                        Pair(state.line1, 1),
-                                        Pair(state.line2, 2),
-                                        Pair(state.line3, 3),
-                                        Pair(state.line4, 4)
-                                    )
                                     linesList.forEach { (lineText, lineNum) ->
                                         if (lineText.isNotEmpty()) {
                                             val isActive = state.activeLineNumber == lineNum
@@ -1474,7 +2145,7 @@ fun VideokeTvScreen(
                                                 text = lineText,
                                                 isActive = isActive,
                                                 wipePercent = if (isActive) state.wipePercent else 0f,
-                                                fontSize = if (isLandscape) 20.sp else 21.sp,
+                                                fontSize = uniformFontSize,
                                                 lyricConfig = effectiveLyricConfig,
                                                 countdownNumber = lineCountdown,
                                                 isLandscape = isLandscape
@@ -1484,10 +2155,17 @@ fun VideokeTvScreen(
                                 }
                             } else {
                                 // 2 LINES DISPLAY (DEFAULT)
+                                val visibleTexts = listOf(state.landscapeLine1, state.landscapeLine2).filter { it.isNotBlank() }
+                                val maxChars = visibleTexts.maxOfOrNull { it.length } ?: 1
+                                val baseSizeSp = if (isLandscape) effectiveLyricConfig.fontSizeLandscapeSp else effectiveLyricConfig.fontSizePortraitSp
+                                val estMaxLineWidthDp = maxChars * baseSizeSp * effectiveLyricConfig.fontScale * 0.60f + 20f
+                                val uniformScale = if (estMaxLineWidthDp > safeWidthDp) (safeWidthDp / estMaxLineWidthDp).coerceIn(0.50f, 1.0f) else 1.0f
+                                val uniformFontSize = (baseSizeSp * uniformScale).sp
+
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(effectiveLyricConfig.lineSpacingDp.dp)
                                 ) {
                                     val isTopActive = state.activeLyricPosition == ActiveLyricPosition.TOP
                                     val isBottomActive = state.activeLyricPosition == ActiveLyricPosition.BOTTOM
@@ -1498,7 +2176,7 @@ fun VideokeTvScreen(
                                         text = state.landscapeLine1,
                                         isActive = isTopActive,
                                         wipePercent = if (isTopActive) state.wipePercent else 0f,
-                                        fontSize = if (isTvMode) 42.sp else if (isLandscape) 31.sp else 26.sp,
+                                        fontSize = uniformFontSize,
                                         lyricConfig = effectiveLyricConfig,
                                         countdownNumber = topCountdown,
                                         isLandscape = isLandscape
@@ -1507,7 +2185,7 @@ fun VideokeTvScreen(
                                         text = state.landscapeLine2,
                                         isActive = isBottomActive,
                                         wipePercent = if (isBottomActive) state.wipePercent else 0f,
-                                        fontSize = if (isTvMode) 42.sp else if (isLandscape) 31.sp else 26.sp,
+                                        fontSize = uniformFontSize,
                                         lyricConfig = effectiveLyricConfig,
                                         countdownNumber = bottomCountdown,
                                         isLandscape = isLandscape
@@ -1522,7 +2200,10 @@ fun VideokeTvScreen(
 
         // FIXED FULL-WIDTH SONG / RESERVE BOX ABOVE NUMBERING WHILE PLAYING:
         // In TV mode, elevated to top so it never obstructs singing lyrics!
+        // 100% synchronized with active theme colors!
         if (state.isPlaying && state.enteredCode.isNotEmpty()) {
+            val theme = state.appTheme
+            val boxBorderColor = if (state.matchedEnteredSong != null) Color(theme.primaryColor) else Color(theme.secondaryColor)
             Box(
                 modifier = Modifier
                     .align(if (isTvMode) Alignment.TopCenter else Alignment.BottomCenter)
@@ -1534,8 +2215,8 @@ fun VideokeTvScreen(
                     .height(if (isTvMode) 52.dp else 46.dp)
                     .shadow(8.dp, RoundedCornerShape(10.dp))
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xF20A1910))
-                    .border(1.5.dp, Color(0xFF00FF88), RoundedCornerShape(10.dp))
+                    .background(Color(theme.surfaceColor).copy(alpha = 0.95f))
+                    .border(1.5.dp, boxBorderColor, RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -1550,7 +2231,7 @@ fun VideokeTvScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = state.enteredCode.padStart(6, '0'),
-                            color = Color(0xFF00FF88),
+                            color = Color(theme.primaryColor),
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Black,
                             fontSize = if (isTvMode) 18.sp else 14.sp
@@ -1567,7 +2248,7 @@ fun VideokeTvScreen(
                         if (state.matchedEnteredSong != null) {
                             Text(
                                 text = "${state.matchedEnteredSong.title.uppercase()} • ${state.matchedEnteredSong.artist.uppercase()}",
-                                color = Color(0xFFFFD54F),
+                                color = Color(theme.secondaryColor),
                                 fontWeight = FontWeight.Black,
                                 fontSize = if (isTvMode) 15.sp else 12.sp,
                                 maxLines = 1,
@@ -1580,7 +2261,7 @@ fun VideokeTvScreen(
                         } else if (state.enteredCode.length < 6) {
                             Text(
                                 text = if (isTagalog) "Kulang ng ${6 - state.enteredCode.length} digits" else "Need ${6 - state.enteredCode.length} more digits",
-                                color = Color(0xFFA5B4FC),
+                                color = Color(theme.textMutedColor),
                                 fontSize = if (isTvMode) 13.sp else 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
@@ -1602,6 +2283,8 @@ fun VideokeTvScreen(
 
                     // Right: Clickable Automatic Reserve (R RESERVE) & Play buttons!
                     if (state.matchedEnteredSong != null) {
+                        val rBtnText = if (isTagalog) "R IRESERBA" else "R RESERVE"
+                        val playTextColor = getContrastingTextColor(theme.primaryColor)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -1609,15 +2292,15 @@ fun VideokeTvScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF332000))
-                                    .border(1.5.dp, Color(0xFFFFD54F), RoundedCornerShape(6.dp))
+                                    .background(Color(theme.buttonBgColor))
+                                    .border(1.2.dp, Color(theme.buttonBorderColor), RoundedCornerShape(6.dp))
                                     .clickable { onReserve() }
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = if (isTagalog) "R IRESERBA" else "R RESERVE",
-                                    color = Color(0xFFFFD54F),
+                                    text = rBtnText,
+                                    color = Color(theme.textColor),
                                     fontWeight = FontWeight.Black,
                                     fontSize = if (isTvMode) 12.sp else 10.5.sp
                                 )
@@ -1625,15 +2308,15 @@ fun VideokeTvScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF00381B))
-                                    .border(1.dp, Color(0xFF00FF88), RoundedCornerShape(6.dp))
+                                    .background(Color(theme.primaryColor))
+                                    .border(1.dp, Color(theme.primaryColor), RoundedCornerShape(6.dp))
                                     .clickable { onPlay() }
                                     .padding(horizontal = 8.dp, vertical = 6.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = "▶",
-                                    color = Color(0xFF00FF88),
+                                    color = playTextColor,
                                     fontWeight = FontWeight.Black,
                                     fontSize = if (isTvMode) 12.sp else 10.5.sp
                                 )
@@ -1658,117 +2341,65 @@ fun VideokeTvScreen(
         }
 
         // TV MODE AUTOMATIC PERSISTENT REMOTE QR BARCODE
-        // Automatically visible on TV mode until a phone remote client connects!
-        // As long as no phone is connected, it stays on the screen. Once connected, it hides!
-        if (isTvMode && !state.isRemoteConnected) {
+        // Automatically visible on TV mode in STANDBY until a phone remote client connects!
+        // Never shown during playback or on MP4/YouTube video karaoke!
+        if (isTvMode && !state.isPlaying && !state.isRemoteConnected && !state.isVideoSong && !state.isPlayingYouTubeStream) {
             val deviceIp = remember { com.example.videokey.remote.VideokeRemoteServer.getLocalIpAddress() }
             val qrBitmap = remember(deviceIp) {
                 com.example.videokey.remote.QrCodeGenerator.generateQrBitmap("http://$deviceIp:8080", 300)
             }
 
-            if (!state.isPlaying) {
-                // In Standby Mode: Floating card at bottom right
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 16.dp)
-                        .shadow(12.dp, RoundedCornerShape(14.dp))
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xF00A111E))
-                        .border(1.5.dp, Color(0xFF38BDF8), RoundedCornerShape(14.dp))
-                        .padding(10.dp)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(text = "📱", fontSize = 13.sp)
-                            Text(
-                                text = if (isTagalog) "CELLPHONE REMOTE" else "PHONE REMOTE",
-                                color = Color(0xFF38BDF8),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 11.sp
-                            )
-                        }
-                        if (qrBitmap != null) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = Color.White
-                            ) {
-                                Image(
-                                    bitmap = qrBitmap.asImageBitmap(),
-                                    contentDescription = "TV Remote QR Barcode",
-                                    modifier = Modifier.size(110.dp).padding(4.dp)
-                                )
-                            }
-                        }
-                        Text(
-                            text = "http://$deviceIp:8080",
-                            color = Color(0xFFFFD54F),
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
-                        )
-                        Text(
-                            text = if (isTagalog) "I-scan para kumonekta ang remote" else "Scan to connect remote",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 8.5.sp
-                        )
-                    }
-                }
-            } else {
-                // In Playing Mode: Compact sleek floating badge in bottom-right corner (never covers lyrics!)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 12.dp, bottom = 8.dp)
-                        .shadow(8.dp, RoundedCornerShape(10.dp))
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xD9050E1A))
-                        .border(1.dp, Color(0xFF00FF88), RoundedCornerShape(10.dp))
-                        .padding(6.dp)
+            // In Standby Mode: Floating card at bottom right
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 16.dp)
+                    .shadow(12.dp, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xF00A111E))
+                    .border(1.5.dp, Color(0xFF38BDF8), RoundedCornerShape(14.dp))
+                    .padding(10.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        if (qrBitmap != null) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color.White
-                            ) {
-                                Image(
-                                    bitmap = qrBitmap.asImageBitmap(),
-                                    contentDescription = "Mini TV Remote QR Barcode",
-                                    modifier = Modifier.size(64.dp).padding(3.dp)
-                                )
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "📱 QR REMOTE",
-                                color = Color(0xFF00FF88),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 10.sp
-                            )
-                            Text(
-                                text = "$deviceIp:8080",
-                                color = Color(0xFFFFD54F),
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 9.sp
-                            )
-                            Text(
-                                text = if (isTagalog) "I-scan para maging remote" else "Scan with phone",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 8.sp
+                        Text(text = "📱", fontSize = 13.sp)
+                        Text(
+                            text = if (isTagalog) "CELLPHONE REMOTE" else "PHONE REMOTE",
+                            color = Color(0xFF38BDF8),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp
+                        )
+                    }
+                    if (qrBitmap != null) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.White
+                        ) {
+                            Image(
+                                bitmap = qrBitmap.asImageBitmap(),
+                                contentDescription = "TV Remote QR Barcode",
+                                modifier = Modifier.size(110.dp).padding(4.dp)
                             )
                         }
                     }
+                    Text(
+                        text = "http://$deviceIp:8080",
+                        color = Color(0xFFFFD54F),
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        text = if (isTagalog) "I-scan para kumonekta ang remote" else "Scan to connect remote",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 8.5.sp
+                    )
                 }
             }
         }
@@ -1931,6 +2562,14 @@ fun WelcomeSongSelectionScreen(
     onReserve: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val theme = state.appTheme
+    val primaryColor = Color(theme.primaryColor)
+    val secondaryColor = Color(theme.secondaryColor)
+    val surfaceColor = Color(theme.surfaceColor)
+    val textColor = Color(theme.textColor)
+    val textMutedColor = Color(theme.textMutedColor)
+    val btnBorderColor = Color(theme.buttonBorderColor)
+
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseBorderAlpha by infiniteTransition.animateFloat(
         initialValue = 0.35f,
@@ -1961,7 +2600,7 @@ fun WelcomeSongSelectionScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = if (isTvMode) Arrangement.Top else Arrangement.Center
         ) {
-            // Glowing Arcade Header: ★ SELECT A SONG ★
+            // Theme-reactive Header: ★ SELECT A SONG ★
             val titleText = if (isTagalog) "PUMILI NG KANTA" else "SELECT A SONG"
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1971,45 +2610,67 @@ fun WelcomeSongSelectionScreen(
                     Text(
                         text = "★",
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isTvMode && isLandscape) 36.sp else if (isLandscape) 28.sp else 20.sp,
+                        fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
+                        fontFamily = FontFamily.SansSerif,
                         style = TextStyle(
                             color = Color.Black,
                             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isTvMode && isLandscape) 7.5f else if (isLandscape) 5.5f else 4f,
+                                width = if (isTvMode && isLandscape) 9.5f else if (isLandscape) 7.5f else 5.5f,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
                         )
                     )
                     Text(
                         text = "★",
-                        color = Color(0xFFFFD54F),
-                        fontSize = if (isTvMode && isLandscape) 36.sp else if (isLandscape) 28.sp else 20.sp,
+                        color = secondaryColor,
+                        fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
+                        fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Black
                     )
                 }
                 Box(contentAlignment = Alignment.Center) {
-                    // Crisp Black Outline (NO BLURRY SHADOW)
+                    // 3D Pop-Up Drop Shadow for Arcade Depth
                     Text(
                         text = titleText,
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 30.sp else 22.sp,
+                        fontFamily = FontFamily.SansSerif,
+                        fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
+                        letterSpacing = 2.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.offset(x = 2.5.dp, y = 3.5.dp),
+                        style = TextStyle(
+                            color = Color.Black.copy(alpha = 0.9f),
+                            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                                width = if (isTvMode && isLandscape) 10.5f else if (isLandscape) 8.5f else 6.5f,
+                                join = androidx.compose.ui.graphics.StrokeJoin.Round
+                            )
+                        )
+                    )
+                    // Crisp Black Outline Stroke
+                    Text(
+                        text = titleText,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.SansSerif,
+                        fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
                         letterSpacing = 2.sp,
                         maxLines = 1,
                         softWrap = false,
                         style = TextStyle(
                             color = Color.Black,
                             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isTvMode && isLandscape) 7.5f else if (isLandscape) 6.0f else 4.5f,
+                                width = if (isTvMode && isLandscape) 9.5f else if (isLandscape) 7.5f else 5.5f,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
                         )
                     )
-                    // Yellow Text Fill
+                    // Vibrant Theme Primary Color Text Fill
                     Text(
                         text = titleText,
-                        color = Color(0xFFFFD54F),
+                        color = primaryColor,
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 30.sp else 22.sp,
+                        fontFamily = FontFamily.SansSerif,
+                        fontSize = if (isTvMode && isLandscape) 46.sp else if (isLandscape) 36.sp else 28.sp,
                         letterSpacing = 2.sp,
                         maxLines = 1,
                         softWrap = false
@@ -2019,19 +2680,21 @@ fun WelcomeSongSelectionScreen(
                     Text(
                         text = "★",
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isTvMode && isLandscape) 36.sp else if (isLandscape) 28.sp else 20.sp,
+                        fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
+                        fontFamily = FontFamily.SansSerif,
                         style = TextStyle(
                             color = Color.Black,
                             drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                                width = if (isTvMode && isLandscape) 7.5f else if (isLandscape) 5.5f else 4f,
+                                width = if (isTvMode && isLandscape) 9.5f else if (isLandscape) 7.5f else 5.5f,
                                 join = androidx.compose.ui.graphics.StrokeJoin.Round
                             )
                         )
                     )
                     Text(
                         text = "★",
-                        color = Color(0xFFFFD54F),
-                        fontSize = if (isTvMode && isLandscape) 36.sp else if (isLandscape) 28.sp else 20.sp,
+                        color = secondaryColor,
+                        fontSize = if (isTvMode && isLandscape) 42.sp else if (isLandscape) 34.sp else 26.sp,
+                        fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -2039,9 +2702,10 @@ fun WelcomeSongSelectionScreen(
 
             Text(
                 text = if (isTagalog) "ITIPA ANG 6-DIGIT NA NUMERO SA KEYPAD" else "ENTER 6-DIGIT SONG NUMBER ON KEYPAD",
-                color = Color(0xFF81D4FA),
+                color = secondaryColor,
                 fontSize = if (isTvMode && isLandscape) 14.sp else if (isLandscape) 12.sp else 10.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.SansSerif,
                 letterSpacing = 1.sp,
                 modifier = Modifier.padding(top = if (isTvMode) 8.dp else 2.dp, bottom = if (isTvMode) 18.dp else if (isLandscape) 10.dp else 6.dp)
             )
@@ -2060,21 +2724,21 @@ fun WelcomeSongSelectionScreen(
                     val digitChar = paddedCode[i]
 
                     val borderColor = when {
-                        isActiveSlot -> Color(0xFFFFD54F).copy(alpha = pulseBorderAlpha)
-                        isFilled -> Color(0xFF00FF88)
-                        else -> Color(0xFF1E293B)
+                        isActiveSlot -> primaryColor.copy(alpha = pulseBorderAlpha)
+                        isFilled -> secondaryColor
+                        else -> btnBorderColor
                     }
 
                     val digitColor = when {
-                        isFilled -> Color(0xFF00FF88)
-                        isActiveSlot -> Color(0xFFFFD54F).copy(alpha = pulseBorderAlpha * 0.7f + 0.3f)
-                        else -> Color(0xFF0A3E24) // Ghost unlit 0 segment
+                        isFilled -> secondaryColor
+                        isActiveSlot -> primaryColor.copy(alpha = pulseBorderAlpha * 0.7f + 0.3f)
+                        else -> textMutedColor.copy(alpha = 0.35f)
                     }
 
                     val boxBg = when {
-                        isActiveSlot -> Color(0xFF131D2E)
-                        isFilled -> Color(0xFF021E11)
-                        else -> Color(0xFF060B12)
+                        isActiveSlot -> primaryColor.copy(alpha = 0.15f)
+                        isFilled -> secondaryColor.copy(alpha = 0.12f)
+                        else -> surfaceColor.copy(alpha = 0.85f)
                     }
 
                     Box(
@@ -2083,11 +2747,10 @@ fun WelcomeSongSelectionScreen(
                                 width = if (isTvMode && isLandscape) 64.dp else if (isLandscape) 52.dp else 40.dp,
                                 height = if (isTvMode && isLandscape) 74.dp else if (isLandscape) 60.dp else 46.dp
                             )
-                            .shadow(if (isActiveSlot || isFilled) 6.dp else 2.dp, RoundedCornerShape(8.dp))
                             .clip(RoundedCornerShape(8.dp))
                             .background(boxBg)
                             .border(
-                                width = if (isActiveSlot) 2.dp else 1.5.dp,
+                                width = if (isActiveSlot) 2.dp else 1.2.dp,
                                 color = borderColor,
                                 shape = RoundedCornerShape(8.dp)
                             ),
@@ -2100,18 +2763,9 @@ fun WelcomeSongSelectionScreen(
                             Text(
                                 text = "$digitChar",
                                 color = digitColor,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Black,
-                                fontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 30.sp else 22.sp,
-                                style = TextStyle(
-                                    shadow = if (isFilled || isActiveSlot) {
-                                        Shadow(
-                                            color = (if (isFilled) Color(0xFF00FF88) else Color(0xFFFFD54F)).copy(alpha = 0.8f),
-                                            offset = Offset(0f, 0f),
-                                            blurRadius = 8f
-                                        )
-                                    } else null
-                                )
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = if (isTvMode && isLandscape) 40.sp else if (isLandscape) 30.sp else 22.sp
                             )
 
                             // Active slot pulsing cursor underline
@@ -2121,7 +2775,7 @@ fun WelcomeSongSelectionScreen(
                                         .padding(top = 2.dp)
                                         .width(if (isTvMode && isLandscape) 26.dp else if (isLandscape) 20.dp else 14.dp)
                                         .height(2.5.dp)
-                                        .background(Color(0xFFFFD54F).copy(alpha = pulseBorderAlpha), RoundedCornerShape(1.dp))
+                                        .background(primaryColor.copy(alpha = pulseBorderAlpha), RoundedCornerShape(1.dp))
                                 )
                             }
                         }
@@ -2131,29 +2785,27 @@ fun WelcomeSongSelectionScreen(
         }
 
         // FIXED FULL-BOX RESERVE / SONG PREVIEW CONTAINER ABOVE THE NUMBERING KEYPAD:
-        // Always full-width (aligned with the 12.dp keypad margin), fixed height so it never shifts layout,
-        // and only the text inside auto-centers!
+        // Always full-width, fixed height, synchronized with active theme colors!
         val boxBorderColor = when {
-            state.matchedEnteredSong != null -> Color(0xFF00E676)
+            state.matchedEnteredSong != null -> secondaryColor
             state.alertMessage != null -> Color(0xFFEF4444)
-            state.enteredCode.isNotEmpty() -> Color(0xFF6366F1)
-            else -> Color(0xFF334155)
+            state.enteredCode.isNotEmpty() -> primaryColor
+            else -> btnBorderColor
         }
         val boxBgColor = when {
-            state.matchedEnteredSong != null -> Color(0xEE0A1E14)
+            state.matchedEnteredSong != null -> surfaceColor
             state.alertMessage != null -> Color(0xEE450A0A)
-            state.enteredCode.isNotEmpty() -> Color(0xEE131633)
-            else -> Color(0xCC0B1120)
+            state.enteredCode.isNotEmpty() -> surfaceColor
+            else -> surfaceColor.copy(alpha = 0.85f)
         }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth(if (isTvMode) 0.88f else if (isLandscape) 0.78f else 1f)
                 .height(if (isTvMode) 76.dp else if (isLandscape) 66.dp else 58.dp)
-                .shadow(6.dp, RoundedCornerShape(10.dp))
                 .clip(RoundedCornerShape(10.dp))
                 .background(boxBgColor)
-                .border(1.5.dp, boxBorderColor, RoundedCornerShape(10.dp))
+                .border(1.2.dp, boxBorderColor, RoundedCornerShape(10.dp))
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -2166,8 +2818,9 @@ fun WelcomeSongSelectionScreen(
                 ) {
                     Text(
                         text = "🎵 ${song.code}: ${song.title.uppercase()}",
-                        color = Color(0xFFFFD54F),
+                        color = primaryColor,
                         fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = if (isTvMode) 19.sp else if (isLandscape) 16.sp else 13.sp,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -2179,8 +2832,9 @@ fun WelcomeSongSelectionScreen(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "👤 ${song.artist.uppercase()}",
-                        color = Color(0xFFE2E8F0),
+                        color = textColor,
                         fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = if (isTvMode) 15.sp else if (isLandscape) 13.sp else 11.sp,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -2194,6 +2848,7 @@ fun WelcomeSongSelectionScreen(
                     color = Color(0xFFFFCDD2),
                     fontSize = if (isLandscape) 13.sp else 11.sp,
                     fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.SansSerif,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -2204,9 +2859,10 @@ fun WelcomeSongSelectionScreen(
                     } else {
                         if (isTagalog) "🔢 Pindutin ang keypad • Kulang pa ng ${6 - state.enteredCode.length} digits" else "🔢 Press keypad • Need ${6 - state.enteredCode.length} more digits"
                     },
-                    color = Color(0xFFA5B4FC),
+                    color = secondaryColor,
                     fontSize = if (isLandscape) 13.sp else 11.5.sp,
                     fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.SansSerif,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -2221,9 +2877,10 @@ fun WelcomeSongSelectionScreen(
                             "💡 Pumili ng 6-digit code sa ibaba o buksan ang 📖 SONGBOOK"
                         else
                             "💡 Enter a 6-digit code below or open 📖 SONGBOOK",
-                        color = Color(0xFFCBD5E1),
+                        color = textColor,
                         fontSize = if (isLandscape) 12.sp else 10.5.sp,
                         fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.SansSerif,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -2233,9 +2890,10 @@ fun WelcomeSongSelectionScreen(
                             "Halimbawa: 000016 • Pindutin ang R para sa Reserved o ❤️ para sa Favorites"
                         else
                             "Example: 000016 • Tap R for Reserved Queue or ❤️ for Favorites",
-                        color = Color(0xFF94A3B8),
+                        color = textMutedColor,
                         fontSize = if (isLandscape) 11.sp else 9.5.sp,
                         fontWeight = FontWeight.Medium,
+                        fontFamily = FontFamily.SansSerif,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -2272,26 +2930,26 @@ fun VideokeRemoteConsole(
     modifier: Modifier = Modifier
 ) {
     val theme = state.appTheme
+    val btnTextColor = getContrastingTextColor(theme.buttonBgColor)
+    val playTextColor = getContrastingTextColor(theme.primaryColor)
+
     val uniformBtnBrush = Brush.verticalGradient(
         listOf(Color(theme.buttonBgColor), Color(theme.buttonBgColor))
     )
     val uniformBorderBrush = Brush.verticalGradient(
         listOf(Color(theme.buttonBorderColor), Color(theme.buttonBorderColor))
     )
+    val playBtnBrush = Brush.horizontalGradient(
+        listOf(Color(theme.primaryColor), Color(theme.secondaryColor))
+    )
+    val playBorderBrush = Brush.horizontalGradient(
+        listOf(Color(theme.primaryColor), Color(theme.secondaryColor))
+    )
 
     Column(
         modifier = modifier
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF0F172A),
-                        Color(0xFF0B1120),
-                        Color(0xFF070B14)
-                    )
-                )
-            )
-            .navigationBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .background(Color(theme.backgroundColor))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Main Area: Numeric 0-9 Keypad Grid + Transport Action Buttons (Single Uniform Color)
@@ -2318,7 +2976,7 @@ fun VideokeRemoteConsole(
                         row.forEach { digit ->
                             RemoteKey(
                                 text = "$digit",
-                                textColor = Color.White,
+                                textColor = btnTextColor,
                                 bgBrush = uniformBtnBrush,
                                 borderBrush = uniformBorderBrush,
                                 onClick = { onDigit(digit) },
@@ -2335,7 +2993,7 @@ fun VideokeRemoteConsole(
                 ) {
                     RemoteKey(
                         text = "✕",
-                        textColor = Color.White,
+                        textColor = btnTextColor,
                         bgBrush = uniformBtnBrush,
                         borderBrush = uniformBorderBrush,
                         onClick = onClear,
@@ -2343,7 +3001,7 @@ fun VideokeRemoteConsole(
                     )
                     RemoteKey(
                         text = "0",
-                        textColor = Color.White,
+                        textColor = btnTextColor,
                         bgBrush = uniformBtnBrush,
                         borderBrush = uniformBorderBrush,
                         onClick = { onDigit('0') },
@@ -2351,7 +3009,7 @@ fun VideokeRemoteConsole(
                     )
                     RemoteKey(
                         text = "⌫",
-                        textColor = Color.White,
+                        textColor = btnTextColor,
                         bgBrush = uniformBtnBrush,
                         borderBrush = uniformBorderBrush,
                         onClick = onDelete,
@@ -2371,45 +3029,44 @@ fun VideokeRemoteConsole(
                     icon = "📖",
                     bgBrush = uniformBtnBrush,
                     borderBrush = uniformBorderBrush,
-                    textColor = Color.White,
+                    textColor = btnTextColor,
                     onClick = onOpenSongbook,
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(50.dp)
                 )
                 ActionButton(
                     text = "",
                     icon = "▶",
-                    bgBrush = uniformBtnBrush,
-                    borderBrush = uniformBorderBrush,
-                    textColor = Color.White,
+                    bgBrush = playBtnBrush,
+                    borderBrush = playBorderBrush,
+                    textColor = playTextColor,
                     onClick = onPlay,
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(50.dp)
                 )
                 ActionButton(
                     text = "",
                     icon = "⏭",
                     bgBrush = uniformBtnBrush,
                     borderBrush = uniformBorderBrush,
-                    textColor = Color.White,
+                    textColor = btnTextColor,
                     onClick = onNext,
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(50.dp)
                 )
                 ActionButton(
                     text = "",
                     icon = "⏹",
                     bgBrush = uniformBtnBrush,
                     borderBrush = uniformBorderBrush,
-                    textColor = Color.White,
+                    textColor = btnTextColor,
                     onClick = onStop,
-                    modifier = Modifier.height(40.dp)
+                    modifier = Modifier.height(50.dp)
                 )
             }
         }
 
-        // Bottom Icon-Only Bar: Uniform flat styling according to active theme
+        // Bottom Icon-Only Bar: Uniform flat styling according to active theme (no black smudge shadows)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(4.dp, RoundedCornerShape(14.dp))
                 .clip(RoundedCornerShape(14.dp))
                 .background(Color(state.appTheme.backgroundColor))
                 .border(1.dp, Color(state.appTheme.buttonBorderColor), RoundedCornerShape(14.dp))
@@ -2417,15 +3074,7 @@ fun VideokeRemoteConsole(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. Reserved Queue / Reserve Icon (R)
-            ConsoleIconButton(
-                icon = if (state.reserveQueue.isNotEmpty()) "R (${state.reserveQueue.size})" else "R",
-                isActive = state.isReserveQueueOpen,
-                theme = theme,
-                onClick = onReserve
-            )
-
-            // 2. Favorite Songs Icon (❤️)
+            // 1. Favorite Songs Icon (❤️)
             ConsoleIconButton(
                 icon = "❤️",
                 isActive = state.isFavoritesOpen,
@@ -2480,14 +3129,6 @@ fun VideokeRemoteConsole(
                 theme = theme,
                 onClick = onToggleTvMode
             )
-
-            // 9. Settings Icon (⚙️)
-            ConsoleIconButton(
-                icon = "⚙️",
-                isActive = state.isSettingsDialogOpen,
-                theme = theme,
-                onClick = onOpenSettingsDialog
-            )
         }
     }
 }
@@ -2508,14 +3149,13 @@ fun ConsoleIconButton(
 
     Box(
         modifier = Modifier
-            .size(34.dp)
-            .shadow(if (isActive) 6.dp else 2.dp, RoundedCornerShape(9.dp))
-            .clip(RoundedCornerShape(9.dp))
+            .size(40.dp)
+            .clip(RoundedCornerShape(11.dp))
             .background(if (isActive) activeBg else defaultBg)
             .border(
                 width = if (isActive) 1.8.dp else 1.dp,
                 color = if (isActive) activeBorder else defaultBorder,
-                shape = RoundedCornerShape(9.dp)
+                shape = RoundedCornerShape(11.dp)
             )
             .clickable { onClick() }
             .focusable(),
@@ -2523,8 +3163,8 @@ fun ConsoleIconButton(
     ) {
         Text(
             text = icon,
-            fontSize = 15.sp,
-            color = Color.White
+            fontSize = 18.sp,
+            color = if (isActive) getContrastingTextColor(theme.primaryColor) else Color(theme.textColor)
         )
     }
 }
@@ -2574,8 +3214,8 @@ fun AudioMixerDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+            color = Color(state.appTheme.surfaceColor),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(state.appTheme.primaryColor)),
             modifier = Modifier
                 .fillMaxWidth(if (isLandscape) 0.85f else 0.96f)
                 .fillMaxHeight(if (isLandscape) 0.94f else 0.93f)
@@ -2597,8 +3237,9 @@ fun AudioMixerDialog(
                         Text(
                             text = if (isTagalog) "🎚️ TIMPLA NG MGA INSTRUMENTO AT TUNOG" else "🎚️ STUDIO INSTRUMENT & AUDIO MIXER",
                             fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 13.sp,
-                            color = Color(0xFF38BDF8),
+                            color = Color(state.appTheme.primaryColor),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2608,13 +3249,14 @@ fun AudioMixerDialog(
                             else
                                 "BASSMIDI 32-Bit Studio SoundFont • Anti-Clip Studio Mastering",
                             fontSize = 9.5.sp,
-                            color = Color(0xFF94A3B8),
+                            fontFamily = FontFamily.SansSerif,
+                            color = Color(state.appTheme.textMutedColor),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(26.dp)) {
-                        Text(text = "✕", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(state.appTheme.textColor), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -2623,7 +3265,7 @@ fun AudioMixerDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1E293B))
+                        .background(Color(state.appTheme.buttonBgColor))
                         .border(1.dp, uniformBtnBorder, RoundedCornerShape(8.dp))
                         .padding(horizontal = 8.dp, vertical = 5.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -2637,13 +3279,15 @@ fun AudioMixerDialog(
                         Text(
                             text = "🎛️ SF2:",
                             fontSize = 10.sp,
-                            color = Color(0xFF38BDF8),
+                            fontFamily = FontFamily.SansSerif,
+                            color = Color(state.appTheme.primaryColor),
                             fontWeight = FontWeight.Black
                         )
                         Text(
                             text = state.activeSoundFontName,
                             fontSize = 10.5.sp,
-                            color = Color.White,
+                            fontFamily = FontFamily.SansSerif,
+                            color = Color(state.appTheme.textColor),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -2804,7 +3448,9 @@ fun AudioMixerDialog(
                 }
 
                 // Scrollable list of 6 Individual Instrument Adjusters
+                val mixerListState = androidx.compose.foundation.lazy.rememberLazyListState()
                 LazyColumn(
+                    state = mixerListState,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
@@ -3008,6 +3654,11 @@ fun resolveLyricFontParams(
     family: LyricFontFamily
 ): Triple<FontFamily, FontWeight, androidx.compose.ui.unit.TextUnit> {
     return when (family) {
+        LyricFontFamily.RADIO_CANADA -> Triple(
+            FontFamily(Font(R.font.radio_canada, FontWeight.Bold)),
+            FontWeight.Bold,
+            0.2.sp
+        )
         LyricFontFamily.SAN_SERIF -> Triple(
             FontFamily.SansSerif,
             FontWeight.Bold,
@@ -3071,6 +3722,23 @@ fun resolveLyricFontParams(
     }
 }
 
+fun toKaraokeNormalCase(text: String): String {
+    if (text.isBlank()) return text
+    return text.split(" ").joinToString(" ") { word ->
+        if (word.isEmpty()) ""
+        else {
+            val firstLetterIdx = word.indexOfFirst { it.isLetter() }
+            if (firstLetterIdx == -1) word
+            else {
+                val prefix = word.substring(0, firstLetterIdx)
+                val firstChar = word[firstLetterIdx].uppercaseChar()
+                val rest = word.substring(firstLetterIdx + 1).lowercase()
+                prefix + firstChar + rest
+            }
+        }
+    }
+}
+
 /**
  * Alternating Karaoke Lyric Line with high-contrast drop shadow and yellow wipe
  */
@@ -3086,9 +3754,52 @@ fun KaraokeLyricLine(
     modifier: Modifier = Modifier
 ) {
     val wipeClamped = wipePercent.coerceIn(0f, 1f)
-    val displayText = if (lyricConfig.isAllCaps) text.uppercase() else text
+    // Locked to strictly 60 FPS (16ms per frame) for butter-smooth transition without latency or jitter
+    val smoothWipe by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = wipeClamped,
+        animationSpec = if (wipeClamped <= 0.001f) {
+            androidx.compose.animation.core.snap()
+        } else {
+            val targetFpsDuration = if (lyricConfig.isFpsDroppedTo30) 33 else 16 // Auto-drop 60 FPS -> 30 FPS
+            androidx.compose.animation.core.tween(
+                durationMillis = targetFpsDuration,
+                easing = androidx.compose.animation.core.LinearEasing
+            )
+        },
+        label = "smoothWipeAutoFps"
+    )
+    val cleanText = text.trimEnd('-', ' ')
+    val displayText = if (lyricConfig.isAllCaps) cleanText.uppercase() else toKaraokeNormalCase(cleanText)
     val activeColor = Color(lyricConfig.wipeColor.activeColor)
     val inactiveBaseColor = Color(lyricConfig.inactiveColor)
+
+    // Character-level geometry tracking: maps character bounding boxes so each letter is hit one-by-one!
+    var textLayoutResult by remember(displayText) { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+
+    val effectiveLetterWipe = remember(smoothWipe, textLayoutResult, displayText) {
+        val layout = textLayoutResult
+        if (layout != null && displayText.isNotEmpty() && smoothWipe > 0f) {
+            try {
+                val layoutTextLen = layout.layoutInput.text.length
+                if (layoutTextLen > 0) {
+                    val totalChars = displayText.length.coerceAtMost(layoutTextLen)
+                    val charProgress = (smoothWipe * totalChars).coerceIn(0f, totalChars.toFloat())
+                    val charIdx = charProgress.toInt().coerceIn(0, layoutTextLen - 1)
+                    val charFrac = (charProgress - charIdx).coerceIn(0f, 1f)
+                    val box = layout.getBoundingBox(charIdx)
+                    val currentX = box.left + (box.width * charFrac)
+                    val totalWidth = layout.size.width.toFloat().coerceAtLeast(1f)
+                    (currentX / totalWidth).coerceIn(0f, 1f)
+                } else {
+                    smoothWipe
+                }
+            } catch (e: Throwable) {
+                smoothWipe
+            }
+        } else {
+            smoothWipe
+        }
+    }
 
     val (composeFontFamily, composeFontWeight, composeLetterSpacing) = remember(lyricConfig.fontFamily) {
         resolveLyricFontParams(lyricConfig.fontFamily)
@@ -3109,37 +3820,38 @@ fun KaraokeLyricLine(
         LyricShadowStyle.CLEAN -> Shadow.None
     }
 
-    // Inner text fill brush: wipes from Blue (active) to White (inactive)
-    val brush = if (isActive && wipeClamped > 0f) {
+    // Inner text fill brush: wipes from Active Color (active) to Inactive Color (inactive)
+    val brush = if (isActive && effectiveLetterWipe > 0f) {
         Brush.horizontalGradient(
             0.0f to activeColor,
-            wipeClamped to activeColor,
-            (wipeClamped + 0.001f).coerceAtMost(1f) to inactiveBaseColor,
+            effectiveLetterWipe to activeColor,
+            (effectiveLetterWipe + 0.001f).coerceAtMost(1f) to inactiveBaseColor,
             1.0f to inactiveBaseColor
         )
     } else null
 
     val unhighlightedOutlineColor = Color(lyricConfig.outlineColor.colorLong)
-    val useOutline = lyricConfig.outlineColor != LyricOutlineColor.NONE && (lyricConfig.shadowStyle == LyricShadowStyle.HEAVY_OUTLINE || lyricConfig.outlineColor != LyricOutlineColor.BLACK)
+    val useOutline = lyricConfig.outlineColor != LyricOutlineColor.NONE
 
     // Outer outline brush: wipes from Crisp White (highlighted portion) to chosen outline color (unhighlighted portion)
-    val outlineBrush = if (isActive && wipeClamped > 0f && useOutline) {
+    val outlineBrush = if (isActive && effectiveLetterWipe > 0f && useOutline) {
         val highlightedOutline = if (lyricConfig.outlineColor == LyricOutlineColor.WHITE) Color.Black else Color.White
         Brush.horizontalGradient(
             0.0f to highlightedOutline,
-            wipeClamped to highlightedOutline,
-            (wipeClamped + 0.001f).coerceAtMost(1f) to unhighlightedOutlineColor,
+            effectiveLetterWipe to highlightedOutline,
+            (effectiveLetterWipe + 0.001f).coerceAtMost(1f) to unhighlightedOutlineColor,
             1.0f to unhighlightedOutlineColor
         )
     } else null
 
     val annotatedString = buildAnnotatedString {
+        val sharpShadow = if (lyricConfig.shadowStyle == LyricShadowStyle.NEON_GLOW) shadow else null
         if (brush != null) {
             withStyle(
                 SpanStyle(
                     brush = brush,
                     letterSpacing = composeLetterSpacing,
-                    shadow = shadow
+                    shadow = sharpShadow
                 )
             ) {
                 append(displayText)
@@ -3150,7 +3862,7 @@ fun KaraokeLyricLine(
                 SpanStyle(
                     color = textColor,
                     letterSpacing = composeLetterSpacing,
-                    shadow = shadow
+                    shadow = sharpShadow
                 )
             ) {
                 append(displayText)
@@ -3158,23 +3870,9 @@ fun KaraokeLyricLine(
         }
     }
 
-    // Shrink-to-fit: pre-compute initial fitScale on Frame 0 so long lines never clip on the edges
-    val initialFitScale = remember(displayText, fontSize, lyricConfig.fontScale, isLandscape) {
-        val len = displayText.length.coerceAtLeast(1)
-        val maxSafeChars = if (isLandscape) {
-            (28f / lyricConfig.fontScale).coerceAtLeast(14f)
-        } else {
-            (19f / lyricConfig.fontScale).coerceAtLeast(11f)
-        }
-        if (len > maxSafeChars) {
-            (maxSafeChars / len.toFloat()).coerceIn(0.42f, 1.0f)
-        } else {
-            1.0f
-        }
-    }
-    val fitScale = initialFitScale
-    val scaledFontSize = (fontSize.value * lyricConfig.fontScale * fitScale).sp
-    val outlineWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { scaledFontSize.toPx() * 0.095f }
+    // Unified consistent font size: guarantees 100% identical size across all lyric lines without per-line variations
+    val scaledFontSize = (fontSize.value * lyricConfig.fontScale).sp
+    val outlineWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { lyricConfig.outlineThickness.dp.toPx() }
 
     // Shared unified TextStyle to guarantee 100% identical glyph layout, metrics and spacing:
     val sharedLyricStyle = TextStyle(
@@ -3209,7 +3907,9 @@ fun KaraokeLyricLine(
     )
 
     Box(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         // Inner container centered in the line that tightly wraps the lyric text
@@ -3217,8 +3917,25 @@ fun KaraokeLyricLine(
             modifier = Modifier.wrapContentSize(),
             contentAlignment = Alignment.Center
         ) {
+            // LAYER 1: Deep 3D Drop Shadow layer for supreme legibility on any bright video/photo background
+            if (lyricConfig.hasDropShadow || lyricConfig.shadowStyle == LyricShadowStyle.SUBTLE_DROP) {
+                Text(
+                    text = displayText,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.offset(x = 2.5.dp, y = 3.5.dp),
+                    style = sharedLyricStyle.copy(
+                        color = Color.Black.copy(alpha = 0.92f),
+                        drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = outlineWidthPx * 1.3f,
+                            join = androidx.compose.ui.graphics.StrokeJoin.Round
+                        )
+                    )
+                )
+            }
+
+            // LAYER 2: Crisp 2D stroke outline layer
             if (useOutline) {
-                // Crisp 2D normal outline layer (Arial Bold with white outline on highlight)
                 Text(
                     text = displayText,
                     maxLines = 1,
@@ -3226,25 +3943,47 @@ fun KaraokeLyricLine(
                     style = outlineStyle
                 )
             }
+
+            // LAYER 3: Active wiping gradient fill with exact character-level bounds layout
             Text(
                 text = annotatedString,
                 maxLines = 1,
                 softWrap = false,
+                onTextLayout = { textLayoutResult = it },
                 style = fillStyle
             )
 
-            // Single countdown number placed right above the first letter of lyrics!
+            // Countdown indicator placed right above the first letter of lyrics according to customized mode!
             if (countdownNumber in 1..4) {
-                SingleCountdownBadge(
-                    number = countdownNumber,
-                    isLandscape = isLandscape,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(
-                            x = 0.dp,
-                            y = if (isLandscape) (-30).dp else (-26).dp
+                when (lyricConfig.countdownMode) {
+                    LyricCountdownMode.ARCADE_NUMBER -> {
+                        SingleCountdownBadge(
+                            number = countdownNumber,
+                            isLandscape = isLandscape,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .offset(
+                                    x = 0.dp,
+                                    y = if (isLandscape) (-30).dp else (-26).dp
+                                )
                         )
-                )
+                    }
+                    LyricCountdownMode.CLASSIC_DOTS -> {
+                        VideokeDotsCountdownBadge(
+                            number = countdownNumber,
+                            isLandscape = isLandscape,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .offset(
+                                    x = 0.dp,
+                                    y = if (isLandscape) (-28).dp else (-24).dp
+                                )
+                        )
+                    }
+                    LyricCountdownMode.OFF -> {
+                        // User chose to disable countdown
+                    }
+                }
             }
         }
     }
@@ -3317,14 +4056,13 @@ fun RemoteKey(
     )
     Box(
         modifier = modifier
-            .height(40.dp)
-            .shadow(4.dp, RoundedCornerShape(10.dp))
-            .clip(RoundedCornerShape(10.dp))
+            .height(50.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(bgBrush ?: defaultBrush)
             .border(
                 1.dp,
                 borderBrush ?: defaultBorder,
-                RoundedCornerShape(10.dp)
+                RoundedCornerShape(14.dp)
             )
             .clickable { onClick() }
             .focusable(),
@@ -3333,16 +4071,9 @@ fun RemoteKey(
         Text(
             text = text,
             color = textColor,
-            fontWeight = FontWeight.Black,
-            fontSize = if (text.length > 2) 13.sp else 18.sp,
-            fontFamily = FontFamily.Monospace,
-            style = TextStyle(
-                shadow = Shadow(
-                    color = Color.Black.copy(alpha = 0.8f),
-                    offset = Offset(1f, 1f),
-                    blurRadius = 2f
-                )
-            )
+            fontWeight = FontWeight.Bold,
+            fontSize = if (text.length > 2) 14.sp else 22.sp,
+            fontFamily = FontFamily.SansSerif
         )
     }
 }
@@ -3363,13 +4094,13 @@ fun ActionButton(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(10.dp))
-            .clip(RoundedCornerShape(10.dp))
+            .height(50.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(bgBrush)
             .border(
                 1.dp,
                 borderBrush ?: defaultBorder,
-                RoundedCornerShape(10.dp)
+                RoundedCornerShape(14.dp)
             )
             .clickable { onClick() }
             .focusable(),
@@ -3377,20 +4108,13 @@ fun ActionButton(
     ) {
         if (text.isEmpty()) {
             if (icon == "📖") {
-                SongbookButtonGraphic(showLabel = true, iconWidth = 20.dp, iconHeight = 13.dp)
+                SongbookButtonGraphic(showLabel = true, iconWidth = 24.dp, iconHeight = 16.dp)
             } else {
                 Text(
                     text = icon,
                     color = textColor,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 18.sp,
-                    style = TextStyle(
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.4f),
-                            offset = Offset(1f, 1f),
-                            blurRadius = 2f
-                        )
-                    )
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
                 )
             }
         } else {
@@ -3965,9 +4689,11 @@ fun SongbookSearchOverlay(
     playableCodes: Set<String> = emptySet(),
     isTagalog: Boolean = false,
     isLandscape: Boolean = false,
+    theme: AppTheme = AppTheme.CYBER_NEON,
     onSwitchTab: (Int) -> Unit = {},
     onToggleFilter: (Boolean) -> Unit = {},
     onOpenFolderLocator: () -> Unit = {},
+    onOpenYouTubeDownloader: () -> Unit = {},
     onQueryChange: (String) -> Unit = {},
     onSelectSong: (Song) -> Unit = {},
     onReserveSong: (Song) -> Unit = {},
@@ -3987,14 +4713,10 @@ fun SongbookSearchOverlay(
 
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xF20F172A),
+        color = Color(theme.surfaceColor).copy(alpha = 0.95f),
         border = androidx.compose.foundation.BorderStroke(
             1.5.dp,
-            when (activeTab) {
-                1 -> Color(0xFFFFD54F) // Reserved Queue
-                2 -> Color(0xFFFF4081) // Favorites
-                else -> Color(0xFFFFC107) // Songbook
-            }
+            Color(theme.primaryColor)
         ),
         modifier = modifier
     ) {
@@ -4015,12 +4737,13 @@ fun SongbookSearchOverlay(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // TAB 0: 📖 SONGBOOK
+                    val isSongbookActive = activeTab == 0
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (activeTab == 0) Color(0xFFFFB300) else Color(0xFF1E293B),
+                        color = if (isSongbookActive) Color(theme.primaryColor) else Color(theme.buttonBgColor),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (activeTab == 0) Color(0xFFFFD54F) else Color(0xFF334155)
+                            if (isSongbookActive) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                         ),
                         modifier = Modifier
                             .weight(1f)
@@ -4032,9 +4755,10 @@ fun SongbookSearchOverlay(
                                 .padding(horizontal = 2.dp, vertical = 5.dp),
                             contentAlignment = Alignment.Center
                         ) {
+                            val activeTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
                             Text(
                                 text = "📖 SONGBOOK",
-                                color = if (activeTab == 0) Color.Black else Color(0xFFFFD54F),
+                                color = if (isSongbookActive) activeTextColor else Color(theme.textColor),
                                 fontSize = if (isLandscape) 11.sp else 9.5.sp,
                                 fontWeight = FontWeight.Black,
                                 maxLines = 1,
@@ -4044,12 +4768,13 @@ fun SongbookSearchOverlay(
                     }
 
                     // TAB 1: R RESERVED
+                    val isReserveActive = activeTab == 1
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (activeTab == 1) Color(0xFFFFD54F) else Color(0xFF1E293B),
+                        color = if (isReserveActive) Color(theme.secondaryColor) else Color(theme.buttonBgColor),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (activeTab == 1) Color(0xFFFFE082) else Color(0xFF334155)
+                            if (isReserveActive) Color(theme.secondaryColor) else Color(theme.buttonBorderColor)
                         ),
                         modifier = Modifier
                             .weight(1f)
@@ -4061,9 +4786,10 @@ fun SongbookSearchOverlay(
                                 .padding(horizontal = 2.dp, vertical = 5.dp),
                             contentAlignment = Alignment.Center
                         ) {
+                            val activeSecTextColor = if (theme.secondaryColor == 0xFF00E676L || theme.secondaryColor == 0xFFFFD54FL || theme.secondaryColor == 0xFFFFC107L || theme.secondaryColor == 0xFFFF80ABL) Color.Black else Color.White
                             Text(
                                 text = "R RESERVE (${reserveQueue.size})",
-                                color = if (activeTab == 1) Color.Black else Color(0xFFFFD54F),
+                                color = if (isReserveActive) activeSecTextColor else Color(theme.textColor),
                                 fontSize = if (isLandscape) 11.sp else 9.5.sp,
                                 fontWeight = FontWeight.Black,
                                 maxLines = 1,
@@ -4073,12 +4799,13 @@ fun SongbookSearchOverlay(
                     }
 
                     // TAB 2: ❤️ FAVORITES
+                    val isFavActive = activeTab == 2
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (activeTab == 2) Color(0xFFFF4081) else Color(0xFF1E293B),
+                        color = if (isFavActive) Color(0xFFFF4081) else Color(theme.buttonBgColor),
                         border = androidx.compose.foundation.BorderStroke(
                             1.dp,
-                            if (activeTab == 2) Color(0xFFFF80AB) else Color(0xFF334155)
+                            if (isFavActive) Color(0xFFFF80AB) else Color(theme.buttonBorderColor)
                         ),
                         modifier = Modifier
                             .weight(1f)
@@ -4092,7 +4819,7 @@ fun SongbookSearchOverlay(
                         ) {
                             Text(
                                 text = "❤️ FAVORITES (${favoriteSongs.size})",
-                                color = if (activeTab == 2) Color.White else Color(0xFFFF80AB),
+                                color = if (isFavActive) Color.White else Color(0xFFFF80AB),
                                 fontSize = if (isLandscape) 11.sp else 9.5.sp,
                                 fontWeight = FontWeight.Black,
                                 maxLines = 1,
@@ -4106,11 +4833,12 @@ fun SongbookSearchOverlay(
                     modifier = Modifier
                         .size(26.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF334155))
+                        .background(Color(theme.buttonBgColor))
+                        .border(1.dp, Color(theme.buttonBorderColor), CircleShape)
                         .clickable { onDismiss() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "✕", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "✕", color = Color(theme.textColor), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -4136,6 +4864,19 @@ fun SongbookSearchOverlay(
                             ) {
                                 Text(
                                     text = "📂 Folder",
+                                    color = Color.White,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFFE50914),
+                                modifier = Modifier.clickable { onOpenYouTubeDownloader() }
+                            ) {
+                                Text(
+                                    text = "▶ YouTube",
                                     color = Color.White,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold,
@@ -5039,13 +5780,15 @@ fun SongbookDialog(
 fun ScoreCelebrationDialog(
     score: Int,
     isTagalog: Boolean = false,
+    theme: com.example.videokey.ui.main.AppTheme = com.example.videokey.ui.main.AppTheme.CYBER_NEON,
     onDismiss: () -> Unit
 ) {
+    val btnTextClr = getContrastingTextColor(theme.primaryColor)
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = Color(0xFF1A102F),
-            border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFFC107)),
+            color = Color(theme.surfaceColor),
+            border = androidx.compose.foundation.BorderStroke(3.dp, Color(theme.primaryColor)),
             modifier = Modifier.padding(16.dp)
         ) {
             Column(
@@ -5054,31 +5797,33 @@ fun ScoreCelebrationDialog(
             ) {
                 Text(
                     text = if (isTagalog) "🏆 PAGBATI! 🏆" else "🏆 CONGRATULATIONS! 🏆",
-                    color = Color(0xFFFFC107),
+                    color = Color(theme.primaryColor),
                     fontWeight = FontWeight.Black,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "$score",
-                    color = Color(0xFFFFEB3B),
-                    fontFamily = FontFamily.Monospace,
+                    color = Color(theme.secondaryColor),
+                    fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.Black,
                     fontSize = 60.sp
                 )
                 Text(
                     text = if (isTagalog) "BIRIT KING! ANG GALING MO!" else "GREAT SINGING! AWESOME PERFORMANCE!",
-                    color = Color.White,
+                    color = Color(theme.textColor),
+                    fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(text = if (isTagalog) "MAGPATULOY" else "CONTINUE", color = Color.Black, fontWeight = FontWeight.Bold)
+                    Text(text = if (isTagalog) "MAGPATULOY" else "CONTINUE", color = btnTextClr, fontWeight = FontWeight.Bold, fontFamily = FontFamily.SansSerif)
                 }
             }
         }
@@ -5094,15 +5839,17 @@ fun SoundFontSelectionDialog(
     soundFonts: List<String>,
     activeSoundFont: String,
     isTagalog: Boolean = false,
+    theme: com.example.videokey.ui.main.AppTheme = com.example.videokey.ui.main.AppTheme.CYBER_NEON,
     onSelectSoundFont: (String) -> Unit,
     onScanStorage: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val doneBtnTextClr = getContrastingTextColor(theme.primaryColor)
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFC107)),
+            color = Color(theme.surfaceColor),
+            border = androidx.compose.foundation.BorderStroke(2.dp, Color(theme.primaryColor)),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp)
@@ -5120,18 +5867,20 @@ fun SoundFontSelectionDialog(
                     Text(
                         text = if (isTagalog) "🎛️ PILIIN ANG SOUNDFONT (SF2)" else "🎛️ SELECT SOUNDFONT (SF2)",
                         fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 15.sp,
-                        color = Color(0xFFFFC107)
+                        color = Color(theme.primaryColor)
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(theme.textColor), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 Text(
                     text = if (isTagalog) "Pumili ng Soundbank para sa tugtog ng VideoKey:" else "Select Soundbank for VideoKey audio timbre:",
                     fontSize = 11.sp,
-                    color = Color.LightGray,
+                    fontFamily = FontFamily.SansSerif,
+                    color = Color(theme.textMutedColor),
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                 )
 
@@ -5145,8 +5894,9 @@ fun SoundFontSelectionDialog(
                         item {
                             Text(
                                 text = if (isTagalog) "Walang nahanap na .sf2 sa /sdcard/VideoKey/SoundFont" else "No .sf2 files found in /sdcard/VideoKey/SoundFont",
-                                color = Color.Gray,
+                                color = Color(theme.textMutedColor),
                                 fontSize = 12.sp,
+                                fontFamily = FontFamily.SansSerif,
                                 modifier = Modifier.padding(16.dp)
                             )
                         }
@@ -5159,10 +5909,10 @@ fun SoundFontSelectionDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Color(0xFF1E3A8A) else Color(0xFF1E293B))
+                                    .background(if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor))
                                     .border(
                                         width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) Color(0xFFFFC107) else Color(0xFF334155),
+                                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor),
                                         shape = RoundedCornerShape(8.dp)
                                     )
                                     .clickable { onSelectSoundFont(sf) }
@@ -5181,9 +5931,10 @@ fun SoundFontSelectionDialog(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = sf,
-                                        color = if (isSelected) Color(0xFFFFE082) else Color.White,
+                                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 12.sp,
+                                        fontFamily = FontFamily.SansSerif,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -5191,11 +5942,12 @@ fun SoundFontSelectionDialog(
                                 if (isSelected) {
                                     Text(
                                         text = if (isTagalog) "GINAGAMIT ✓" else "ACTIVE ✓",
-                                        color = Color(0xFF00E676),
+                                        color = doneBtnTextClr,
                                         fontWeight = FontWeight.Black,
                                         fontSize = 10.sp,
+                                        fontFamily = FontFamily.SansSerif,
                                         modifier = Modifier
-                                            .background(Color(0xFF064E3B), RoundedCornerShape(4.dp))
+                                            .background(Color(theme.primaryColor), RoundedCornerShape(4.dp))
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
@@ -5213,18 +5965,19 @@ fun SoundFontSelectionDialog(
                 ) {
                     Button(
                         onClick = onScanStorage,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(text = if (isTagalog) "🔄 I-SCAN MULI ANG SF2" else "🔄 RESCAN SF2", fontSize = 11.sp, color = Color.White)
+                        Text(text = if (isTagalog) "🔄 I-SCAN MULI ANG SF2" else "🔄 RESCAN SF2", fontSize = 11.sp, color = Color(theme.textColor), fontFamily = FontFamily.SansSerif)
                     }
 
                     Button(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFC107)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(text = if (isTagalog) "TAPOS NA" else "DONE", fontSize = 11.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text(text = if (isTagalog) "TAPOS NA" else "DONE", fontSize = 11.sp, color = doneBtnTextClr, fontWeight = FontWeight.Bold, fontFamily = FontFamily.SansSerif)
                     }
                 }
             }
@@ -5233,12 +5986,145 @@ fun SoundFontSelectionDialog(
 }
 
 /**
- * Background Layer: Renders MP4 video, static image, or animated neon stage
+ * Live Camera Background Feed for Authentic KTV Studio Experience:
+ * Displays real-time camera preview (front/back camera) behind the lyrics.
+ */
+@Composable
+fun LiveCameraBackground(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var hasPermission by remember {
+        mutableStateOf(
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.CAMERA
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasPermission = granted
+    }
+
+    if (!hasPermission) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFF0F172A)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Text(text = "📷", fontSize = 42.sp)
+                Text(
+                    text = "Live Camera Background",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = "Kailangan ng Camera permission upang makita ang sarili habang kumakanta.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                )
+                Button(
+                    onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(text = "📸 Buksan ang Camera", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+        }
+    } else {
+        var cameraInstance by remember { mutableStateOf<android.hardware.Camera?>(null) }
+        var isFrontFacing by remember { mutableStateOf(true) }
+
+        DisposableEffect(isFrontFacing) {
+            onDispose {
+                try {
+                    cameraInstance?.stopPreview()
+                    cameraInstance?.release()
+                } catch (_: Exception) {}
+                cameraInstance = null
+            }
+        }
+
+        Box(modifier = modifier.fillMaxSize()) {
+            AndroidView(
+                factory = { ctx ->
+                    TextureView(ctx).apply {
+                        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                                try {
+                                    val count = android.hardware.Camera.getNumberOfCameras()
+                                    var targetCamId = 0
+                                    val camInfo = android.hardware.Camera.CameraInfo()
+                                    for (i in 0 until count) {
+                                        android.hardware.Camera.getCameraInfo(i, camInfo)
+                                        if (isFrontFacing && camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                                            targetCamId = i
+                                            break
+                                        } else if (!isFrontFacing && camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_BACK) {
+                                            targetCamId = i
+                                            break
+                                        }
+                                    }
+                                    val cam = android.hardware.Camera.open(targetCamId)
+                                    cam.setDisplayOrientation(90)
+                                    cam.setPreviewTexture(surface)
+                                    cam.startPreview()
+                                    cameraInstance = cam
+                                } catch (e: Exception) {
+                                    Log.w("CameraBg", "Failed to start camera preview: ${e.message}")
+                                }
+                            }
+                            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+                            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                                try {
+                                    cameraInstance?.stopPreview()
+                                    cameraInstance?.release()
+                                } catch (_: Exception) {}
+                                cameraInstance = null
+                                return true
+                            }
+                            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Camera flip switch (Front / Back camera)
+            IconButton(
+                onClick = { isFrontFacing = !isFrontFacing },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    .size(36.dp)
+            ) {
+                Text(text = "🔄", fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+/**
+ * Background Layer: Renders MP4 video, static image, live camera, or animated neon stage
  */
 @Composable
 fun VideokeBackgroundLayer(
     background: KaraokeBackground?,
     hasMultipleMedia: Boolean = true,
+    videoSongPath: String? = null,
+    isVideoSong: Boolean = false,
+    bgVisualMode: BackgroundVisualMode = BackgroundVisualMode.VIDEOS,
     onBackgroundCompleted: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -5246,10 +6132,24 @@ fun VideokeBackgroundLayer(
 
     Box(modifier = modifier.fillMaxSize()) {
         when {
+            isVideoSong && !videoSongPath.isNullOrBlank() && File(videoSongPath).exists() -> {
+                KaraokeVideoPlayer(
+                    videoPath = videoSongPath,
+                    hasMultipleMedia = false,
+                    isMuted = false,
+                    isVideoSong = true,
+                    onVideoCompleted = currentOnCompleted
+                )
+            }
+            !isVideoSong && bgVisualMode == BackgroundVisualMode.CAMERA -> {
+                LiveCameraBackground(modifier = Modifier.fillMaxSize())
+            }
             background?.type == BackgroundType.VIDEO && background.path.isNotEmpty() && File(background.path).exists() -> {
                 KaraokeVideoPlayer(
                     videoPath = background.path,
                     hasMultipleMedia = hasMultipleMedia,
+                    isMuted = true,
+                    isVideoSong = false,
                     onVideoCompleted = currentOnCompleted
                 )
             }
@@ -5285,20 +6185,22 @@ fun VideokeBackgroundLayer(
             }
         }
 
-        // Semi-transparent dark vignette scrim for 100% lyric contrast
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.40f),
-                            Color.Black.copy(alpha = 0.25f),
-                            Color.Black.copy(alpha = 0.65f)
+        if (!isVideoSong) {
+            // Semi-transparent dark vignette scrim for 100% lyric contrast
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.40f),
+                                Color.Black.copy(alpha = 0.25f),
+                                Color.Black.copy(alpha = 0.65f)
+                            )
                         )
                     )
-                )
-        )
+            )
+        }
     }
 }
 
@@ -5311,15 +6213,33 @@ fun VideokeBackgroundLayer(
 fun KaraokeVideoPlayer(
     videoPath: String,
     hasMultipleMedia: Boolean = true,
+    isMuted: Boolean = true,
+    isVideoSong: Boolean = false,
     onVideoCompleted: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val currentOnVideoCompleted by rememberUpdatedState(onVideoCompleted)
     var activeSurface by remember { mutableStateOf<Surface?>(null) }
     var textureViewRef by remember { mutableStateOf<TextureView?>(null) }
     var mediaPlayerRef by remember { mutableStateOf<MediaPlayer?>(null) }
     var isPlayerPrepared by remember { mutableStateOf(false) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    // Dynamically update audio volume whenever isMuted changes
+    LaunchedEffect(isMuted, isPlayerPrepared) {
+        mediaPlayerRef?.let { mp ->
+            try {
+                if (isMuted) {
+                    mp.setVolume(0f, 0f)
+                } else {
+                    mp.setVolume(1f, 1f)
+                }
+            } catch (e: Exception) {
+                Log.w("VideoPlayer", "Volume update warning", e)
+            }
+        }
+    }
 
     DisposableEffect(lifecycleOwner, mediaPlayerRef) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -5346,16 +6266,18 @@ fun KaraokeVideoPlayer(
         }
     }
 
-    fun adjustAspectMatrix(view: TextureView, viewW: Int, viewH: Int, vidW: Int, vidH: Int) {
+    fun adjustAspectMatrix(view: TextureView?, viewW: Int, viewH: Int, vidW: Int, vidH: Int) {
+        val tv = view ?: return
         if (viewW <= 0 || viewH <= 0 || vidW <= 0 || vidH <= 0) return
         val scaleX = viewW.toFloat() / vidW.toFloat()
         val scaleY = viewH.toFloat() / vidH.toFloat()
-        val maxScale = maxOf(scaleX, scaleY)
-        val scaledW = vidW.toFloat() * maxScale
-        val scaledH = vidH.toFloat() * maxScale
+        // FIT (letterbox) for MP4 Karaoke songs so the whole video and lyrics are 100% visible; CROP for background loops
+        val fillScale = if (isVideoSong) minOf(scaleX, scaleY) else maxOf(scaleX, scaleY)
+        val scaledW = vidW.toFloat() * fillScale
+        val scaledH = vidH.toFloat() * fillScale
         val matrix = android.graphics.Matrix()
         matrix.setScale(scaledW / viewW.toFloat(), scaledH / viewH.toFloat(), viewW / 2f, viewH / 2f)
-        view.setTransform(matrix)
+        tv.setTransform(matrix)
     }
 
     DisposableEffect(videoPath, activeSurface) {
@@ -5369,13 +6291,42 @@ fun KaraokeVideoPlayer(
             return@DisposableEffect onDispose {}
         }
 
+        // Request AudioFocus for clear, unmuted media playback
+        val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
+        if (!isMuted) {
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    val focusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(
+                            android.media.AudioAttributes.Builder()
+                                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                                .build()
+                        )
+                        .build()
+                    audioManager?.requestAudioFocus(focusRequest)
+                } else {
+                    @Suppress("DEPRECATION")
+                    audioManager?.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN)
+                }
+            } catch (e: Exception) {
+                Log.w("VideoPlayer", "Audio focus request warning", e)
+            }
+        }
+
         isPlayerPrepared = false
         val mp = MediaPlayer().apply {
             try {
+                setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .build()
+                )
                 setDataSource(file.absolutePath)
                 setSurface(surface)
-                setVolume(0f, 0f) // Muted so it does not clash with karaoke music
-                isLooping = !hasMultipleMedia // Loop if single video, otherwise onCompletion advances
+                setVolume(if (isMuted) 0f else 1f, if (isMuted) 0f else 1f)
+                isLooping = if (!isMuted) false else !hasMultipleMedia
 
                 setOnVideoSizeChangedListener { _, vWidth, vHeight ->
                     textureViewRef?.let { tv ->
@@ -5383,7 +6334,7 @@ fun KaraokeVideoPlayer(
                     }
                 }
                 setOnCompletionListener {
-                    Log.d("VideoPlayer", "Background video ended, auto-advancing: $videoPath")
+                    Log.d("VideoPlayer", "Video playback completed: $videoPath")
                     currentOnVideoCompleted()
                 }
                 setOnErrorListener { _, what, extra ->
@@ -5397,7 +6348,19 @@ fun KaraokeVideoPlayer(
                 setOnPreparedListener { preparedMp ->
                     isPlayerPrepared = true
                     try {
-                        preparedMp.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
+                        if (!isMuted) {
+                            preparedMp.setVolume(1.0f, 1.0f)
+                        } else {
+                            preparedMp.setVolume(0.0f, 0.0f)
+                        }
+                    } catch (e: Exception) {
+                        Log.w("VideoPlayer", "Volume setting warning", e)
+                    }
+                    try {
+                        preparedMp.setVideoScalingMode(
+                            if (isVideoSong) MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                            else MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+                        )
                     } catch (e: Exception) {
                         Log.w("VideoPlayer", "Scaling mode warning", e)
                     }
@@ -5438,11 +6401,19 @@ fun KaraokeVideoPlayer(
                     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                         activeSurface = Surface(surface)
                         textureViewRef = this@apply
+                        mediaPlayerRef?.let { mp ->
+                            if (isPlayerPrepared && mp.videoWidth > 0 && mp.videoHeight > 0) {
+                                adjustAspectMatrix(this@apply, width, height, mp.videoWidth, mp.videoHeight)
+                            }
+                        }
                     }
 
                     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-                        textureViewRef?.let { tv ->
-                            // Dynamic resize handled on video prepared/aspect matrix
+                        textureViewRef = this@apply
+                        mediaPlayerRef?.let { mp ->
+                            if (isPlayerPrepared && mp.videoWidth > 0 && mp.videoHeight > 0) {
+                                adjustAspectMatrix(this@apply, width, height, mp.videoWidth, mp.videoHeight)
+                            }
                         }
                     }
 
@@ -5458,10 +6429,21 @@ fun KaraokeVideoPlayer(
                 if (isAvailable && surfaceTexture != null) {
                     activeSurface = Surface(surfaceTexture)
                     textureViewRef = this
+                    mediaPlayerRef?.let { mp ->
+                        if (isPlayerPrepared && mp.videoWidth > 0 && mp.videoHeight > 0 && width > 0 && height > 0) {
+                            adjustAspectMatrix(this, width, height, mp.videoWidth, mp.videoHeight)
+                        }
+                    }
                 }
             }
         },
-        update = {}
+        update = { tv ->
+            mediaPlayerRef?.let { mp ->
+                if (isPlayerPrepared && mp.videoWidth > 0 && mp.videoHeight > 0 && tv.width > 0 && tv.height > 0) {
+                    adjustAspectMatrix(tv, tv.width, tv.height, mp.videoWidth, mp.videoHeight)
+                }
+            }
+        }
     )
 }
 
@@ -5504,10 +6486,15 @@ fun BackgroundSelectionDialog(
     selectedBackground: KaraokeBackground?,
     changeMode: BackgroundChangeMode,
     currentBackgroundFolder: String,
+    bgVisualMode: BackgroundVisualMode = BackgroundVisualMode.VIDEOS,
+    continuousVideoChangePerSong: Boolean = false,
     isTagalog: Boolean = false,
+    theme: com.example.videokey.ui.main.AppTheme = com.example.videokey.ui.main.AppTheme.CYBER_NEON,
     onOpenFolderLocator: () -> Unit,
     onSelectBackground: (KaraokeBackground) -> Unit,
     onChangeMode: (BackgroundChangeMode) -> Unit,
+    onSelectBgVisualMode: (BackgroundVisualMode) -> Unit = {},
+    onToggleContinuousVideoChangePerSong: (Boolean) -> Unit = {},
     onRescanMedia: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -5518,6 +6505,7 @@ fun BackgroundSelectionDialog(
         3 -> backgrounds.filter { it.type == BackgroundType.STAGE }
         else -> backgrounds
     }
+    val btnTextClr = getContrastingTextColor(theme.primaryColor)
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -5525,8 +6513,8 @@ fun BackgroundSelectionDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFFC107)),
+            color = Color(theme.surfaceColor),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(theme.primaryColor)),
             modifier = Modifier
                 .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.85f)
@@ -5542,19 +6530,66 @@ fun BackgroundSelectionDialog(
                     Text(
                         text = if (isTagalog) "🎬 BACKGROUND NG VIDEOKEY" else "🎬 VIDEOKEY BACKGROUND",
                         fontWeight = FontWeight.Black,
-                        color = Color(0xFFFFC107),
+                        fontFamily = FontFamily.SansSerif,
+                        color = Color(theme.primaryColor),
                         fontSize = 13.5.sp
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(theme.textColor), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
+                // BG MODE: Videos, Photos, Camera
+                Text(
+                    text = if (isTagalog) "📹 BG MODE (URI NG BACKGROUND):" else "📹 BACKGROUND MODE:",
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.SansSerif,
+                    color = Color(theme.textMutedColor),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    BackgroundVisualMode.values().forEach { mode ->
+                        val isModeSel = bgVisualMode == mode
+                        val icon = when (mode) {
+                            BackgroundVisualMode.VIDEOS -> "🎬"
+                            BackgroundVisualMode.PHOTOS -> "🖼️"
+                            BackgroundVisualMode.CAMERA -> "📷"
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isModeSel) Color(theme.primaryColor) else Color(theme.buttonBgColor))
+                                .border(1.dp, if (isModeSel) Color(theme.primaryColor) else Color(theme.buttonBorderColor), RoundedCornerShape(8.dp))
+                                .clickable { onSelectBgVisualMode(mode) }
+                                .padding(vertical = 7.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$icon ${mode.label(isTagalog)}",
+                                color = if (isModeSel) btnTextClr else Color(theme.textColor),
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.SansSerif,
+                                fontSize = 10.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
                 // Dedicated Single Background Folder Locator Card
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = Color(theme.buttonBgColor)),
                     shape = RoundedCornerShape(10.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFC107)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 4.dp, bottom = 6.dp)
@@ -5570,29 +6605,31 @@ fun BackgroundSelectionDialog(
                             Text(
                                 text = if (isTagalog) "📁 BACKGROUND FOLDER:" else "📁 BACKGROUND FOLDER:",
                                 fontSize = 9.sp,
-                                color = Color(0xFFFFC107),
+                                fontFamily = FontFamily.SansSerif,
+                                color = Color(theme.primaryColor),
                                 fontWeight = FontWeight.Black
                             )
                             Text(
                                 text = currentBackgroundFolder,
                                 fontSize = 11.sp,
-                                color = Color.White,
+                                color = Color(theme.textColor),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = if (isTagalog) "Nahanap: ${backgrounds.size} media files" else "Found: ${backgrounds.size} media files",
                                 fontSize = 9.sp,
-                                color = Color(0xFF94A3B8),
+                                fontFamily = FontFamily.SansSerif,
+                                color = Color(theme.textMutedColor),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
                         Button(
                             onClick = onOpenFolderLocator,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB300)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                             modifier = Modifier.height(28.dp)
@@ -5600,8 +6637,9 @@ fun BackgroundSelectionDialog(
                             Text(
                                 text = if (isTagalog) "📂 Palitan" else "📂 Change",
                                 fontSize = 10.sp,
+                                fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.Black
+                                color = btnTextClr
                             )
                         }
                     }
@@ -5611,7 +6649,8 @@ fun BackgroundSelectionDialog(
                 Text(
                     text = if (isTagalog) "PARAAN NG PAGPALIT (CHANGE MODE):" else "BACKGROUND CHANGE MODE:",
                     fontSize = 10.sp,
-                    color = Color.Gray,
+                    fontFamily = FontFamily.SansSerif,
+                    color = Color(theme.textMutedColor),
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
                 )
@@ -5626,16 +6665,17 @@ fun BackgroundSelectionDialog(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isAuto) Color(0xFF00E676) else Color(0xFF1E293B))
-                            .border(1.dp, if (isAuto) Color(0xFF00FF88) else Color(0xFF334155), RoundedCornerShape(8.dp))
+                            .background(if (isAuto) Color(theme.primaryColor) else Color(theme.buttonBgColor))
+                            .border(1.dp, if (isAuto) Color(theme.primaryColor) else Color(theme.buttonBorderColor), RoundedCornerShape(8.dp))
                             .clickable { onChangeMode(BackgroundChangeMode.AUTO_CHANGE_PER_SONG) }
                             .padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isTagalog) "🔀 Bawat Kanta" else "🔀 Per Song",
-                            color = if (isAuto) Color.Black else Color.White,
+                            color = if (isAuto) btnTextClr else Color(theme.textColor),
                             fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 10.5.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -5648,21 +6688,59 @@ fun BackgroundSelectionDialog(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isContinuous) Color(0xFF2979FF) else Color(0xFF1E293B))
-                            .border(1.dp, if (isContinuous) Color(0xFF448AFF) else Color(0xFF334155), RoundedCornerShape(8.dp))
+                            .background(if (isContinuous) Color(theme.secondaryColor) else Color(theme.buttonBgColor))
+                            .border(1.dp, if (isContinuous) Color(theme.secondaryColor) else Color(theme.buttonBorderColor), RoundedCornerShape(8.dp))
                             .clickable { onChangeMode(BackgroundChangeMode.CONTINUOUS) }
                             .padding(vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isTagalog) "🔁 Tuloy-tuloy" else "🔁 Continuous",
-                            color = Color.White,
+                            color = if (isContinuous) getContrastingTextColor(theme.secondaryColor) else Color(theme.textColor),
                             fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 10.5.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                }
+
+                // Continuous Video Sub-Option: Change clip on every new song ON / OFF
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(theme.buttonBgColor).copy(alpha = 0.5f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isTagalog) "Palitan ang clip bawat bagong kanta" else "Change clip on every new song",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(theme.textColor)
+                        )
+                        Text(
+                            text = if (continuousVideoChangePerSong)
+                                (if (isTagalog) "BUKAS (Lilipat ng clip sa bawat kanta)" else "ON (Advances clip on new song)")
+                            else
+                                (if (isTagalog) "SARADO (Tuloy ang clip kahit magbago ang kanta)" else "OFF (Continuous playback across songs)"),
+                            fontSize = 8.5.sp,
+                            color = if (continuousVideoChangePerSong) Color(0xFF00FF88) else Color(theme.textMutedColor)
+                        )
+                    }
+                    Switch(
+                        checked = continuousVideoChangePerSong,
+                        onCheckedChange = { onToggleContinuousVideoChangePerSong(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(theme.primaryColor),
+                            checkedTrackColor = Color(theme.primaryColor).copy(alpha = 0.35f)
+                        )
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -5683,15 +6761,17 @@ fun BackgroundSelectionDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(if (isSel) Color(0xFFFFC107) else Color(0xFF1E293B))
+                                .background(if (isSel) Color(theme.primaryColor) else Color(theme.buttonBgColor))
+                                .border(1.dp, if (isSel) Color(theme.primaryColor) else Color(theme.buttonBorderColor), RoundedCornerShape(6.dp))
                                 .clickable { selectedTab = idx }
                                 .padding(vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = tabTitle,
-                                color = if (isSel) Color.Black else Color.White,
+                                color = if (isSel) btnTextClr else Color(theme.textColor),
                                 fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 10.sp
                             )
                         }
@@ -5711,10 +6791,10 @@ fun BackgroundSelectionDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) Color(0xFF1E3A2F) else Color(0xFF1E293B))
+                                .background(if (isSelected) Color(theme.primaryColor).copy(alpha = 0.22f) else Color(theme.buttonBgColor))
                                 .border(
-                                    width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) Color(0xFF00FF88) else Color(0xFF334155),
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor),
                                     shape = RoundedCornerShape(10.dp)
                                 )
                                 .clickable { onSelectBackground(bg) }
@@ -5738,8 +6818,9 @@ fun BackgroundSelectionDialog(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = bg.name,
-                                        color = if (isSelected) Color(0xFF00FF88) else Color.White,
+                                        color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                                         fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.SansSerif,
                                         fontSize = 12.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -5750,7 +6831,8 @@ fun BackgroundSelectionDialog(
                                             BackgroundType.IMAGE -> if (isTagalog) "Larawan (Wallpaper)" else "Picture (Wallpaper)"
                                             BackgroundType.STAGE -> if (isTagalog) "Stage Neon Canvas" else "Animated Stage Canvas"
                                         },
-                                        color = Color.Gray,
+                                        color = Color(theme.textMutedColor),
+                                        fontFamily = FontFamily.SansSerif,
                                         fontSize = 9.sp,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -5762,8 +6844,9 @@ fun BackgroundSelectionDialog(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = if (isTagalog) "✓ GAMIT" else "✓ ACTIVE",
-                                    color = Color(0xFF00FF88),
+                                    color = Color(theme.primaryColor),
                                     fontWeight = FontWeight.Black,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 11.sp
                                 )
                             }
@@ -5783,6 +6866,7 @@ fun LyricStyleDialog(
     config: LyricCustomization,
     isTagalog: Boolean = false,
     isLandscape: Boolean = false,
+    theme: com.example.videokey.ui.main.AppTheme = com.example.videokey.ui.main.AppTheme.CYBER_NEON,
     onSelectFontFamily: (LyricFontFamily) -> Unit,
     onSelectWipeColor: (LyricWipeColor) -> Unit,
     onSelectShadowStyle: (LyricShadowStyle) -> Unit,
@@ -5790,8 +6874,14 @@ fun LyricStyleDialog(
     onToggleAllCaps: () -> Unit,
     onToggleItalic: () -> Unit,
     onAdjustFontScale: (Float) -> Unit,
+    onAdjustOutlineThickness: (Float) -> Unit = {},
+    onAdjustFontSize: (Float, Float) -> Unit = { _, _ -> },
+    onAdjustLineSpacing: (Float) -> Unit = {},
+    onToggleDropShadow: () -> Unit = {},
     onSelectLineCount: (LyricLineCount) -> Unit,
     onSelectPosition: (LyricScreenPosition) -> Unit,
+    onSelectCountdownMode: (LyricCountdownMode) -> Unit = {},
+    onAdjustTimingOffset: (Int) -> Unit = {},
     onApplyPreset: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -5812,8 +6902,8 @@ fun LyricStyleDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF818CF8)),
+            color = Color(theme.surfaceColor),
+            border = androidx.compose.foundation.BorderStroke(2.dp, Color(theme.primaryColor)),
             modifier = Modifier
                 .fillMaxWidth(if (isLandscape) 0.88f else 0.95f)
                 .fillMaxHeight(if (isLandscape) 0.94f else 0.90f)
@@ -5834,26 +6924,28 @@ fun LyricStyleDialog(
                         Text(
                             text = if (isTagalog) "🔤 FONT, ESTILO AT POSISYON" else "🔤 LYRIC FONT, STYLE & POSITION",
                             fontWeight = FontWeight.Black,
-                            color = Color(0xFFA5B4FC),
+                            fontFamily = FontFamily.SansSerif,
+                            color = Color(theme.primaryColor),
                             fontSize = if (isLandscape) 14.sp else 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFF312E81)
+                            color = Color(theme.buttonBgColor)
                         ) {
                             Text(
                                 text = if (isTagalog) "BAGUHIN" else "CUSTOMIZE",
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFA5B4FC),
+                                fontFamily = FontFamily.SansSerif,
+                                color = Color(theme.primaryColor),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(theme.textColor), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -5889,17 +6981,18 @@ fun LyricStyleDialog(
 
                             Button(
                                 onClick = onDismiss,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                                 shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(38.dp)
                             ) {
+                                val btnTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
                                 Text(
                                     text = if (isTagalog) "ILAPAT AT ISARA ✓" else "APPLY & CLOSE ✓",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 11.5.sp,
-                                    color = Color.White,
+                                    color = btnTextColor,
                                     maxLines = 1
                                 )
                             }
@@ -5909,6 +7002,7 @@ fun LyricStyleDialog(
                         LyricControlsScrollable(
                             config = config,
                             isTagalog = isTagalog,
+                            theme = theme,
                             onSelectFontFamily = onSelectFontFamily,
                             onSelectWipeColor = onSelectWipeColor,
                             onSelectShadowStyle = onSelectShadowStyle,
@@ -5916,6 +7010,12 @@ fun LyricStyleDialog(
                             onToggleAllCaps = onToggleAllCaps,
                             onToggleItalic = onToggleItalic,
                             onAdjustFontScale = onAdjustFontScale,
+                            onAdjustOutlineThickness = onAdjustOutlineThickness,
+                            onAdjustFontSize = onAdjustFontSize,
+                            onAdjustLineSpacing = onAdjustLineSpacing,
+                            onToggleDropShadow = onToggleDropShadow,
+                            onSelectCountdownMode = onSelectCountdownMode,
+                            onAdjustTimingOffset = onAdjustTimingOffset,
                             onApplyPreset = onApplyPreset,
                             modifier = Modifier
                                 .weight(0.56f)
@@ -5942,6 +7042,7 @@ fun LyricStyleDialog(
                         LyricControlsInner(
                             config = config,
                             isTagalog = isTagalog,
+                            theme = theme,
                             onSelectFontFamily = onSelectFontFamily,
                             onSelectWipeColor = onSelectWipeColor,
                             onSelectShadowStyle = onSelectShadowStyle,
@@ -5949,23 +7050,30 @@ fun LyricStyleDialog(
                             onToggleAllCaps = onToggleAllCaps,
                             onToggleItalic = onToggleItalic,
                             onAdjustFontScale = onAdjustFontScale,
+                            onAdjustOutlineThickness = onAdjustOutlineThickness,
+                            onAdjustFontSize = onAdjustFontSize,
+                            onAdjustLineSpacing = onAdjustLineSpacing,
+                            onToggleDropShadow = onToggleDropShadow,
+                            onSelectCountdownMode = onSelectCountdownMode,
+                            onAdjustTimingOffset = onAdjustTimingOffset,
                             onApplyPreset = onApplyPreset
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(40.dp)
                     ) {
+                        val btnTextColor = if (theme.primaryColor == 0xFF00E676L || theme.primaryColor == 0xFFFFD54FL || theme.primaryColor == 0xFFFFC107L) Color.Black else Color.White
                         Text(
                             text = if (isTagalog) "ILAPAT AT ISARA ✓" else "APPLY & CLOSE ✓",
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
-                            color = Color.White,
+                            color = btnTextColor,
                             maxLines = 1
                         )
                     }
@@ -6044,14 +7152,14 @@ private fun LyricLivePreviewCard(
                     text = "THE ONLY ONE I DREAM OF",
                     isActive = false,
                     wipePercent = 0f,
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     lyricConfig = config
                 )
                 KaraokeLyricLine(
                     text = "STILL THE ONE I KISS GOODNIGHT",
                     isActive = false,
                     wipePercent = 0f,
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     lyricConfig = config
                 )
             }
@@ -6156,6 +7264,7 @@ private fun LyricLineAndPositionControls(
 private fun LyricControlsScrollable(
     config: LyricCustomization,
     isTagalog: Boolean = false,
+    theme: AppTheme = AppTheme.CYBER_NEON,
     onSelectFontFamily: (LyricFontFamily) -> Unit,
     onSelectWipeColor: (LyricWipeColor) -> Unit,
     onSelectShadowStyle: (LyricShadowStyle) -> Unit,
@@ -6163,6 +7272,12 @@ private fun LyricControlsScrollable(
     onToggleAllCaps: () -> Unit,
     onToggleItalic: () -> Unit,
     onAdjustFontScale: (Float) -> Unit,
+    onAdjustOutlineThickness: (Float) -> Unit = {},
+    onAdjustFontSize: (Float, Float) -> Unit = { _, _ -> },
+    onAdjustLineSpacing: (Float) -> Unit = {},
+    onToggleDropShadow: () -> Unit = {},
+    onSelectCountdownMode: (LyricCountdownMode) -> Unit = {},
+    onAdjustTimingOffset: (Int) -> Unit = {},
     onApplyPreset: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -6173,6 +7288,7 @@ private fun LyricControlsScrollable(
         LyricControlsInner(
             config = config,
             isTagalog = isTagalog,
+            theme = theme,
             onSelectFontFamily = onSelectFontFamily,
             onSelectWipeColor = onSelectWipeColor,
             onSelectShadowStyle = onSelectShadowStyle,
@@ -6180,6 +7296,12 @@ private fun LyricControlsScrollable(
             onToggleAllCaps = onToggleAllCaps,
             onToggleItalic = onToggleItalic,
             onAdjustFontScale = onAdjustFontScale,
+            onAdjustOutlineThickness = onAdjustOutlineThickness,
+            onAdjustFontSize = onAdjustFontSize,
+            onAdjustLineSpacing = onAdjustLineSpacing,
+            onToggleDropShadow = onToggleDropShadow,
+            onSelectCountdownMode = onSelectCountdownMode,
+            onAdjustTimingOffset = onAdjustTimingOffset,
             onApplyPreset = onApplyPreset
         )
     }
@@ -6189,6 +7311,7 @@ private fun LyricControlsScrollable(
 private fun LyricControlsInner(
     config: LyricCustomization,
     isTagalog: Boolean = false,
+    theme: AppTheme = AppTheme.CYBER_NEON,
     onSelectFontFamily: (LyricFontFamily) -> Unit,
     onSelectWipeColor: (LyricWipeColor) -> Unit,
     onSelectShadowStyle: (LyricShadowStyle) -> Unit,
@@ -6196,6 +7319,12 @@ private fun LyricControlsInner(
     onToggleAllCaps: () -> Unit,
     onToggleItalic: () -> Unit,
     onAdjustFontScale: (Float) -> Unit,
+    onAdjustOutlineThickness: (Float) -> Unit = {},
+    onAdjustFontSize: (Float, Float) -> Unit = { _, _ -> },
+    onAdjustLineSpacing: (Float) -> Unit = {},
+    onToggleDropShadow: () -> Unit = {},
+    onSelectCountdownMode: (LyricCountdownMode) -> Unit = {},
+    onAdjustTimingOffset: (Int) -> Unit = {},
     onApplyPreset: (String) -> Unit
 ) {
     // SECTION 1: INSTANT PRESETS
@@ -6476,10 +7605,10 @@ private fun LyricControlsInner(
             // ALL CAPS Toggle
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = if (config.isAllCaps) Color(0xFF312E81) else Color(0xFF1E293B),
+                color = if (config.isAllCaps) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                 border = androidx.compose.foundation.BorderStroke(
                     width = if (config.isAllCaps) 1.5.dp else 1.dp,
-                    color = if (config.isAllCaps) Color(0xFF818CF8) else Color(0xFF334155)
+                    color = if (config.isAllCaps) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -6493,7 +7622,8 @@ private fun LyricControlsInner(
                     Text(
                         text = if (config.isAllCaps) "🔠 ALL CAPS: ON" else (if (isTagalog) "🔡 Normal na Titik" else "🔡 Normal Case"),
                         fontSize = 9.5.sp,
-                        color = if (config.isAllCaps) Color.White else Color(0xFF94A3B8),
+                        fontFamily = FontFamily.SansSerif,
+                        color = if (config.isAllCaps) Color(theme.primaryColor) else Color(theme.textColor),
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -6504,10 +7634,10 @@ private fun LyricControlsInner(
             // Italic Toggle
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = if (config.isItalic) Color(0xFF312E81) else Color(0xFF1E293B),
+                color = if (config.isItalic) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor),
                 border = androidx.compose.foundation.BorderStroke(
                     width = if (config.isItalic) 1.5.dp else 1.dp,
-                    color = if (config.isItalic) Color(0xFF818CF8) else Color(0xFF334155)
+                    color = if (config.isItalic) Color(theme.primaryColor) else Color(theme.buttonBorderColor)
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -6521,7 +7651,8 @@ private fun LyricControlsInner(
                     Text(
                         text = if (config.isItalic) "🖋️ Italic: ON" else (if (isTagalog) "🖋️ Tuwid (Normal)" else "🖋️ Upright (Normal)"),
                         fontSize = 9.5.sp,
-                        color = if (config.isItalic) Color.White else Color(0xFF94A3B8),
+                        fontFamily = FontFamily.SansSerif,
+                        color = if (config.isItalic) Color(theme.primaryColor) else Color(theme.textColor),
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -6578,6 +7709,393 @@ private fun LyricControlsInner(
             }
         }
     }
+
+    // SECTION 7: 3D DROP SHADOW
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isTagalog) "✨ 3D DROP SHADOW (PAMPALINAW):" else "✨ 3D DROP SHADOW (LEGIBILITY):",
+                    fontSize = 10.5.sp,
+                    color = Color(0xFFA5B4FC),
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    text = if (config.hasDropShadow)
+                        (if (isTagalog) "BUKAS (Malinaw sa kahit anong video background)" else "ON (Enhanced clarity on all backgrounds)")
+                    else
+                        (if (isTagalog) "SARADO (Flat text lamang)" else "OFF (Flat text only)"),
+                    fontSize = 9.sp,
+                    color = if (config.hasDropShadow) Color(0xFF00FF88) else Color(0xFF94A3B8)
+                )
+            }
+            Switch(
+                checked = config.hasDropShadow,
+                onCheckedChange = { onToggleDropShadow() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF00E676),
+                    checkedTrackColor = Color(0xFF064E3B)
+                )
+            )
+        }
+    }
+
+    // SECTION 8: LYRICS OUTLINE THICKNESS (Default 6.0)
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isTagalog) "🖋️ KAPAL NG OUTLINE: ${config.outlineThickness.toInt()}px" else "🖋️ OUTLINE THICKNESS: ${config.outlineThickness.toInt()}px",
+                fontSize = 10.5.sp,
+                color = Color(0xFFA5B4FC),
+                fontWeight = FontWeight.Black
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Button(
+                    onClick = { onAdjustOutlineThickness(config.outlineThickness - 1f) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("–", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                Button(
+                    onClick = { onAdjustOutlineThickness(config.outlineThickness + 1f) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(
+                3.0f to "3.0px",
+                4.5f to "4.5px",
+                6.0f to (if (isTagalog) "6.0px (Default)" else "6.0px (Default)"),
+                8.0f to "8.0px",
+                10.0f to "10.0px"
+            ).forEach { (thick, label) ->
+                val isSelected = Math.abs(config.outlineThickness - thick) < 0.2f
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onAdjustOutlineThickness(thick) }
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (isSelected) "✓ $label" else label,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // SECTION 9: EXACT FONT SIZE (PORTRAIT 42SP / LANDSCAPE 63SP ADJUSTABLE)
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isTagalog)
+                    "🔤 SUKAT: P ${config.fontSizePortraitSp.toInt()}sp / L ${config.fontSizeLandscapeSp.toInt()}sp"
+                else
+                    "🔤 SIZE: P ${config.fontSizePortraitSp.toInt()}sp / L ${config.fontSizeLandscapeSp.toInt()}sp",
+                fontSize = 10.5.sp,
+                color = Color(0xFFA5B4FC),
+                fontWeight = FontWeight.Black
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Button(
+                    onClick = {
+                        onAdjustFontSize(config.fontSizePortraitSp - 3f, config.fontSizeLandscapeSp - 4.5f)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("–", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                Button(
+                    onClick = {
+                        onAdjustFontSize(config.fontSizePortraitSp + 3f, config.fontSizeLandscapeSp + 4.5f)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(
+                Triple(36f, 54f, if (isTagalog) "36/54 (Maliit)" else "36/54 (Small)"),
+                Triple(42f, 63f, if (isTagalog) "42/63 (Default)" else "42/63 (Default)"),
+                Triple(48f, 72f, if (isTagalog) "48/72 (Malaki)" else "48/72 (Large)"),
+                Triple(54f, 81f, if (isTagalog) "54/81 (Extra)" else "54/81 (Extra)")
+            ).forEach { (port, land, label) ->
+                val isSelected = Math.abs(config.fontSizePortraitSp - port) < 1f
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onAdjustFontSize(port, land) }
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (isSelected) "✓ $label" else label,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // SECTION 10: LYRIC LINE SPACING (DISTANSYA NG MGA LINYA)
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isTagalog) "↕️ DISTANSYA NG LINYA: ${config.lineSpacingDp.toInt()}dp" else "↕️ LINE SPACING: ${config.lineSpacingDp.toInt()}dp",
+                fontSize = 10.5.sp,
+                color = Color(0xFFA5B4FC),
+                fontWeight = FontWeight.Black
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Button(
+                    onClick = { onAdjustLineSpacing(config.lineSpacingDp - 2f) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("–", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                Button(
+                    onClick = { onAdjustLineSpacing(config.lineSpacingDp + 2f) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(
+                8f to "8dp",
+                12f to "12dp",
+                16f to (if (isTagalog) "16dp (Default)" else "16dp (Default)"),
+                22f to "22dp",
+                28f to "28dp"
+            ).forEach { (spacing, label) ->
+                val isSelected = Math.abs(config.lineSpacingDp - spacing) < 1f
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onAdjustLineSpacing(spacing) }
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (isSelected) "✓ $label" else label,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // SECTION 11: COUNTDOWN / COUNTING MODE (COUNTING CUSTOMIZATION)
+    Column {
+        Text(
+            text = if (isTagalog) "⏱️ ESTILO NG COUNTING (COUNTDOWN):" else "⏱️ COUNTDOWN & COUNTING STYLE:",
+            fontSize = 10.5.sp,
+            color = Color(0xFFA5B4FC),
+            fontWeight = FontWeight.Black
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            LyricCountdownMode.values().forEach { mode ->
+                val isSelected = config.countdownMode == mode
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectCountdownMode(mode) }
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp, horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (isSelected) "✓ ${mode.label(isTagalog)}" else mode.label(isTagalog),
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // SECTION 12: LYRIC TIMING SYNC OFFSET (PAG-SYNC NG TIMING)
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val offsetLabel = when {
+                config.timingOffsetMs > 0 -> "+${config.timingOffsetMs}ms (${if (isTagalog) "Abante" else "Fast"})"
+                config.timingOffsetMs < 0 -> "${config.timingOffsetMs}ms (${if (isTagalog) "Atras" else "Slow"})"
+                else -> "0ms (${if (isTagalog) "Sakto" else "Sync"})"
+            }
+            Text(
+                text = if (isTagalog) "🎯 TIMING SYNC OFFSET: $offsetLabel" else "🎯 LYRIC TIMING SYNC: $offsetLabel",
+                fontSize = 10.5.sp,
+                color = Color(0xFFA5B4FC),
+                fontWeight = FontWeight.Black
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Button(
+                    onClick = { onAdjustTimingOffset(config.timingOffsetMs - 25) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("–25ms", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                }
+                Button(
+                    onClick = { onAdjustTimingOffset(0) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF475569)),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("Reset", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                }
+                Button(
+                    onClick = { onAdjustTimingOffset(config.timingOffsetMs + 25) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.height(24.dp)
+                ) {
+                    Text("+25ms", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf(
+                -150 to "-150ms",
+                -75 to "-75ms",
+                0 to (if (isTagalog) "0ms (Sakto)" else "0ms (Sync)"),
+                75 to "+75ms",
+                150 to "+150ms"
+            ).forEach { (offsetVal, label) ->
+                val isSelected = config.timingOffsetMs == offsetVal
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isSelected) Color(0xFF312E81) else Color(0xFF1E293B),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) Color(0xFF818CF8) else Color(0xFF334155)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onAdjustTimingOffset(offsetVal) }
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (isSelected) "✓ $label" else label,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -6589,6 +8107,10 @@ fun AppSettingsDialog(
     state: VideoKeyUiState,
     isLandscape: Boolean = false,
     onToggleMicScoring: (Boolean) -> Unit,
+    onSelectScoreMode: (ScoreMode) -> Unit = {},
+    onSelectScoringDifficulty: (ScoringDifficulty) -> Unit = {},
+    onSelectFanfareSoundLevel: (FanfareSoundLevel) -> Unit = {},
+    onTestFanfare: () -> Unit = {},
     onToggleScoringSound: (Boolean) -> Unit = {},
     onAdjustMicSensitivity: (Float) -> Unit,
     onToggleKeypadVoice: (Boolean) -> Unit,
@@ -6608,8 +8130,8 @@ fun AppSettingsDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF38BDF8)),
+            color = Color(state.appTheme.surfaceColor),
+            border = androidx.compose.foundation.BorderStroke(2.dp, Color(state.appTheme.primaryColor)),
             modifier = Modifier
                 .fillMaxWidth(if (isLandscape) 0.85f else 0.95f)
                 .fillMaxHeight(if (isLandscape) 0.92f else 0.88f)
@@ -6638,16 +8160,17 @@ fun AppSettingsDialog(
                                 if (isTagalog) "MGA SETTING NG VIDEOKEY" else "VIDEOKEY SETTINGS"
                             },
                             fontWeight = FontWeight.Black,
-                            color = if (isLandscape) Color(0xFFFFD54F) else Color(0xFF38BDF8),
+                            fontFamily = FontFamily.SansSerif,
+                            color = Color(state.appTheme.primaryColor),
                             fontSize = 13.sp
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(state.appTheme.textColor), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFF334155), thickness = 1.dp)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(state.appTheme.buttonBorderColor), thickness = 1.dp)
 
                 // Scrollable Content Column
                 Column(
@@ -6707,14 +8230,14 @@ fun AppSettingsDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "🇵🇭 Tagalog (Default)",
+                                text = "🇵🇭 Tagalog",
                                 fontWeight = if (isTagalog) FontWeight.Black else FontWeight.Bold,
                                 color = if (isTagalog) Color.White else Color(0xFF94A3B8),
                                 fontSize = 11.sp
                             )
                         }
 
-                        // English Button
+                        // English Button (Default)
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -6730,7 +8253,7 @@ fun AppSettingsDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "🇺🇸 English",
+                                text = "🇺🇸 English (Default)",
                                 fontWeight = if (!isTagalog) FontWeight.Black else FontWeight.Bold,
                                 color = if (!isTagalog) Color.White else Color(0xFF94A3B8),
                                 fontSize = 11.sp
@@ -6826,8 +8349,9 @@ fun AppSettingsDialog(
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF1E293B))
                         .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -6835,67 +8359,199 @@ fun AppSettingsDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isTagalog) "🏆 SCORING (PAG-ISKO PAGKATAPOS NG KANTA)" else "🏆 SONG SCORING SYSTEM",
+                                text = if (isTagalog) "🏆 SCORING SYSTEM (PAG-ISKO PAGKATAPOS NG KANTA)" else "🏆 SONG SCORING SYSTEM",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 12.sp,
                                 color = Color.White
                             )
                             Text(
-                                text = if (state.isMicScoringEnabled)
-                                    (if (isTagalog) "BUKAS (May score modal at fanfare sound effect)" else "ON (Show score modal)")
-                                else
-                                    (if (isTagalog) "SARADO (Diretso susunod na kanta, walang score at tunog)" else "OFF (No score modal, proceed to next song)"),
+                                text = when (state.scoreMode) {
+                                    ScoreMode.OFF -> if (isTagalog) "SARADO (Walang score, diretso next song)" else "OFF (No score modal, direct next song)"
+                                    ScoreMode.RANDOM -> if (isTagalog) "RANDOM (Suwerte/random score pagtapos ng kanta)" else "RANDOM (Fun randomized score)"
+                                    ScoreMode.MICROPHONE -> if (isTagalog) "MICROPHONE (Totoong pagsukat ng boses sa mic)" else "MICROPHONE (Real-time voice pitch & energy)"
+                                },
                                 fontSize = 10.sp,
-                                color = if (state.isMicScoringEnabled) Color(0xFF00FF88) else Color(0xFF94A3B8)
+                                color = if (state.scoreMode != ScoreMode.OFF) Color(0xFF00FF88) else Color(0xFF94A3B8)
                             )
                         }
-                        Switch(
-                            checked = state.isMicScoringEnabled,
-                            onCheckedChange = { onToggleMicScoring(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFF00E676),
-                                checkedTrackColor = Color(0xFF064E3B)
-                            )
-                        )
                     }
 
-                    if (state.isMicScoringEnabled) {
-                        // Sub-option: Scoring Fanfare & Cheering Sound Effect
+                    // 1. SCORE MODE: RANDOM, OFF, MICROPHONE
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = if (isTagalog) "🎯 SCORE MODE:" else "🎯 SCORE MODE:",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFA5B4FC)
+                        )
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                ScoreMode.RANDOM to (if (isTagalog) "🎲 Random" else "🎲 Random"),
+                                ScoreMode.OFF to (if (isTagalog) "⛔ Off" else "⛔ Off"),
+                                ScoreMode.MICROPHONE to (if (isTagalog) "🎙️ Microphone" else "🎙️ Microphone")
+                            ).forEach { (mode, label) ->
+                                val isSelected = state.scoreMode == mode
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) Color(0xFF2563EB) else Color(0xFF0F172A),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) Color(0xFF60A5FA) else Color(0xFF334155)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onSelectScoreMode(mode) }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (isSelected) "✓ $label" else label,
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. SCORING DIFFICULTY (EASY, MEDIUM, HARD) - When score mode is not OFF
+                    if (state.scoreMode != ScoreMode.OFF) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = if (isTagalog) "🎚️ SCORING DIFFICULTY (ANTAS NG HIRAP):" else "🎚️ SCORING DIFFICULTY:",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFFD54F)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf(
+                                    ScoringDifficulty.EASY to (if (isTagalog) "🟢 Easy (80-99)" else "🟢 Easy (80-99)"),
+                                    ScoringDifficulty.MEDIUM to (if (isTagalog) "🟡 Medium (74-99)" else "🟡 Medium (74-99)"),
+                                    ScoringDifficulty.HARD to (if (isTagalog) "🔴 Hard (65-99)" else "🔴 Hard (65-99)")
+                                ).forEach { (diff, label) ->
+                                    val isSelected = state.scoringDifficulty == diff
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isSelected) Color(0xFFD97706) else Color(0xFF0F172A),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) Color(0xFFFCD34D) else Color(0xFF334155)
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { onSelectScoringDifficulty(diff) }
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp, horizontal = 2.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (isSelected) "✓ $label" else label,
+                                                fontSize = 9.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. FANFARE SOUND (OFF, LOW, MID, HIGH) + TEST BUTTON
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (isTagalog) "🎉 CHEERING & FANFARE SOUND EFFECT" else "🎉 FANFARE & CHEERING AUDIO",
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFFFD54F)
-                                )
-                                Text(
-                                    text = if (state.isScoringSoundEnabled)
-                                        (if (isTagalog) "BUKAS (May palakpakan at fanfare)" else "ON (Cheering and applause)")
-                                    else
-                                        (if (isTagalog) "SARADO (Tahimik ang score modal)" else "OFF (Silent scoring)"),
-                                    fontSize = 9.sp,
-                                    color = if (state.isScoringSoundEnabled) Color(0xFF00FF88) else Color(0xFF94A3B8)
-                                )
-                            }
-                            Switch(
-                                checked = state.isScoringSoundEnabled,
-                                onCheckedChange = { onToggleScoringSound(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color(0xFFFFD54F),
-                                    checkedTrackColor = Color(0xFF78350F)
-                                )
+                            Text(
+                                text = if (isTagalog) "🎉 FANFARE SOUND (LAKAS NG TUNOG):" else "🎉 FANFARE SOUND (VOLUME LEVEL):",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFFD54F)
                             )
                         }
 
-                        // Microphone Sensitivity Adjuster Controls
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf(
+                                FanfareSoundLevel.OFF to (if (isTagalog) "🔇 Off" else "🔇 Off"),
+                                FanfareSoundLevel.LOW to (if (isTagalog) "🔉 Low" else "🔉 Low"),
+                                FanfareSoundLevel.MID to (if (isTagalog) "🔊 Mid" else "🔊 Mid"),
+                                FanfareSoundLevel.HIGH to (if (isTagalog) "📢 High" else "📢 High")
+                            ).forEach { (level, label) ->
+                                val isSelected = state.fanfareSoundLevel == level
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isSelected) Color(0xFF7C3AED) else Color(0xFF1E293B),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) Color(0xFFA78BFA) else Color(0xFF334155)
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onSelectFanfareSoundLevel(level) }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (isSelected) "✓ $label" else label,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Test Fanfare Button
+                        Button(
+                            onClick = { onTestFanfare() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (state.fanfareSoundLevel == FanfareSoundLevel.OFF) Color(0xFF334155) else Color(0xFF059669)
+                            ),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(32.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                text = if (isTagalog) "▶ 🔊 SUBUKAN / I-TEST ANG FANFARE (PATUGTUGIN)" else "▶ 🔊 TEST FANFARE SOUND (PLAY NOW)",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    // 4. MICROPHONE LIVE SENSITIVITY & INDICATOR (Shown only when in MICROPHONE mode)
+                    if (state.scoreMode == ScoreMode.MICROPHONE) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -6989,9 +8645,9 @@ fun AppSettingsDialog(
 
                     Text(
                         text = if (isTagalog)
-                            "I-adjust ang sensitivity ayon sa layo o lakas ng mic. Sinusukat ang boses habang tumutugtog ang kanta para sa final score."
+                            "Piliin ang gusto mong Score Mode: Random para sa suwerteng score, Off para walang score, o Microphone para sa live pitch scoring."
                         else
-                            "Adjust sensitivity based on distance or mic loudness. Voice is measured during singing for the final score.",
+                            "Choose Score Mode: Random for party fun, Off to bypass scoring, or Microphone for real-time singing evaluation.",
                         fontSize = 9.sp,
                         color = Color(0xFF94A3B8)
                     )
@@ -7608,8 +9264,8 @@ fun RecordingsDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = Color(0xFF0F172A),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFF5252)),
+            color = Color(state.appTheme.surfaceColor),
+            border = androidx.compose.foundation.BorderStroke(2.dp, Color(state.appTheme.primaryColor)),
             modifier = Modifier
                 .fillMaxWidth(if (isLandscape) 0.85f else 0.94f)
                 .fillMaxHeight(if (isLandscape) 0.92f else 0.86f)
@@ -7635,26 +9291,27 @@ fun RecordingsDialog(
                         Text(
                             text = if (isTagalog) "RECORDING NG BOSES AT TUGTOG" else "VOICE & MUSIC RECORDINGS",
                             fontWeight = FontWeight.Black,
-                            color = Color(0xFFFF5252),
+                            fontFamily = FontFamily.SansSerif,
+                            color = Color(state.appTheme.primaryColor),
                             fontSize = 13.sp
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Text(text = "✕", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = "✕", color = Color(state.appTheme.textColor), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                HorizontalDivider(color = Color(0xFF334155), thickness = 1.dp)
+                HorizontalDivider(color = Color(state.appTheme.buttonBorderColor), thickness = 1.dp)
 
                 // Recording Control Card
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = if (state.isRecording) Color(0xFF450A0A) else Color(0xFF1E293B)
+                        containerColor = if (state.isRecording) Color(0xFF450A0A) else Color(state.appTheme.buttonBgColor)
                     ),
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(
                         1.5.dp,
-                        if (state.isRecording) Color(0xFFEF4444) else Color(0xFF38BDF8)
+                        if (state.isRecording) Color(0xFFEF4444) else Color(state.appTheme.buttonBorderColor)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -8541,4 +10198,88 @@ fun DownloadItemCard(
             }
         }
     }
+}
+
+/**
+ * Modern Exit Confirmation Modal with bilingual support and smooth animations
+ */
+@Composable
+fun ExitConfirmDialog(
+    isTagalog: Boolean,
+    primaryColor: Long,
+    onConfirmExit: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF141923),
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 8.dp,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .background(Color(0xFFEF4444).copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "🚪",
+                    fontSize = 26.sp
+                )
+            }
+        },
+        title = {
+            Text(
+                text = if (isTagalog) "Lumabas sa VideoKey?" else "Exit VideoKey?",
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        text = {
+            Text(
+                text = if (isTagalog)
+                    "Sigurado ka bang nais mong lumabas sa application? Naka-save ang iyong listahan ng kanta at mga settings."
+                else
+                    "Are you sure you want to exit the application? Your song queue and settings are safely saved.",
+                fontSize = 13.5.sp,
+                color = Color(0xFFCBD5E1),
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmExit,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = if (isTagalog) "Oo, Lumabas" else "Exit App",
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontSize = 13.5.sp
+                )
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFF475569)),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = if (isTagalog) "Kanselahin" else "Cancel",
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF94A3B8),
+                    fontSize = 13.5.sp
+                )
+            }
+        }
+    )
 }

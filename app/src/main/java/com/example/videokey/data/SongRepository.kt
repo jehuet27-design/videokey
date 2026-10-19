@@ -57,7 +57,7 @@ class SongRepository {
         val listSnapshot = synchronized(songs) { ArrayList(songs) }
         val stream = if (onlyPlayable) {
             listSnapshot.asSequence().filter { s ->
-                s.isPacked || s.filePath.endsWith(".mid", true) || s.filePath.endsWith(".kar", true) || s.sectorOffset >= 0L || isCodePlayable(s.code)
+                s.isPacked || s.filePath.endsWith(".mid", true) || s.filePath.endsWith(".kar", true) || s.filePath.endsWith(".mp4", true) || s.filePath.endsWith(".mkv", true) || s.sectorOffset >= 0L || isCodePlayable(s.code)
             }
         } else {
             listSnapshot.asSequence()
@@ -72,6 +72,10 @@ class SongRepository {
         }.take(100).toList()
     }
 
+    fun addSong(song: Song) {
+        addSongs(listOf(song))
+    }
+
     fun addSongs(newSongs: List<Song>) {
         synchronized(songs) {
             newSongs.forEach {
@@ -81,7 +85,7 @@ class SongRepository {
                     songsByCode[it.code] = it
                     val unpadded = it.code.trimStart('0')
                     if (unpadded.isNotEmpty()) songsByCode[unpadded] = it
-                } else if (it.isPacked || it.filePath.endsWith(".mid", true) || it.filePath.endsWith(".kar", true)) {
+                } else if (it.isPacked || it.filePath.endsWith(".mid", true) || it.filePath.endsWith(".kar", true) || it.filePath.endsWith(".mp4", true) || it.filePath.endsWith(".mkv", true)) {
                     val idx = songs.indexOfFirst { s -> s.code == it.code }
                     if (idx != -1) songs[idx] = it
                     songsByCode[it.code] = it
@@ -104,6 +108,17 @@ class SongRepository {
             }
         }
     }
+
+    fun removeSong(song: Song): Boolean {
+        synchronized(songs) {
+            val removed = songs.removeIf { it.code == song.code || it.filePath == song.filePath }
+            songsByCode.remove(song.code)
+            val unpadded = song.code.trimStart('0')
+            if (unpadded.isNotEmpty()) songsByCode.remove(unpadded)
+            return removed
+        }
+    }
+
 
     fun scanFolder(folder: File, context: android.content.Context): StorageScanner.ScanResult {
         val scanner = StorageScanner(context)

@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
 
-        // Keep screen awake at all times while VideoKey is running
+        // Keep screen awake while singing
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
@@ -104,17 +104,27 @@ class MainActivity : ComponentActivity() {
             return super.dispatchKeyEvent(event)
         }
 
+        // Only intercept player digit keys and backspace when Player Keypad (Tab 1) or TV mode is active
+        val isPlayerKeypadActive = (state.selectedBottomNavTab == 1 || state.isTvMode) &&
+                !state.isYouTubeDownloaderOpen &&
+                !state.isSongFolderPickerOpen &&
+                !state.isSettingsDialogOpen
+
         if (event.action == android.view.KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
                 in android.view.KeyEvent.KEYCODE_0..android.view.KeyEvent.KEYCODE_9 -> {
-                    val digit = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_0)
-                    viewModel.onDigitPressed(digit)
-                    return true
+                    if (isPlayerKeypadActive) {
+                        val digit = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_0)
+                        viewModel.onDigitPressed(digit)
+                        return true
+                    }
                 }
                 in android.view.KeyEvent.KEYCODE_NUMPAD_0..android.view.KeyEvent.KEYCODE_NUMPAD_9 -> {
-                    val digit = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0)
-                    viewModel.onDigitPressed(digit)
-                    return true
+                    if (isPlayerKeypadActive) {
+                        val digit = '0' + (event.keyCode - android.view.KeyEvent.KEYCODE_NUMPAD_0)
+                        viewModel.onDigitPressed(digit)
+                        return true
+                    }
                 }
                 android.view.KeyEvent.KEYCODE_MEDIA_PLAY, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
                     viewModel.onPlay()
@@ -129,16 +139,22 @@ class MainActivity : ComponentActivity() {
                     return true
                 }
                 android.view.KeyEvent.KEYCODE_DEL, android.view.KeyEvent.KEYCODE_FORWARD_DEL -> {
-                    viewModel.onDeleteDigit()
-                    return true
+                    if (isPlayerKeypadActive) {
+                        viewModel.onDeleteDigit()
+                        return true
+                    }
                 }
                 android.view.KeyEvent.KEYCODE_CLEAR -> {
-                    viewModel.onClearCode()
-                    return true
+                    if (isPlayerKeypadActive) {
+                        viewModel.onClearCode()
+                        return true
+                    }
                 }
                 android.view.KeyEvent.KEYCODE_R -> {
-                    viewModel.onRButtonPressed()
-                    return true
+                    if (isPlayerKeypadActive) {
+                        viewModel.onRButtonPressed()
+                        return true
+                    }
                 }
                 android.view.KeyEvent.KEYCODE_ENTER, android.view.KeyEvent.KEYCODE_NUMPAD_ENTER, android.view.KeyEvent.KEYCODE_DPAD_CENTER -> {
                     if (viewModel.uiState.value.enteredCode.isNotEmpty()) {
@@ -177,10 +193,8 @@ class MainActivity : ComponentActivity() {
                     return true
                 }
                 android.view.KeyEvent.KEYCODE_BACK -> {
-                    if (viewModel.uiState.value.isTvMode) {
-                        viewModel.toggleTvMode()
-                        return true
-                    }
+                    // Handled gracefully by Compose BackHandler (dialogs, tabs, and exit prompt)
+                    return false
                 }
                 android.view.KeyEvent.KEYCODE_PROG_RED -> {
                     viewModel.openSongbook()
@@ -260,6 +274,21 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val playYtId = intent?.getStringExtra("play_yt_id")
+        if (!playYtId.isNullOrBlank()) {
+            val title = intent.getStringExtra("play_yt_title") ?: "Online YouTube Karaoke"
+            viewModel.playYouTubeKaraokeDirect(
+                com.example.videokey.data.YouTubeVideoItem(
+                    id = playYtId,
+                    title = title,
+                    uploader = "YouTube",
+                    durationFormatted = "3:30",
+                    durationSeconds = 210,
+                    thumbnailUrl = ""
+                )
+            )
+        }
+
         val enterCode = intent?.getStringExtra("enter_code")
         if (!enterCode.isNullOrBlank()) {
             viewModel.onClearCode()
@@ -285,6 +314,16 @@ class MainActivity : ComponentActivity() {
                 "open_lyric_style" -> viewModel.openLyricStyleDialog()
                 "open_bg_dialog" -> viewModel.openBackgroundDialog()
                 "open_songbook" -> viewModel.openSongbook()
+                "open_youtube" -> viewModel.openYouTubeDownloader()
+                "close_youtube" -> viewModel.closeYouTubeDownloader()
+                "activate_vip" -> {
+                    val k = intent.getStringExtra("key") ?: "VIP8888"
+                    viewModel.activateVip(k)
+                }
+                "set_language" -> {
+                    val lang = intent.getStringExtra("lang") ?: "en"
+                    viewModel.setAppLanguage(if (lang == "tl") com.example.videokey.ui.main.AppLanguage.TAGALOG else com.example.videokey.ui.main.AppLanguage.ENGLISH)
+                }
                 "search_songbook" -> {
                     viewModel.openSongbook()
                     val q = intent.getStringExtra("query") ?: ""
@@ -317,8 +356,24 @@ class MainActivity : ComponentActivity() {
                     viewModel.closeSoundFontDialog()
                     viewModel.closeSettingsDialog()
                 }
+                "open_youtube" -> viewModel.openYouTubeDownloader()
                 "set_language_en" -> viewModel.setAppLanguage(com.example.videokey.ui.main.AppLanguage.ENGLISH)
                 "set_language_tl" -> viewModel.setAppLanguage(com.example.videokey.ui.main.AppLanguage.TAGALOG)
+                "play_code" -> {
+                    val code = intent.getStringExtra("code") ?: ""
+                    if (code.isNotBlank()) {
+                        viewModel.refreshDownloadedMp4Songs()
+                        val all = viewModel.repository.getAllSongs() + viewModel.uiState.value.downloadedMp4Songs
+                        val song = all.find { it.code == code }
+                        if (song != null) {
+                            viewModel.playSong(song)
+                        } else {
+                            android.util.Log.w("MainActivity", "Song with code $code not found in ${all.size} songs")
+                        }
+                    }
+                }
+                "go_home" -> viewModel.selectBottomNavTab(0)
+                "press_back" -> onBackPressedDispatcher.onBackPressed()
             }
         }
     }

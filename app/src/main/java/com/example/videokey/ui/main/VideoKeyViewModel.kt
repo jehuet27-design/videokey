@@ -11,6 +11,7 @@ import com.example.videokey.data.SongRepository
 import com.example.videokey.data.SoundEngine
 import com.example.videokey.data.ShubBlobExtractor
 import com.example.videokey.data.VkPackReader
+import com.example.videokey.data.VipLicenseManager
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,6 +31,14 @@ enum class BackgroundType {
     VIDEO, IMAGE, STAGE
 }
 
+enum class BackgroundVisualMode(val displayName: String, val tagalogName: String) {
+    VIDEOS("Videos", "Mga Video"),
+    PHOTOS("Photos", "Mga Larawan"),
+    CAMERA("Camera", "Live Camera");
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
+}
+
 enum class BackgroundChangeMode {
     AUTO_CHANGE_PER_SONG, CONTINUOUS
 }
@@ -41,11 +50,37 @@ data class KaraokeBackground(
     val type: BackgroundType
 )
 
+enum class ScoreMode(val displayName: String, val tagalogName: String) {
+    RANDOM("Random", "Random (Awtomatiko)"),
+    OFF("Off", "Naka-off (Walang Score)"),
+    MICROPHONE("Microphone", "Mikropono (Real Mic)");
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
+}
+
+enum class ScoringDifficulty(val displayName: String, val tagalogName: String) {
+    EASY("Easy", "Madali (Easy)"),
+    MEDIUM("Medium", "Katamtaman (Medium)"),
+    HARD("Hard", "Mahirap (Hard)");
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
+}
+
+enum class FanfareSoundLevel(val displayName: String, val tagalogName: String, val volume: Float) {
+    OFF("Off", "Naka-off", 0.0f),
+    LOW("Low", "Mahina (Low)", 0.35f),
+    MID("Mid", "Katamtaman (Mid)", 0.70f),
+    HIGH("High", "Malakas (High)", 1.0f);
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
+}
+
 enum class LyricFontFamily(val displayName: String) {
+    RADIO_CANADA("Radio Canada"),
     SAN_SERIF("Arial Bold"),
     IMPACT_HEAVY("Impact Heavy"),
     CONDENSED_TALL("Bebas Tall"),
-    GEOMETRIC_POP("Montserrat Pop"),
+    GEOMETRIC_POP("Montserrat Pop (Default)"),
     ROUNDED_CLEAN("Verdana Wide"),
     SMALL_CAPS("Oswald Cinema"),
     SERIF("Georgia Serif"),
@@ -104,17 +139,33 @@ enum class LyricOutlineColor(val displayName: String, val tagalogName: String, v
     fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
 }
 
+enum class LyricCountdownMode(val displayName: String, val tagalogName: String) {
+    ARCADE_NUMBER("🔢 4-3-2-1 Number", "🔢 4-3-2-1 Numero"),
+    CLASSIC_DOTS("🔴 4 Dots Videoke", "🔴 4 Tuldok Videoke"),
+    OFF("⛔ Off", "⛔ Patay");
+
+    fun label(isTagalog: Boolean): String = if (isTagalog) tagalogName else displayName
+}
+
 data class LyricCustomization(
-    val fontFamily: LyricFontFamily = LyricFontFamily.SAN_SERIF,
+    val fontFamily: LyricFontFamily = LyricFontFamily.GEOMETRIC_POP,
     val wipeColor: LyricWipeColor = LyricWipeColor.DARK_BLUE,
     val inactiveColor: Long = 0xFFFFFFFF, // Pure White with Outline
-    val outlineColor: LyricOutlineColor = LyricOutlineColor.BLACK,
+    val outlineColor: LyricOutlineColor = LyricOutlineColor.NAVY,
     val shadowStyle: LyricShadowStyle = LyricShadowStyle.HEAVY_OUTLINE,
-    val isAllCaps: Boolean = true,
+    val outlineThickness: Float = 3.0f,
+    val fontSizePortraitSp: Float = 36.0f,
+    val fontSizeLandscapeSp: Float = 54.0f,
+    val lineSpacingDp: Float = 20.0f,
+    val hasDropShadow: Boolean = true,
+    val isAllCaps: Boolean = false,
     val isItalic: Boolean = false,
-    val fontScale: Float = 1.0f,
-    val lineCount: LyricLineCount = LyricLineCount.TWO_LINES,
-    val position: LyricScreenPosition = LyricScreenPosition.CENTER
+    val fontScale: Float = 1.30f,
+    val lineCount: LyricLineCount = LyricLineCount.FOUR_LINES,
+    val position: LyricScreenPosition = LyricScreenPosition.BOTTOM,
+    val countdownMode: LyricCountdownMode = LyricCountdownMode.CLASSIC_DOTS,
+    val timingOffsetMs: Int = 0,
+    val isFpsDroppedTo30: Boolean = false
 )
 
 enum class AppTheme(
@@ -130,6 +181,19 @@ enum class AppTheme(
     val textColor: Long,          // Primary text
     val textMutedColor: Long      // Muted / secondary text
 ) {
+    CYBER_NEON(
+        "cyber_neon",
+        "Cyber Neon KTV",
+        "Cyber Neon KTV",
+        primaryColor = 0xFFEC4899,      // Neon Pink / Magenta
+        secondaryColor = 0xFF38BDF8,    // Electric Cyan
+        surfaceColor = 0xFF161B2E,      // Deep Obsidian Card
+        backgroundColor = 0xFF090D16,   // Midnight Base
+        buttonBgColor = 0xFF1E293B,     // Sleek Slate Button
+        buttonBorderColor = 0xFF334155, // Subtle Border
+        textColor = 0xFFF8FAFC,         // Clean White
+        textMutedColor = 0xFF94A3B8     // Muted Blue-Grey
+    ),
     SLATE_DARK(
         "slate_dark",
         "Classic Slate",
@@ -200,8 +264,8 @@ enum class AppTheme(
 }
 
 enum class AppLanguage(val code: String, val displayName: String) {
-    TAGALOG("tl", "🇵🇭 Tagalog (Default)"),
-    ENGLISH("en", "🇺🇸 English")
+    ENGLISH("en", "🇺🇸 English (Default)"),
+    TAGALOG("tl", "🇵🇭 Tagalog")
 }
 
 data class VideoKeyUiState(
@@ -233,7 +297,9 @@ data class VideoKeyUiState(
     val stringsBrassPercent: Int = 100,
     val reverbPercent: Int = 50,
     val micEchoPercent: Int = 50,
-    val appTheme: AppTheme = AppTheme.SLATE_DARK,
+    val selectedBottomNavTab: Int = 0, // 0 = Home, 1 = Sing, 2 = Saved, 3 = Profile
+    val selectedCategoryFilter: String = "ALL",
+    val appTheme: AppTheme = AppTheme.CYBER_NEON,
     val score: Int = 94,
     val showScoreModal: Boolean = false,
     val isMicScoringEnabled: Boolean = true,
@@ -264,6 +330,8 @@ data class VideoKeyUiState(
     val favoriteCodes: Set<String> = emptySet(),
     val favoriteSongs: List<Song> = emptyList(),
     val searchResults: List<Song> = emptyList(),
+    val lastPlayedSong: Song? = null,
+    val trendingSongs: List<Song> = emptyList(),
     val isTvMode: Boolean = false,
     val scanStatus: String = "Internal Storage: Ready",
     val isScanning: Boolean = false,
@@ -289,24 +357,45 @@ data class VideoKeyUiState(
     val isAudioMixerDialogOpen: Boolean = false,
     val alertMessage: String? = null,
     val onlyShowPlayableSongs: Boolean = false,
-    val playableCodes: Set<String> = emptySet(),
-    val appLanguage: AppLanguage = AppLanguage.TAGALOG,
+    val appLanguage: AppLanguage = AppLanguage.ENGLISH,
     val updateState: com.example.videokey.update.AppUpdateManager.UpdateState = com.example.videokey.update.AppUpdateManager.UpdateState.Idle,
     val isDownloadCenterOpen: Boolean = false,
     val downloadCatalog: List<com.example.videokey.data.ContentDownloadManager.DownloadItem> = emptyList(),
     val downloadStatus: com.example.videokey.data.ContentDownloadManager.DownloadStatus = com.example.videokey.data.ContentDownloadManager.DownloadStatus.Idle,
-    val isRemoteConnected: Boolean = false
+    val isRemoteConnected: Boolean = false,
+    val isStartupGatePassed: Boolean = false,
+    val isVideoSong: Boolean = false,
+    val isYouTubeDownloaderOpen: Boolean = false,
+    val youTubeSearchQuery: String = "",
+    val youTubeSearchResults: List<com.example.videokey.data.YouTubeVideoItem> = emptyList(),
+    val isYouTubeSearching: Boolean = false,
+    val youTubeDownloadProgress: com.example.videokey.data.YouTubeDownloadProgress? = null,
+    val activeYouTubeStreamVideoId: String? = null,
+    val activeYouTubeStreamTitle: String? = null,
+    val isPlayingYouTubeStream: Boolean = false,
+    val downloadedMp4Songs: List<com.example.videokey.data.Song> = emptyList(),
+    val playableCodes: Set<String> = emptySet(),
+    val isVipActivated: Boolean = false,
+    val deviceId: String = "",
+    val vipActivationError: String? = null,
+    val scoreMode: ScoreMode = ScoreMode.MICROPHONE,
+    val scoringDifficulty: ScoringDifficulty = ScoringDifficulty.MEDIUM,
+    val fanfareSoundLevel: FanfareSoundLevel = FanfareSoundLevel.HIGH,
+    val bgVisualMode: BackgroundVisualMode = BackgroundVisualMode.VIDEOS,
+    val continuousVideoChangePerSong: Boolean = false,
+    val isFpsDroppedTo30: Boolean = false
 )
 
 class VideoKeyViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = SongRepository()
+    internal val repository = SongRepository()
     private val karaokeRecorder = com.example.videokey.data.KaraokeRecorder()
     private val soundEngine = SoundEngine(application.applicationContext, karaokeRecorder)
     private val voiceManager = com.example.videokey.data.KeypadVoiceManager(application.applicationContext)
     private val micScorer = com.example.videokey.data.MicrophoneScorer(karaokeRecorder)
     val appUpdateManager = com.example.videokey.update.AppUpdateManager(application.applicationContext)
     val contentDownloadManager = com.example.videokey.data.ContentDownloadManager(application.applicationContext)
+    val youTubeDownloader = com.example.videokey.data.YouTubeKaraokeDownloader(application.applicationContext)
     private val _uiState = MutableStateFlow(VideoKeyUiState())
     val uiState: StateFlow<VideoKeyUiState> = _uiState.asStateFlow()
 
@@ -319,6 +408,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     private var songStartTimeMs: Long = 0L
     private val playlistLock = Any()
     private val backgroundPlaylist = mutableListOf<KaraokeBackground>()
+    private val categoryCache = java.util.concurrent.ConcurrentHashMap<String, List<Song>>()
+    private var categoryJob: Job? = null
 
     init {
         // Detect initial song folder
@@ -355,8 +446,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val initialSensitivity = prefs.getFloat("mic_sensitivity", 1.0f)
         micScorer.micSensitivity = initialSensitivity
 
-        val savedLang = prefs.getString("app_language", "tl") ?: "tl"
-        val initialLang = if (savedLang == "en") AppLanguage.ENGLISH else AppLanguage.TAGALOG
+        val savedLang = prefs.getString("app_language", "en") ?: "en"
+        val initialLang = if (savedLang == "tl") AppLanguage.TAGALOG else AppLanguage.ENGLISH
+        val isVip = prefs.getBoolean("is_vip_activated", false)
+        val devId = VipLicenseManager.getDeviceId(application)
 
         val rawSavedSf = prefs.getString("active_soundfont", "VideoKey Studio Minus-One") ?: "VideoKey Studio Minus-One"
         val savedSf = when {
@@ -380,41 +473,116 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         soundEngine.setStringsBrassVolume(initialStringsBrass)
         soundEngine.setReverbVolume(initialReverb)
 
-        val savedThemeName = prefs.getString("app_theme", AppTheme.SLATE_DARK.name) ?: AppTheme.SLATE_DARK.name
+        val savedThemeName = prefs.getString("app_theme", AppTheme.CYBER_NEON.name) ?: AppTheme.CYBER_NEON.name
         val initialTheme = try {
             AppTheme.valueOf(savedThemeName)
         } catch (e: Exception) {
-            AppTheme.SLATE_DARK
+            AppTheme.CYBER_NEON
         }
 
         val savedFavSet = prefs.getStringSet("favorite_song_codes", emptySet())?.toSet() ?: emptySet()
         val initialFavSongs = savedFavSet.mapNotNull { repository.findByCode(it) }
 
-        val savedScoring = prefs.getBoolean("mic_scoring_enabled", true)
-        val savedScoringSound = prefs.getBoolean("scoring_sound_enabled", true)
+        val savedScoreModeName = prefs.getString("score_mode", ScoreMode.MICROPHONE.name) ?: ScoreMode.MICROPHONE.name
+        val initialScoreMode = try { ScoreMode.valueOf(savedScoreModeName) } catch (_: Exception) { ScoreMode.MICROPHONE }
 
-        val savedOutlineName = prefs.getString("lyric_outline_color", LyricOutlineColor.BLACK.name) ?: LyricOutlineColor.BLACK.name
+        val savedDifficultyName = prefs.getString("scoring_difficulty", ScoringDifficulty.MEDIUM.name) ?: ScoringDifficulty.MEDIUM.name
+        val initialDifficulty = try { ScoringDifficulty.valueOf(savedDifficultyName) } catch (_: Exception) { ScoringDifficulty.MEDIUM }
+
+        val savedFanfareName = prefs.getString("fanfare_sound_level", FanfareSoundLevel.HIGH.name) ?: FanfareSoundLevel.HIGH.name
+        val initialFanfare = try { FanfareSoundLevel.valueOf(savedFanfareName) } catch (_: Exception) { FanfareSoundLevel.HIGH }
+
+        val savedBgVisualModeName = prefs.getString("bg_visual_mode", BackgroundVisualMode.VIDEOS.name) ?: BackgroundVisualMode.VIDEOS.name
+        val initialBgVisualMode = try { BackgroundVisualMode.valueOf(savedBgVisualModeName) } catch (_: Exception) { BackgroundVisualMode.VIDEOS }
+
+        val savedContinuousChange = prefs.getBoolean("continuous_video_change_per_song", false)
+
+        val hasAppliedV2Defaults = prefs.getBoolean("lyric_v2_applied", false)
+        if (!hasAppliedV2Defaults) {
+            prefs.edit()
+                .putString("lyric_outline_color", LyricOutlineColor.NAVY.name)
+                .putString("lyric_font_family", LyricFontFamily.GEOMETRIC_POP.name)
+                .putString("lyric_shadow_style", LyricShadowStyle.HEAVY_OUTLINE.name)
+                .putString("lyric_wipe_color", LyricWipeColor.DARK_BLUE.name)
+                .putFloat("lyric_outline_thickness", 3.0f)
+                .putFloat("lyric_font_size_portrait", 36.0f)
+                .putFloat("lyric_font_size_landscape", 54.0f)
+                .putFloat("lyric_line_spacing", 20.0f)
+                .putBoolean("lyric_has_drop_shadow", true)
+                .putBoolean("lyric_all_caps", false)
+                .putBoolean("lyric_is_italic", false)
+                .putFloat("lyric_font_scale", 1.30f)
+                .putString("lyric_line_count", LyricLineCount.FOUR_LINES.name)
+                .putString("lyric_position", LyricScreenPosition.BOTTOM.name)
+                .putString("lyric_countdown_mode", LyricCountdownMode.CLASSIC_DOTS.name)
+                .putInt("lyric_timing_offset", 0)
+                .putBoolean("lyric_v2_applied", true)
+                .apply()
+        }
+
+        val savedOutlineName = prefs.getString("lyric_outline_color", LyricOutlineColor.NAVY.name) ?: LyricOutlineColor.NAVY.name
         val initialOutline = try {
             LyricOutlineColor.valueOf(savedOutlineName)
         } catch (_: Exception) {
-            LyricOutlineColor.BLACK
+            LyricOutlineColor.NAVY
         }
 
-        val savedFontName = prefs.getString("lyric_font_family", LyricFontFamily.SAN_SERIF.name) ?: LyricFontFamily.SAN_SERIF.name
+        val savedFontName = prefs.getString("lyric_font_family", LyricFontFamily.GEOMETRIC_POP.name) ?: LyricFontFamily.GEOMETRIC_POP.name
         val initialFontFamily = try {
             LyricFontFamily.valueOf(savedFontName)
         } catch (_: Exception) {
-            LyricFontFamily.SAN_SERIF
+            LyricFontFamily.GEOMETRIC_POP
         }
+
+        val savedShadowStyleName = prefs.getString("lyric_shadow_style", LyricShadowStyle.HEAVY_OUTLINE.name) ?: LyricShadowStyle.HEAVY_OUTLINE.name
+        val initialShadowStyle = try {
+            LyricShadowStyle.valueOf(savedShadowStyleName)
+        } catch (_: Exception) {
+            LyricShadowStyle.HEAVY_OUTLINE
+        }
+
+        val savedWipeColorName = prefs.getString("lyric_wipe_color", LyricWipeColor.DARK_BLUE.name) ?: LyricWipeColor.DARK_BLUE.name
+        val initialWipeColor = try {
+            LyricWipeColor.valueOf(savedWipeColorName)
+        } catch (_: Exception) {
+            LyricWipeColor.DARK_BLUE
+        }
+
+        val savedLineCountName = prefs.getString("lyric_line_count", LyricLineCount.FOUR_LINES.name) ?: LyricLineCount.FOUR_LINES.name
+        val initialLineCount = try {
+            LyricLineCount.valueOf(savedLineCountName)
+        } catch (_: Exception) {
+            LyricLineCount.FOUR_LINES
+        }
+
+        val savedPositionName = prefs.getString("lyric_position", LyricScreenPosition.BOTTOM.name) ?: LyricScreenPosition.BOTTOM.name
+        val initialPosition = try {
+            LyricScreenPosition.valueOf(savedPositionName)
+        } catch (_: Exception) {
+            LyricScreenPosition.BOTTOM
+        }
+
+        val savedCountdownModeName = prefs.getString("lyric_countdown_mode", LyricCountdownMode.CLASSIC_DOTS.name) ?: LyricCountdownMode.CLASSIC_DOTS.name
+        val initialCountdownMode = try { LyricCountdownMode.valueOf(savedCountdownModeName) } catch (_: Exception) { LyricCountdownMode.CLASSIC_DOTS }
+        val initialTimingOffset = prefs.getInt("lyric_timing_offset", 0)
+
+        val savedLastPlayedCode = prefs.getString("last_played_song_code", null)
+        val initialLastPlayed = savedLastPlayedCode?.let { repository.findByCode(it) }
+        val initialAllSongs = repository.getAllSongs()
+        val initialTrending = initialAllSongs.shuffled().take(60)
 
         _uiState.update {
             it.copy(
                 searchResults = repository.search(""),
+                lastPlayedSong = initialLastPlayed ?: repository.findByCode("000016") ?: initialAllSongs.firstOrNull(),
+                trendingSongs = initialTrending,
                 currentSongFolder = initialSongFolder,
                 currentBackgroundFolder = initialBgFolder,
                 backgroundChangeMode = initialBgMode,
                 micSensitivity = initialSensitivity,
                 appLanguage = initialLang,
+                isVipActivated = isVip,
+                deviceId = devId,
                 activeSoundFontName = savedSf,
                 melodyPercent = initialMelody,
                 drumsPercent = initialDrums,
@@ -423,11 +591,30 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 stringsBrassPercent = initialStringsBrass,
                 reverbPercent = initialReverb,
                 appTheme = initialTheme,
-                isMicScoringEnabled = savedScoring,
-                isScoringSoundEnabled = savedScoringSound,
+                isMicScoringEnabled = initialScoreMode != ScoreMode.OFF,
+                isScoringSoundEnabled = initialFanfare != FanfareSoundLevel.OFF,
+                scoreMode = initialScoreMode,
+                scoringDifficulty = initialDifficulty,
+                fanfareSoundLevel = initialFanfare,
+                bgVisualMode = initialBgVisualMode,
+                continuousVideoChangePerSong = savedContinuousChange,
                 lyricConfig = it.lyricConfig.copy(
                     outlineColor = initialOutline,
-                    fontFamily = initialFontFamily
+                    fontFamily = initialFontFamily,
+                    shadowStyle = initialShadowStyle,
+                    wipeColor = initialWipeColor,
+                    outlineThickness = prefs.getFloat("lyric_outline_thickness", 3.0f),
+                    fontSizePortraitSp = prefs.getFloat("lyric_font_size_portrait", 36.0f),
+                    fontSizeLandscapeSp = prefs.getFloat("lyric_font_size_landscape", 54.0f),
+                    lineSpacingDp = prefs.getFloat("lyric_line_spacing", 20.0f),
+                    hasDropShadow = prefs.getBoolean("lyric_has_drop_shadow", true),
+                    isAllCaps = prefs.getBoolean("lyric_all_caps", false),
+                    isItalic = prefs.getBoolean("lyric_is_italic", false),
+                    fontScale = prefs.getFloat("lyric_font_scale", 1.30f),
+                    lineCount = initialLineCount,
+                    position = initialPosition,
+                    countdownMode = initialCountdownMode,
+                    timingOffsetMs = initialTimingOffset
                 ),
                 favoriteCodes = savedFavSet,
                 favoriteSongs = initialFavSongs,
@@ -475,15 +662,24 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                         }
                     } else if (status.itemId == "core_songs") {
                         scanSongFolder(File(_uiState.value.currentSongFolder))
-                        // Automatic chain: download soundfonts if missing right after songs finish!
                         if (!contentDownloadManager.isSoundFontInstalled()) {
                             val sfItem = contentDownloadManager.getAvailableCatalog().find { it.id == "all_soundfonts" }
                             if (sfItem != null) {
                                 contentDownloadManager.downloadItem(sfItem)
                             }
+                        } else {
+                            passStartupGate()
                         }
                     } else if (status.itemId == "all_soundfonts") {
                         scanSongFolder(File(_uiState.value.currentSongFolder))
+                        if (contentDownloadManager.hasAnySongsInstalled() || repository.getTotalSongsCount() > 0) {
+                            passStartupGate()
+                        } else {
+                            val songsItem = contentDownloadManager.getAvailableCatalog().find { it.id == "core_songs" }
+                            if (songsItem != null) {
+                                contentDownloadManager.downloadItem(songsItem)
+                            }
+                        }
                     } else {
                         scanSongFolder(File(_uiState.value.currentSongFolder))
                         scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder))
@@ -493,24 +689,28 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
         refreshDownloadCatalog()
 
-        // Automated startup download: if no songs are installed, automatically download songs and then soundfonts!
-        viewModelScope.launch {
-            delay(2500)
-            val hasSongs = repository.getTotalSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()
-            val hasSf = contentDownloadManager.isSoundFontInstalled()
-            if (!hasSongs) {
-                Log.d("VideoKeyViewModel", "No songs detected on startup. Triggering automatic download...")
-                _uiState.update { it.copy(isDownloadCenterOpen = true) }
-                val songsItem = contentDownloadManager.getAvailableCatalog().find { it.id == "core_songs" }
-                if (songsItem != null) {
-                    contentDownloadManager.downloadItem(songsItem)
-                }
-            } else if (!hasSf) {
-                Log.d("VideoKeyViewModel", "SoundFont missing on startup. Triggering automatic download...")
-                _uiState.update { it.copy(isDownloadCenterOpen = true) }
-                val sfItem = contentDownloadManager.getAvailableCatalog().find { it.id == "all_soundfonts" }
-                if (sfItem != null) {
-                    contentDownloadManager.downloadItem(sfItem)
+        // Startup Gate: check if required soundfont & songs exist on device
+        val hasSongs = repository.getTotalSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()
+        val hasSf = contentDownloadManager.isSoundFontInstalled()
+        val isSetupDone = prefs.getBoolean("is_initial_setup_completed", false)
+
+        val gatePassed = hasSongs && hasSf && isSetupDone
+        _uiState.update { it.copy(isStartupGatePassed = gatePassed) }
+
+        if (!gatePassed) {
+            // Automatically launch download of missing core items
+            viewModelScope.launch {
+                delay(600)
+                if (!hasSf) {
+                    val sfItem = contentDownloadManager.getAvailableCatalog().find { it.id == "all_soundfonts" }
+                    if (sfItem != null) {
+                        contentDownloadManager.downloadItem(sfItem)
+                    }
+                } else if (!hasSongs) {
+                    val songsItem = contentDownloadManager.getAvailableCatalog().find { it.id == "core_songs" }
+                    if (songsItem != null) {
+                        contentDownloadManager.downloadItem(songsItem)
+                    }
                 }
             }
         }
@@ -530,18 +730,28 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         karaokeRecorder.stopPlayingRecording()
         songStartTimeMs = System.currentTimeMillis()
 
-        if (_uiState.value.backgroundChangeMode == BackgroundChangeMode.AUTO_CHANGE_PER_SONG) {
+        val shouldChangeBg = _uiState.value.backgroundChangeMode == BackgroundChangeMode.AUTO_CHANGE_PER_SONG ||
+                (_uiState.value.backgroundChangeMode == BackgroundChangeMode.CONTINUOUS && _uiState.value.continuousVideoChangePerSong)
+        if (shouldChangeBg) {
             advanceNextBackground()
         }
 
-        if (_uiState.value.isMicScoringEnabled || _uiState.value.isRecording) {
+        val isVideo = song.filePath.endsWith(".mp4", ignoreCase = true) || song.filePath.endsWith(".mkv", ignoreCase = true)
+
+        if (!isVideo && (_uiState.value.scoreMode == ScoreMode.MICROPHONE || _uiState.value.isRecording)) {
             micScorer.startScoring()
         }
+
+        prefs.edit().putString("last_played_song_code", song.code).apply()
 
         _uiState.update {
             it.copy(
                 currentSong = song,
+                lastPlayedSong = song,
                 isPlaying = true,
+                isVideoSong = isVideo,
+                isTvMode = it.isTvMode,
+                selectedBottomNavTab = 1,
                 enteredCode = "",
                 matchedEnteredSong = null,
                 wipePercent = 0f,
@@ -549,15 +759,24 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 showSongTitleIntro = true,
                 isInstrumental = false,
                 playingRecordingPath = null,
-                line1 = song.title.uppercase(),
-                line2 = song.artist.uppercase(),
+                line1 = song.title,
+                line2 = song.artist,
                 line3 = "",
                 line4 = "",
                 activeLineNumber = 0,
-                landscapeLine1 = song.title.uppercase(),
-                landscapeLine2 = song.artist.uppercase(),
+                landscapeLine1 = song.title,
+                landscapeLine2 = song.artist,
                 activeLyricPosition = ActiveLyricPosition.TOP
             )
+        }
+
+        if (isVideo) {
+            // For MP4 Video Karaoke, audio & video are played directly via KaraokeVideoPlayer!
+            viewModelScope.launch {
+                delay(3000)
+                _uiState.update { it.copy(showSongTitleIntro = false) }
+            }
+            return
         }
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -701,12 +920,60 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             var lastEmittedInst = false
             var lastRecSecs = -1
 
+            var lastLoopTimeNs = System.nanoTime()
+            var slowLoopStreak = 0
+            var fastLoopStreak = 0
+            var isDroppedTo30 = false
+
             while (true) {
-                delay(33)
+                val loopDelay = if (isDroppedTo30) 33L else 16L
+                delay(loopDelay)
                 if (!_uiState.value.isPlaying) continue
 
+                val nowNs = System.nanoTime()
+                val deltaMs = (nowNs - lastLoopTimeNs) / 1_000_000L
+                lastLoopTimeNs = nowNs
+
+                if (!isDroppedTo30) {
+                    if (deltaMs > 24L) {
+                        slowLoopStreak++
+                        if (slowLoopStreak >= 4) {
+                            isDroppedTo30 = true
+                            slowLoopStreak = 0
+                            fastLoopStreak = 0
+                            _uiState.update { 
+                                it.copy(
+                                    isFpsDroppedTo30 = true,
+                                    lyricConfig = it.lyricConfig.copy(isFpsDroppedTo30 = true)
+                                ) 
+                            }
+                        }
+                    } else {
+                        slowLoopStreak = maxOf(0, slowLoopStreak - 1)
+                    }
+                } else {
+                    if (deltaMs <= 38L) {
+                        fastLoopStreak++
+                        if (fastLoopStreak >= 120) {
+                            isDroppedTo30 = false
+                            fastLoopStreak = 0
+                            slowLoopStreak = 0
+                            _uiState.update { 
+                                it.copy(
+                                    isFpsDroppedTo30 = false,
+                                    lyricConfig = it.lyricConfig.copy(isFpsDroppedTo30 = false)
+                                ) 
+                            }
+                        }
+                    } else {
+                        fastLoopStreak = 0
+                    }
+                }
+
                 val isAudioPlaying = soundEngine.isPlaying()
-                val posMs = soundEngine.getCurrentPositionMs()
+                val rawPosMs = soundEngine.getCurrentPositionMs()
+                val offset = _uiState.value.lyricConfig.timingOffsetMs
+                val posMs = (rawPosMs + offset).coerceAtLeast(0L)
                 val durMs = soundEngine.getDurationMs()
                 val elapsedSinceStart = System.currentTimeMillis() - songStartTimeMs
                 val lines = parsedKaraoke?.lines.orEmpty()
@@ -794,7 +1061,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                         val introChanged = isTitleIntroActive != lastEmittedIntro
                         val instChanged = lastEmittedInst
 
-                        if (lineChanged || introChanged || instChanged || wipeDelta >= 0.003f) {
+                        if (lineChanged || introChanged || instChanged || wipeDelta >= 0.001f) {
                             lastEmittedWipe = wipe
                             lastEmittedActiveIndex = activeIndex
                             lastEmittedIntro = false
@@ -803,16 +1070,16 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                             // 1. Portrait 4-line calculation (Page of 4 lines)
                             val pageStart = (activeIndex / 4) * 4
-                            val p1 = lines.getOrNull(pageStart)?.fullText?.uppercase() ?: ""
-                            val p2 = lines.getOrNull(pageStart + 1)?.fullText?.uppercase() ?: ""
-                            val p3 = lines.getOrNull(pageStart + 2)?.fullText?.uppercase() ?: ""
-                            val p4 = lines.getOrNull(pageStart + 3)?.fullText?.uppercase() ?: ""
+                            val p1 = lines.getOrNull(pageStart)?.fullText ?: ""
+                            val p2 = lines.getOrNull(pageStart + 1)?.fullText ?: ""
+                            val p3 = lines.getOrNull(pageStart + 2)?.fullText ?: ""
+                            val p4 = lines.getOrNull(pageStart + 3)?.fullText ?: ""
                             val lineInPage = (activeIndex % 4) + 1
 
                             // 2. Landscape 2-line alternating calculation
                             val isEven = activeIndex % 2 == 0
-                            val land1 = if (isEven) currentLine.fullText.uppercase() else (nextLine?.fullText?.uppercase() ?: "")
-                            val land2 = if (isEven) (nextLine?.fullText?.uppercase() ?: "") else currentLine.fullText.uppercase()
+                            val land1 = if (isEven) currentLine.fullText else (nextLine?.fullText ?: "")
+                            val land2 = if (isEven) (nextLine?.fullText ?: "") else currentLine.fullText
                             val landPos = if (isEven) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
 
                             _uiState.update {
@@ -889,15 +1156,15 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                                 lastEmittedInst = showInstrumental
 
                                 val pageStart = (upcomingIndex / 4) * 4
-                                val p1 = lines.getOrNull(pageStart)?.fullText?.uppercase() ?: ""
-                                val p2 = lines.getOrNull(pageStart + 1)?.fullText?.uppercase() ?: ""
-                                val p3 = lines.getOrNull(pageStart + 2)?.fullText?.uppercase() ?: ""
-                                val p4 = lines.getOrNull(pageStart + 3)?.fullText?.uppercase() ?: ""
+                                val p1 = lines.getOrNull(pageStart)?.fullText ?: ""
+                                val p2 = lines.getOrNull(pageStart + 1)?.fullText ?: ""
+                                val p3 = lines.getOrNull(pageStart + 2)?.fullText ?: ""
+                                val p4 = lines.getOrNull(pageStart + 3)?.fullText ?: ""
                                 val lineInPage = (upcomingIndex % 4) + 1
 
                                 val isEven = upcomingIndex % 2 == 0
-                                val land1 = if (isEven) upcoming.fullText.uppercase() else (nextUpcoming?.fullText?.uppercase() ?: "")
-                                val land2 = if (isEven) (nextUpcoming?.fullText?.uppercase() ?: "") else upcoming.fullText.uppercase()
+                                val land1 = if (isEven) upcoming.fullText else (nextUpcoming?.fullText ?: "")
+                                val land2 = if (isEven) (nextUpcoming?.fullText ?: "") else upcoming.fullText
                                 val landPos = if (isEven) ActiveLyricPosition.TOP else ActiveLyricPosition.BOTTOM
 
                                 _uiState.update {
@@ -954,13 +1221,13 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     _uiState.update {
                         it.copy(
                             showSongTitleIntro = isTitleIntroActive,
-                            line1 = it.currentSong.title.uppercase(),
-                            line2 = it.currentSong.artist.uppercase(),
+                            line1 = it.currentSong.title,
+                            line2 = it.currentSong.artist,
                             line3 = "MUSIC PLAYING LIVE",
                             line4 = "KARAOKE INSTRUMENTAL",
                             activeLineNumber = step,
-                            landscapeLine1 = it.currentSong.title.uppercase(),
-                            landscapeLine2 = it.currentSong.artist.uppercase(),
+                            landscapeLine1 = it.currentSong.title,
+                            landscapeLine2 = it.currentSong.artist,
                             activeLyricPosition = landPos,
                             wipePercent = wipe,
                             countdownDots = dots,
@@ -1000,7 +1267,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         return (charsPassed.toFloat() / totalChars.toFloat()).coerceIn(0f, 1f)
     }
 
-    private fun onSongCompleted() {
+    fun onSongCompleted() {
         if (isCompletingSong) return
         isCompletingSong = true
 
@@ -1015,15 +1282,24 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
         micScorer.stopScoring()
 
-        val showModal = _uiState.value.isMicScoringEnabled
-        val finalScore = if (showModal) {
-            micScorer.calculateFinalScore()
-        } else {
-            (92..99).random()
+        val showModal = _uiState.value.scoreMode != ScoreMode.OFF
+        val finalScore = when (_uiState.value.scoreMode) {
+            ScoreMode.OFF -> 0
+            ScoreMode.RANDOM -> {
+                when (_uiState.value.scoringDifficulty) {
+                    ScoringDifficulty.EASY -> (88..98).random()
+                    ScoringDifficulty.MEDIUM -> (78..95).random()
+                    ScoringDifficulty.HARD -> (65..90).random()
+                }
+            }
+            ScoreMode.MICROPHONE -> {
+                micScorer.calculateFinalScore(_uiState.value.scoringDifficulty.name)
+            }
         }
 
-        if (showModal && _uiState.value.isScoringSoundEnabled) {
-            com.example.videokey.data.VideokeSoundEffects.playScoringFanfare(finalScore)
+        val fanfareVol = _uiState.value.fanfareSoundLevel.volume
+        if (showModal && fanfareVol > 0.01f) {
+            com.example.videokey.data.VideokeSoundEffects.playScoringFanfare(finalScore, fanfareVol)
         }
 
         _uiState.update {
@@ -1322,6 +1598,61 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun selectBottomNavTab(tab: Int) {
+        _uiState.update { state ->
+            if (tab == 0 && state.songbookQuery.isBlank()) {
+                val cat = state.selectedCategoryFilter
+                val allSongs = repository.getAllSongs()
+                val catSongs = if (cat == "ALL") allSongs else allSongs.filter { it.matchesCategory(cat) }
+                state.copy(
+                    selectedBottomNavTab = tab,
+                    trendingSongs = catSongs.shuffled().take(60)
+                )
+            } else {
+                state.copy(selectedBottomNavTab = tab)
+            }
+        }
+    }
+
+    fun selectCategoryFilter(category: String) {
+        // 1. Immediately highlight the selected tab on UI for instant response
+        _uiState.update { it.copy(selectedCategoryFilter = category) }
+
+        // 2. Compute/retrieve filtered and trending lists asynchronously using memory cache
+        categoryJob?.cancel()
+        categoryJob = viewModelScope.launch(Dispatchers.Default) {
+            val allSongs = repository.getAllSongs()
+            val catKey = category.uppercase()
+            val catMatching = if (catKey == "ALL") {
+                allSongs
+            } else {
+                categoryCache.getOrPut(catKey) {
+                    allSongs.filter { it.matchesCategory(category) }
+                }
+            }
+            val query = _uiState.value.songbookQuery
+            val onlyPlayable = _uiState.value.onlyShowPlayableSongs
+            val playables = soundEngine.getPlayableCodes()
+            val filtered = if (query.isNotBlank() || onlyPlayable) {
+                val base = repository.search(query, onlyPlayable) { playables.contains(it) }
+                if (catKey == "ALL") base else base.filter { it.matchesCategory(category) }
+            } else {
+                catMatching
+            }
+            val shuffledTrending = catMatching.shuffled().take(60)
+
+            _uiState.update { state ->
+                if (state.selectedCategoryFilter == category) {
+                    state.copy(
+                        searchResults = filtered,
+                        trendingSongs = shuffledTrending
+                    )
+                } else state
+            }
+        }
+    }
+
+
     fun onPlay() {
         val code = _uiState.value.enteredCode
         if (code.isNotBlank()) {
@@ -1384,6 +1715,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     isPlaying = false,
+                    isPlayingYouTubeStream = false,
+                    activeYouTubeStreamVideoId = null,
+                    activeYouTubeStreamTitle = null,
                     wipePercent = 0f,
                     countdownDots = 0,
                     showSongTitleIntro = false,
@@ -1529,7 +1863,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         searchJob?.cancel()
         searchJob = viewModelScope.launch(Dispatchers.Default) {
             val playables = soundEngine.getPlayableCodes()
-            val results = repository.search(query, onlyPlayable) { playables.contains(it) }
+            val baseResults = repository.search(query, onlyPlayable) { playables.contains(it) }
+            val cat = _uiState.value.selectedCategoryFilter
+            val results = if (cat == "ALL") baseResults else baseResults.filter { it.matchesCategory(cat) }
             _uiState.update {
                 it.copy(
                     searchResults = results,
@@ -1685,8 +2021,178 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         contentDownloadManager.cancelCurrentDownload()
     }
 
-    fun dismissDownloadStatus() {
-        contentDownloadManager.dismissStatus()
+    fun passStartupGate() {
+        prefs.edit().putBoolean("is_initial_setup_completed", true).apply()
+        _uiState.update { it.copy(isStartupGatePassed = true, isDownloadCenterOpen = false) }
+        viewModelScope.launch {
+            scanInternalStorage(getApplication())
+        }
+    }
+
+    fun refreshDownloadedMp4Songs() {
+        val songsFolder = youTubeDownloader.getSongsFolder()
+        val diskMp4Files = songsFolder.listFiles { f ->
+            f.isFile && (f.extension.equals("mp4", true) || f.extension.equals("mkv", true)) &&
+            !f.absolutePath.contains("/backgrounds/", ignoreCase = true) &&
+            !f.absolutePath.contains("\\backgrounds\\", ignoreCase = true)
+        } ?: emptyArray()
+
+        val currentAll = repository.getAllSongs()
+        val scanner = com.example.videokey.data.StorageScanner(getApplication())
+        diskMp4Files.forEach { file ->
+            if (!currentAll.any { it.filePath == file.absolutePath }) {
+                val parsed = scanner.parseSongFilename(file)
+                repository.addSong(parsed)
+            }
+        }
+
+        val mp4s = repository.getAllSongs().filter {
+            (it.filePath.endsWith(".mp4", ignoreCase = true) || it.filePath.endsWith(".mkv", ignoreCase = true)) &&
+            !it.filePath.contains("/backgrounds/", ignoreCase = true) &&
+            !it.filePath.contains("\\backgrounds\\", ignoreCase = true)
+        }.sortedByDescending { it.code }
+
+        _uiState.update { it.copy(downloadedMp4Songs = mp4s) }
+    }
+
+    fun deleteDownloadedMp4Song(song: Song) {
+        try {
+            val file = File(song.filePath)
+            if (file.exists()) {
+                file.delete()
+            }
+        } catch (e: Exception) {
+            Log.e("VideoKeyVM", "Failed to delete MP4: ${e.message}")
+        }
+        repository.removeSong(song)
+        val updatedSongs = repository.getAllSongs()
+        val mp4s = updatedSongs.filter {
+            it.filePath.endsWith(".mp4", ignoreCase = true) || it.filePath.endsWith(".mkv", ignoreCase = true)
+        }.sortedByDescending { it.code }
+
+        _uiState.update {
+            it.copy(
+                searchResults = updatedSongs,
+                trendingSongs = updatedSongs.take(20),
+                downloadedMp4Songs = mp4s
+            )
+        }
+    }
+
+    fun openYouTubeDownloader() {
+        refreshDownloadedMp4Songs()
+        _uiState.update { it.copy(isYouTubeDownloaderOpen = true) }
+    }
+
+    fun closeYouTubeDownloader() {
+        _uiState.update { it.copy(isYouTubeDownloaderOpen = false, youTubeDownloadProgress = null, vipActivationError = null) }
+        youTubeDownloader.cancelDownload()
+    }
+
+    fun activateVip(enteredKey: String): Boolean {
+        val devId = _uiState.value.deviceId.ifBlank { VipLicenseManager.getDeviceId(getApplication()) }
+        val isValid = VipLicenseManager.verifyLicenseKey(devId, enteredKey)
+        if (isValid) {
+            prefs.edit().putBoolean("is_vip_activated", true).apply()
+            _uiState.update { it.copy(isVipActivated = true, vipActivationError = null) }
+            return true
+        } else {
+            val errMsg = if (_uiState.value.appLanguage == AppLanguage.TAGALOG) {
+                "Maling Activation Key! Paki-check ang 8-character code."
+            } else {
+                "Invalid Activation Key! Please check your 8-character code."
+            }
+            _uiState.update { it.copy(vipActivationError = errMsg) }
+            return false
+        }
+    }
+
+    fun clearVipActivationError() {
+        _uiState.update { it.copy(vipActivationError = null) }
+    }
+
+    fun searchYouTube(query: String) {
+        _uiState.update { it.copy(youTubeSearchQuery = query, isYouTubeSearching = true) }
+        viewModelScope.launch {
+            val results = youTubeDownloader.search(query)
+            _uiState.update { it.copy(youTubeSearchResults = results, isYouTubeSearching = false) }
+        }
+    }
+
+    fun downloadYouTubeSong(item: com.example.videokey.data.YouTubeVideoItem) {
+        val existingMax = repository.getAllSongs().mapNotNull { it.code.toIntOrNull() }.maxOrNull() ?: 900000
+        youTubeDownloader.downloadAsSong(
+            item = item,
+            existingMaxCode = existingMax,
+            onProgress = { prog ->
+                _uiState.update { it.copy(youTubeDownloadProgress = prog) }
+            },
+            onFinished = { newSong ->
+                if (newSong != null) {
+                    repository.addSong(newSong)
+                    val updatedSongs = repository.getAllSongs()
+                    val mp4s = updatedSongs.filter {
+                        it.filePath.endsWith(".mp4", ignoreCase = true) || it.filePath.endsWith(".mkv", ignoreCase = true)
+                    }.sortedByDescending { it.code }
+                    _uiState.update {
+                        it.copy(
+                            searchResults = updatedSongs,
+                            trendingSongs = updatedSongs.take(20),
+                            downloadedMp4Songs = mp4s
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    fun downloadYouTubeBackground(item: com.example.videokey.data.YouTubeVideoItem) {
+        youTubeDownloader.downloadAsBackground(
+            item = item,
+            onProgress = { prog ->
+                _uiState.update { it.copy(youTubeDownloadProgress = prog) }
+            },
+            onFinished = { file ->
+                if (file != null) {
+                    scanBackgroundMedia(youTubeDownloader.getBackgroundsFolder())
+                }
+            }
+        )
+    }
+
+    fun playYouTubeKaraokeDirect(item: com.example.videokey.data.YouTubeVideoItem) {
+        soundEngine.stop()
+        _uiState.update {
+            it.copy(
+                activeYouTubeStreamVideoId = item.id,
+                activeYouTubeStreamTitle = item.title,
+                isPlayingYouTubeStream = true,
+                isPlaying = true,
+                isTvMode = true,
+                selectedBottomNavTab = 1,
+                isYouTubeDownloaderOpen = false,
+                showSongTitleIntro = false,
+                currentSong = Song(
+                    code = "YT-DIRECT",
+                    title = item.title,
+                    artist = item.uploader,
+                    filePath = "https://www.youtube.com/watch?v=${item.id}"
+                )
+            )
+        }
+    }
+
+    fun stopYouTubeKaraokeDirect(activity: android.app.Activity? = null) {
+        _uiState.update {
+            it.copy(
+                isPlayingYouTubeStream = false,
+                activeYouTubeStreamVideoId = null,
+                activeYouTubeStreamTitle = null,
+                isPlaying = false,
+                isTvMode = false
+            )
+        }
+        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 
     fun scanInternalStorage(context: android.content.Context) {
@@ -1728,11 +2234,26 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             soundEngine.setActiveSoundFont(resolvedSf)
             val playables = soundEngine.getPlayableCodes()
             val favSongs = _uiState.value.favoriteCodes.mapNotNull { code -> repository.findByCode(code) }
+            val allScanned = repository.getAllSongs()
+            categoryCache.clear()
+            val cat = _uiState.value.selectedCategoryFilter
+            val catMatching = if (cat == "ALL") allScanned else allScanned.filter { it.matchesCategory(cat) }
+            categoryCache[cat.uppercase()] = catMatching
+            viewModelScope.launch(Dispatchers.Default) {
+                listOf("OPM", "ROCK", "POP", "MEDLEY").forEach { c ->
+                    if (!categoryCache.containsKey(c)) {
+                        categoryCache[c] = allScanned.filter { it.matchesCategory(c) }
+                    }
+                }
+            }
+            val currentLast = _uiState.value.lastPlayedSong ?: allScanned.firstOrNull()
             _uiState.update {
                 it.copy(
                     isScanning = false,
                     scanStatus = statusMsg,
                     searchResults = repository.search("", it.onlyShowPlayableSongs) { c -> playables.contains(c) },
+                    trendingSongs = catMatching.shuffled().take(60),
+                    lastPlayedSong = currentLast,
                     playableCodes = playables,
                     availableSoundFonts = sfNames,
                     activeSoundFontName = resolvedSf,
@@ -1893,7 +2414,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun advanceNextBackground() {
         val list = _uiState.value.availableBackgrounds
-        val mediaList = list.filter { it.type == BackgroundType.VIDEO || it.type == BackgroundType.IMAGE }.ifEmpty { list }
+        val mediaList = when (_uiState.value.bgVisualMode) {
+            BackgroundVisualMode.VIDEOS -> list.filter { it.type == BackgroundType.VIDEO }.ifEmpty { list }
+            BackgroundVisualMode.PHOTOS -> list.filter { it.type == BackgroundType.IMAGE }.ifEmpty { list }
+            BackgroundVisualMode.CAMERA -> emptyList()
+        }
         if (mediaList.isEmpty()) return
 
         val nextBg: KaraokeBackground = synchronized(playlistLock) {
@@ -1916,6 +2441,89 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(selectedBackground = nextBg) }
     }
 
+    fun setScoreMode(mode: ScoreMode) {
+        prefs.edit().putString("score_mode", mode.name).apply()
+        _uiState.update { it.copy(scoreMode = mode, isMicScoringEnabled = mode != ScoreMode.OFF) }
+        if (mode == ScoreMode.OFF) {
+            micScorer.stopScoring()
+            com.example.videokey.data.VideokeSoundEffects.stop()
+        } else if (_uiState.value.isPlaying && mode == ScoreMode.MICROPHONE) {
+            micScorer.startScoring()
+        }
+    }
+
+    fun setScoringDifficulty(difficulty: ScoringDifficulty) {
+        prefs.edit().putString("scoring_difficulty", difficulty.name).apply()
+        _uiState.update { it.copy(scoringDifficulty = difficulty) }
+    }
+
+    fun setFanfareSoundLevel(level: FanfareSoundLevel) {
+        prefs.edit().putString("fanfare_sound_level", level.name).apply()
+        _uiState.update { it.copy(fanfareSoundLevel = level, isScoringSoundEnabled = level != FanfareSoundLevel.OFF) }
+    }
+
+    fun testScoringFanfare() {
+        val vol = _uiState.value.fanfareSoundLevel.volume
+        if (vol > 0.01f) {
+            com.example.videokey.data.VideokeSoundEffects.playScoringFanfare(95, vol)
+        }
+    }
+
+    fun setBackgroundVisualMode(mode: BackgroundVisualMode) {
+        prefs.edit().putString("bg_visual_mode", mode.name).apply()
+        _uiState.update { it.copy(bgVisualMode = mode) }
+    }
+
+    fun toggleContinuousVideoChangePerSong(enabled: Boolean) {
+        prefs.edit().putBoolean("continuous_video_change_per_song", enabled).apply()
+        _uiState.update { it.copy(continuousVideoChangePerSong = enabled) }
+    }
+
+    fun setLyricOutlineThickness(thickness: Float) {
+        val clamped = thickness.coerceIn(1.0f, 12.0f)
+        prefs.edit().putFloat("lyric_outline_thickness", clamped).apply()
+        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(outlineThickness = clamped)) }
+    }
+
+    fun setLyricFontSize(portraitSp: Float, landscapeSp: Float) {
+        val portClamped = portraitSp.coerceIn(24f, 65f)
+        val landClamped = landscapeSp.coerceIn(36f, 85f)
+        prefs.edit()
+            .putFloat("lyric_font_size_portrait", portClamped)
+            .putFloat("lyric_font_size_landscape", landClamped)
+            .apply()
+        _uiState.update {
+            it.copy(
+                lyricConfig = it.lyricConfig.copy(
+                    fontSizePortraitSp = portClamped,
+                    fontSizeLandscapeSp = landClamped
+                )
+            )
+        }
+    }
+
+    fun setLyricLineSpacing(spacingDp: Float) {
+        val clamped = spacingDp.coerceIn(4f, 32f)
+        prefs.edit().putFloat("lyric_line_spacing", clamped).apply()
+        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(lineSpacingDp = clamped)) }
+    }
+
+    fun toggleLyricDropShadow(enabled: Boolean) {
+        prefs.edit().putBoolean("lyric_has_drop_shadow", enabled).apply()
+        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(hasDropShadow = enabled)) }
+    }
+
+    fun setLyricCountdownMode(mode: LyricCountdownMode) {
+        prefs.edit().putString("lyric_countdown_mode", mode.name).apply()
+        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(countdownMode = mode)) }
+    }
+
+    fun setLyricTimingOffset(offsetMs: Int) {
+        val clamped = offsetMs.coerceIn(-500, 500)
+        prefs.edit().putInt("lyric_timing_offset", clamped).apply()
+        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(timingOffsetMs = clamped)) }
+    }
+
     fun openLyricStyleDialog() {
         _uiState.update { it.copy(isLyricStyleDialogOpen = true) }
     }
@@ -1933,14 +2541,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleMicScoring(enabled: Boolean) {
-        prefs.edit().putBoolean("mic_scoring_enabled", enabled).apply()
-        _uiState.update { it.copy(isMicScoringEnabled = enabled) }
-        if (!enabled) {
-            micScorer.stopScoring()
-            com.example.videokey.data.VideokeSoundEffects.stop()
-        } else if (_uiState.value.isPlaying) {
-            micScorer.startScoring()
-        }
+        val mode = if (enabled) ScoreMode.MICROPHONE else ScoreMode.OFF
+        setScoreMode(mode)
     }
 
     fun toggleScoringSound(enabled: Boolean) {
@@ -1965,31 +2567,40 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setLyricWipeColor(wipeColor: LyricWipeColor) {
+        prefs.edit().putString("lyric_wipe_color", wipeColor.name).apply()
         _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(wipeColor = wipeColor)) }
     }
 
     fun setLyricShadowStyle(shadowStyle: LyricShadowStyle) {
+        prefs.edit().putString("lyric_shadow_style", shadowStyle.name).apply()
         _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(shadowStyle = shadowStyle)) }
     }
 
     fun toggleLyricAllCaps() {
-        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(isAllCaps = !it.lyricConfig.isAllCaps)) }
+        val newVal = !_uiState.value.lyricConfig.isAllCaps
+        prefs.edit().putBoolean("lyric_all_caps", newVal).apply()
+        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(isAllCaps = newVal)) }
     }
 
     fun toggleLyricItalic() {
-        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(isItalic = !it.lyricConfig.isItalic)) }
+        val newVal = !_uiState.value.lyricConfig.isItalic
+        prefs.edit().putBoolean("lyric_is_italic", newVal).apply()
+        _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(isItalic = newVal)) }
     }
 
     fun setLyricFontScale(scale: Float) {
         val clamped = scale.coerceIn(0.75f, 1.4f)
+        prefs.edit().putFloat("lyric_font_scale", clamped).apply()
         _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(fontScale = clamped)) }
     }
 
     fun setLyricLineCount(lineCount: LyricLineCount) {
+        prefs.edit().putString("lyric_line_count", lineCount.name).apply()
         _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(lineCount = lineCount)) }
     }
 
     fun setLyricPosition(position: LyricScreenPosition) {
+        prefs.edit().putString("lyric_position", position.name).apply()
         _uiState.update { it.copy(lyricConfig = it.lyricConfig.copy(position = position)) }
     }
 
@@ -2005,7 +2616,22 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun setAppTheme(theme: AppTheme) {
         prefs.edit().putString("app_theme", theme.name).apply()
-        _uiState.update { it.copy(appTheme = theme) }
+        val matchingWipe = when (theme) {
+            AppTheme.CYBER_NEON -> LyricWipeColor.HOT_PINK
+            AppTheme.SLATE_DARK -> LyricWipeColor.OCEAN_BLUE
+            AppTheme.EMERALD_STAGE -> LyricWipeColor.NEON_GREEN
+            AppTheme.WARM_AMBER -> LyricWipeColor.SUNSHINE_YELLOW
+            AppTheme.ROYAL_INDIGO -> LyricWipeColor.ELECTRIC_CYAN
+            AppTheme.CHARCOAL_MINIMAL -> LyricWipeColor.PURE_GOLD
+        }
+        _uiState.update {
+            it.copy(
+                appTheme = theme,
+                lyricConfig = it.lyricConfig.copy(
+                    wipeColor = matchingWipe
+                )
+            )
+        }
     }
 
     fun applyLyricPreset(presetName: String) {
@@ -2081,5 +2707,135 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         com.example.videokey.data.VideokeSoundEffects.stop()
         voiceManager.shutdown()
         playbackJob?.cancel()
+    }
+}
+
+// ==========================================
+// Category Filtering Helpers (Home Tabs)
+// ==========================================
+
+private val OPM_KEYWORDS = listOf(
+    "eraserheads", "parokya", "rivermaya", "kamikazee", "gary valenciano",
+    "regine", "martin nievera", "sarah geronimo", "ben&ben", "ben & ben", "moira",
+    "aegis", "rey valera", "freddie aguilar", "side a", "silent sanctuary",
+    "yeng constantino", "up dharma down", "bamboo", "sponge cola", "hale",
+    "callalily", "cueshe", "cueshé", "gloc 9", "gloc-9", "december avenue", "iv of spades",
+    "south border", "orange and lemons", "itchyworms", "noel cabangon",
+    "apo hiking", "vhong navarro", "siakol", "grin dept", "chicosci",
+    "mayonnaise", "true faith", "freestyle", "brownman revival", "willie revillame",
+    "ric segreto", "sharon cuneta", "lea salonga", "ogie alcasid",
+    "jaya", "janno gibbs", "sheryn regis", "erik santos", "christian bautista",
+    "jed madela", "angeline quinto", "morissette", "jona", "kz tandingan",
+    "tj monterde", "arthur nery", "adie", "zack tabudlo", "dionela", "maki",
+    "sb19", "bini", "al james", "flow g", "skusta clee", "shanti dope", "ex battalion",
+    "april boy", "victor wood", "eddie peregrina", "claire dela fuente", "eva eugenio",
+    "didith reyes", "imelda papin", "marco sison", "anthony castelo", "dingdong avanzado",
+    "florian", "nonoy zuniga", "roel cortez", "freddie", "vst & co", "boyfriends"
+)
+
+private val TAGALOG_WORDS_SET = setOf(
+    "ang", "sa", "ng", "mga", "ikaw", "ako", "ko", "mo", "na", "at", "pa", "ba", "lang", "lamang",
+    "din", "rin", "naman", "sana", "dahil", "bakit", "hindi", "di", "kailangan", "hanggang",
+    "pangarap", "tayo", "natin", "kahit", "huwag", "wag", "gising", "kapag", "wala", "meron", "may",
+    "buhay", "mahal", "puso", "pusong", "pag-ibig", "pagibig", "pagsuyo", "pasko", "kung", "sino",
+    "akin", "iyo", "amin", "inyo", "kanya", "kanila", "nila", "siya", "kami", "kayo", "dito",
+    "diyan", "doon", "nito", "niyan", "niyon", "paano", "kailan", "saan", "kumusta", "salamat",
+    "paalam", "halika", "halina", "tara", "nanay", "tatay", "inay", "itay", "ate", "kuya", "bunso",
+    "anak", "kapatid", "kaibigan", "kasama", "minamahal", "iniibig", "sinisinta", "giliw", "sinta",
+    "mutya", "paraluman", "tala", "araw", "buwan", "bituin", "langit", "lupa", "dagat", "ulan",
+    "hangin", "apoy", "luha", "ngiti", "tawa", "yakap", "halik", "kamay", "mata", "labi", "awit",
+    "kanta", "tugtog", "himig", "musika", "sayaw", "galaw", "laro", "gabi", "umaga", "tanghali",
+    "hapon", "ngayon", "bukas", "kahapon", "sandali", "saglit", "muli", "minsan", "lagi", "tuwina",
+    "kailanman", "habangbuhay", "dalangin", "dasal", "panalangin", "bayan", "bansa", "pilipinas",
+    "pinoy", "pinay", "tagalog", "dalaga", "binata", "tao", "mukha", "isip", "alaala", "damdamin",
+    "lungkot", "saya", "tuwa", "galit", "takot", "hiya", "awa", "pag-asa", "tiwala", "sumpa",
+    "pangako", "liham", "sulat", "kuwento", "tinig", "boses", "tawag", "sigaw", "bulong", "dinggin",
+    "pakinggan", "tingnan", "masdan", "hawak", "yakapin", "hagkan", "halikan", "ibigin", "mahalin",
+    "alagaan", "ingatan", "iwan", "iwanan", "layas", "alis", "balik", "balikan", "uwi", "hanap",
+    "hanapin", "tagpo", "tagpuan", "samahan", "sabay", "tulong", "damayan", "abot", "takbo",
+    "lipad", "tulog", "gising", "panaginip", "puyat", "pagod", "gutom", "sarap", "tamis", "pait",
+    "lamig", "init", "bagyo", "kidlat", "baha", "puti", "itim", "pula", "asul", "dilaw", "berde",
+    "noon", "minsan", "kaya", "bato", "kahoy", "dahon", "bulaklak", "paru-paro", "paruparo", "ibon",
+    "isda", "tubig", "ilog", "bundok", "kalsada", "daan", "sakay", "dyip", "kotse", "bahay",
+    "silid", "bintana", "pinto", "hagdan", "mesa", "silya", "orasan", "salamin", "liwanag",
+    "dilim", "anino", "lasa", "tunog", "kutob", "hinala", "totoo", "sinungaling",
+    "lihim", "sikreto", "hiwaga", "milagro", "himala", "swerte", "malas", "tadhana", "kapalaran",
+    "wakas", "simula", "gitna", "dulo", "hangganan", "habang", "bago", "pagkatapos",
+    "habang-buhay", "magpakailanman", "panghabangbuhay", "saanman", "kailanpaman", "sinuman",
+    "gayon", "ganoon", "ganito", "ganyan", "siyang", "akong", "ikaw", "inyong",
+    "aming", "kanilang", "iyong", "aking", "sintang", "pagmamahal",
+    "iniirog", "katulad", "tulad", "parang", "tila", "wari", "animo", "kapara", "kawangis",
+    "awitin", "kantahin", "tugtugin", "sayawin", "isayaw", "kantang", "awiting", "himig-pasko",
+    "paskong", "bagong", "taon", "simbang", "gabi", "misa", "talisay", "dapit", "mapasagot",
+    "oras", "panahon", "yakap", "titig", "tingin", "alapaap", "ligaya", "sinta'y", "ako'y", "ikaw'y",
+    "kayang", "lumayo", "lumapit", "bumalik", "nawala", "nakita", "naglaho", "sumikat", "lumubog"
+)
+
+private val ROCK_KEYWORDS = listOf(
+    "rock", "metal", "punk", "anthem", "band", "eraserheads", "parokya", "rivermaya",
+    "kamikazee", "bamboo", "siakol", "wolfgang", "razorback", "slapshock",
+    "greyhoundz", "queso", "chicosci", "urbandub", "franco", "mayonnaise",
+    "typecast", "sponge cola", "callalily", "cueshe", "sandwich", "6cyclemind",
+    "kitchie nadal", "queen", "bon jovi", "guns n", "aerosmith", "metallica",
+    "scorpions", "led zeppelin", "ac/dc", "nirvana", "linkin park", "green day",
+    "red hot", "journey", "the beatles", "rolling stones", "oasis", "u2",
+    "coldplay", "radiohead", "foo fighters", "audioslave", "creed", "nickelback",
+    "evanescence", "avril lavigne", "paramore", "blink-182", "my chemical romance",
+    "fall out boy", "simple plan", "cranberries", "deep purple", "eagles",
+    "kiss", "whitesnake", "air supply", "survivor", "foreigner", "boston",
+    "toto", "europe", "def leppard", "the cure", "iron maiden", "black sabbath"
+)
+
+private val POP_KEYWORDS = listOf(
+    "pop", "ballad", "dance", "michael jackson", "madonna", "taylor swift",
+    "ariana grande", "bruno mars", "ed sheeran", "katy perry", "justin bieber",
+    "rihanna", "beyonce", "lady gaga", "dua lipa", "selena gomez",
+    "britney spears", "backstreet boys", "westlife", "nsync", "boyzone",
+    "sarah geronimo", "morissette", "regine", "moira", "ben&ben", "sb19",
+    "bini", "sam smith", "adele", "whitney houston", "mariah carey",
+    "celine dion", "billie eilish", "shawn mendes", "harry styles", "maroon 5",
+    "one direction", "charlie puth", "chainsmokers", "avicii", "calvin harris",
+    "olivia rodrigo", "abba", "carpenter", "elton john"
+)
+
+private val MEDLEY_KEYWORDS = listOf(
+    "medley", "nonstop", "non-stop", "megamix", "mega-mix", "mashup", "mash-up",
+    "potpourri", "remix", "continuous", "hits medley", "classic medley", "dance medley"
+)
+
+private val TAGALOG_SPLIT_REGEX = Regex("[^a-zA-Z0-9ñÑ'-]+")
+
+fun Song.matchesCategory(cat: String): Boolean {
+    if (cat.equals("ALL", ignoreCase = true)) return true
+    val titleLower = title.lowercase()
+    val artistLower = artist.lowercase()
+    val catLower = category.lowercase()
+
+    return when (cat.uppercase()) {
+        "OPM" -> {
+            // Must strictly be Tagalog / Filipino songs as requested by user
+            val words = titleLower.split(TAGALOG_SPLIT_REGEX).filter { it.isNotBlank() }
+            words.any { TAGALOG_WORDS_SET.contains(it) } ||
+            words.any { w ->
+                w.startsWith("mahal") || w.startsWith("puso") || w.startsWith("ibig") ||
+                w.startsWith("buhay") || w.startsWith("pasko") || w.startsWith("giliw") ||
+                w.startsWith("sinta") || w.startsWith("kanta") || w.startsWith("awit") ||
+                w.startsWith("sayaw") || w.startsWith("tayo") || w.startsWith("atin")
+            }
+        }
+        "ROCK" -> {
+            catLower.contains("rock") ||
+            ROCK_KEYWORDS.any { artistLower.contains(it) || titleLower.contains(it) }
+        }
+        "POP" -> {
+            catLower.contains("pop") ||
+            POP_KEYWORDS.any { artistLower.contains(it) || titleLower.contains(it) }
+        }
+        "MEDLEY" -> {
+            catLower.contains("medley") ||
+            catLower.contains("nonstop") ||
+            MEDLEY_KEYWORDS.any { artistLower.contains(it) || titleLower.contains(it) }
+        }
+        else -> catLower.contains(cat.lowercase()) || titleLower.contains(cat.lowercase())
     }
 }

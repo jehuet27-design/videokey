@@ -346,21 +346,25 @@ object MidiKaraokeParser {
                 continue
             }
 
-            // Sync syllable start and duration with the nearest melody note if available
-            val matchedNote = effectiveMelodyNotes.minByOrNull { kotlin.math.abs(it.first - tick) }
-            val isNoteMatched = matchedNote != null && kotlin.math.abs(matchedNote.first - tick) <= (ppq / 2).coerceAtLeast(40)
-            val effectiveStartTick = if (isNoteMatched) matchedNote!!.first else tick
-            val timestampMs = tickToMs(effectiveStartTick)
+            // Use exact authored syllable tick to prevent grouping distinct syllables into the same timestamp
+            val timestampMs = tickToMs(tick)
 
+            val matchedNote = effectiveMelodyNotes.minByOrNull { kotlin.math.abs(it.first - tick) }
+            val isNoteMatched = matchedNote != null && kotlin.math.abs(matchedNote.first - tick) <= (ppq / 3).coerceAtLeast(30)
             val noteDurationMs = if (isNoteMatched) {
-                (tickToMs(matchedNote!!.second) - tickToMs(matchedNote.first)).coerceIn(120L, 3500L)
+                (tickToMs(matchedNote!!.second) - tickToMs(matchedNote.first)).coerceIn(80L, 3500L)
             } else {
                 null
             }
 
-            val nextTick = if (i + 1 < tokens.size) tokens[i + 1].tick else tick + ppq
-            val defaultDuration = (tickToMs(nextTick) - timestampMs).coerceIn(120L, 2500L)
-            val duration = noteDurationMs ?: defaultDuration
+            val nextToken = if (i + 1 < tokens.size && !tokens[i].breakAfter && !tokens[i + 1].breakBefore) tokens[i + 1] else null
+            val nextTick = nextToken?.tick ?: (if (i + 1 < tokens.size) tokens[i + 1].tick else tick + ppq)
+            val timeToNextMs = (tickToMs(nextTick) - timestampMs).coerceAtLeast(60L)
+            val duration = if (noteDurationMs != null && noteDurationMs < timeToNextMs) {
+                noteDurationMs.coerceAtLeast(60L)
+            } else {
+                timeToNextMs.coerceIn(60L, 3500L)
+            }
 
             val prevTick = if (i > 0) tokens[i - 1].tick else tick
             val gapMs = tickToMs(tick) - tickToMs(prevTick)
@@ -381,17 +385,13 @@ object MidiKaraokeParser {
                 }
             }
 
-            // Never break in the middle of a hyphenated word ("UM-" + "BRELLA") unless the time gap is huge (> 3s)
             val shouldBreakBefore = when {
                 currentSyllables.isEmpty() -> false
-                token.breakBefore && !prevEndsWithHyphen -> true
-                token.breakBefore && prevEndsWithHyphen && gapMs > 2500L -> true
+                token.breakBefore -> true // Always honor explicit line break (/ or \) from MIDI author!
                 !hasExplicitBreaks && isWordBoundary && gapMs > 2000L -> true
-                hasExplicitBreaks && isWordBoundary && gapMs > 4500L -> true
-                !hasExplicitBreaks && isWordBoundary && currentLineChars >= 34 -> true
-                // If MIDI has explicit breaks, only wrap an ultra-long line (> 42 chars) if at least 12 chars & 3 syllables remain before the explicit break!
-                hasExplicitBreaks && isWordBoundary && currentLineChars >= 42 &&
-                    charsUntilNextExplicitBreak >= 12 && syllablesUntilNextExplicitBreak >= 3 -> true
+                hasExplicitBreaks && isWordBoundary && gapMs > 3500L -> true
+                // Prevent lines from exceeding safe screen width (keep line length within 24 chars)
+                isWordBoundary && currentLineChars >= 22 -> true
                 else -> false
             }
 
@@ -411,9 +411,8 @@ object MidiKaraokeParser {
                 currentLineChars += normalizedText.length
             }
 
-            // If this syllable had a trailing line break (e.g., "love\r\n"), flush AFTER adding it (unless it ends with a hyphen for anunfinished word)
-            val endsWithHyphenNow = normalizedText.trimEnd().endsWith("-")
-            if (token.breakAfter && !endsWithHyphenNow) {
+            // If this syllable had a trailing line break (e.g., "love\r\n"), flush AFTER adding it
+            if (token.breakAfter) {
                 flushCurrentLine()
             }
         }
@@ -542,8 +541,8 @@ object MidiKaraokeParser {
                         txt = trimmedEnd.dropLast(1) + " "
                     }
                 } else {
-                    // Trailing hyphen at the very end of a line ("UM-") -> remove the dangling hyphen
-                    txt = trimmedEnd.dropLast(1)
+                    // Trailing hyphen at the very end of a line ("LONG-") -> remove dangling hyphen
+                    txt = trimmedEnd.trimEnd('-', ' ')
                 }
             }
             if (txt.isNotEmpty()) {
@@ -569,7 +568,7 @@ object MidiKaraokeParser {
                 val prevEndMs = prev.last().timestampMs + prev.last().durationMs
                 val curStartMs = current.first().timestampMs
                 val prevChars = prev.sumOf { it.text.length }
-                if (curStartMs - prevEndMs <= 1600L && prevChars + currentFull.length <= 42) {
+                if (curStartMs - prevEndMs <= 1000L && prevChars + currentFull.length <= 22) {
                     // Attach to the end of the previous line
                     val firstSyl = current.first()
                     val needsSpace = !prev.last().text.endsWith(" ") && !firstSyl.text.startsWith(" ") &&

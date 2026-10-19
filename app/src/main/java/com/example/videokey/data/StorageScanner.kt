@@ -105,11 +105,16 @@ class StorageScanner(private val context: Context) {
                     val files = dir.listFiles() ?: continue
                     for (file in files) {
                         val nameLower = file.name.lowercase()
+                        if (file.absolutePath.contains("/backgrounds/", ignoreCase = true) ||
+                            file.absolutePath.contains("\\backgrounds\\", ignoreCase = true) ||
+                            file.parentFile?.name.equals("backgrounds", ignoreCase = true)) {
+                            continue
+                        }
                         if (VkPackReader.isPackFile(file)) {
                             for (song in VkPackReader.loadSongs(file)) {
                                 if (seenCodes.add(song.code)) foundSongs.add(song)
                             }
-                        } else if (nameLower.endsWith(".mid") || nameLower.endsWith(".kar")) {
+                        } else if (nameLower.endsWith(".mid") || nameLower.endsWith(".kar") || nameLower.endsWith(".mp4") || nameLower.endsWith(".mkv")) {
                             val parsed = parseSongFilename(file)
                             if (seenCodes.add(parsed.code)) {
                                 foundSongs.add(parsed)
@@ -202,8 +207,13 @@ class StorageScanner(private val context: Context) {
                 foundSf2.add(file)
                 Log.d("StorageScanner", "Specific folder found SF2: ${file.absolutePath}")
             }
-            // 4. MIDI songs
-            if (nameLower.endsWith(".mid") || nameLower.endsWith(".kar")) {
+            // 4. MIDI and MP4 Video Karaoke songs (Exclude background videos)
+            if (nameLower.endsWith(".mid") || nameLower.endsWith(".kar") || nameLower.endsWith(".mp4") || nameLower.endsWith(".mkv")) {
+                if (file.absolutePath.contains("/backgrounds/", ignoreCase = true) ||
+                    file.absolutePath.contains("\\backgrounds\\", ignoreCase = true) ||
+                    file.parentFile?.name.equals("backgrounds", ignoreCase = true)) {
+                    continue
+                }
                 val parsed = parseSongFilename(file)
                 if (seenCodes.add(parsed.code)) {
                     foundSongs.add(parsed)
@@ -231,7 +241,7 @@ class StorageScanner(private val context: Context) {
         )
     }
 
-    private fun parseSongFilename(file: File): Song {
+    fun parseSongFilename(file: File): Song {
         val baseName = file.nameWithoutExtension
         val parts = baseName.split(" - ", limit = 3)
         return when {

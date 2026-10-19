@@ -26,7 +26,8 @@ object VideokeSoundEffects {
     private var activeTrack: AudioTrack? = null
     private val scope = CoroutineScope(Dispatchers.Default)
 
-    fun playScoringFanfare(score: Int) {
+    fun playScoringFanfare(score: Int, volumeMultiplier: Float = 1.0f) {
+        if (volumeMultiplier <= 0.01f) return
         stop()
         activeJob = scope.launch {
             try {
@@ -102,6 +103,7 @@ object VideokeSoundEffects {
                     .build()
 
                 activeTrack = audioTrack
+                audioTrack.setVolume(volumeMultiplier.coerceIn(0f, 1f))
                 audioTrack.play()
                 audioTrack.write(samples, 0, samples.size)
 

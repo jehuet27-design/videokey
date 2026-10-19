@@ -92,11 +92,6 @@ class MicrophoneScorer(
             // is stripped from the microphone and never muddies the recorded instruments!
             val sessionId = rec.audioSessionId
             try {
-                if (AcousticEchoCanceler.isAvailable()) {
-                    echoCanceler = AcousticEchoCanceler.create(sessionId)?.apply { enabled = true }
-                }
-            } catch (_: Exception) {}
-            try {
                 if (NoiseSuppressor.isAvailable()) {
                     noiseSuppressor = NoiseSuppressor.create(sessionId)?.apply { enabled = true }
                 }
@@ -267,11 +262,16 @@ class MicrophoneScorer(
      * Calculates an accurate performance score (60 - 99) based on:
      * 1. Vocal Rhythm & Timing Participation during active lyric phrases
      * 2. Melody Pitch Accuracy (voice fundamental frequency vs MIDI melody notes)
+     * 3. Difficulty Mode: EASY (generous), MEDIUM (standard balanced), HARD (strict pitch precision)
      */
-    fun calculateFinalScore(): Int {
+    fun calculateFinalScore(difficulty: String = "MEDIUM"): Int {
         // If no voice was detected at all during the song, return low score (do not fake a high score!)
-        if (anyVocalChunksCount < 6) {
-            return (60..64).random()
+        if (anyVocalChunksCount < 4) {
+            return when (difficulty) {
+                "EASY" -> (70..75).random()
+                "HARD" -> (50..58).random()
+                else -> (60..64).random()
+            }
         }
 
         val effectiveTotalPhrase = if (totalVocalPhraseChunks >= 15) totalVocalPhraseChunks else totalChunksProcessed.coerceAtLeast(1)
@@ -284,22 +284,39 @@ class MicrophoneScorer(
             0.55f
         }
 
-        return when {
-            participationRatio < 0.05f -> {
-                // Halos walang kanta sa mic
-                (62..68).random()
+        return when (difficulty) {
+            "EASY" -> {
+                val timingComponent = (participationRatio / 0.45f).coerceIn(0f, 1f) * 10f
+                val melodyComponent = pitchQualityRatio * 14f
+                val computed = (78f + timingComponent + melodyComponent).roundToInt()
+                computed.coerceIn(80, 99)
             }
-            participationRatio < 0.22f -> {
-                // Kaunting bahagi lang ang kinanta, base sa tama ng tono
-                val score = 69 + (participationRatio * 25f).roundToInt() + (pitchQualityRatio * 8f).roundToInt()
-                score.coerceIn(69, 81)
+            "HARD" -> {
+                val timingComponent = (participationRatio / 0.80f).coerceIn(0f, 1f) * 12f
+                val melodyComponent = pitchQualityRatio * 22f
+                val computed = (64f + timingComponent + melodyComponent).roundToInt()
+                computed.coerceIn(65, 99)
             }
             else -> {
-                // Kinanta nang tuloy-tuloy: 45% participation timing + 55% melody pitch accuracy
-                val timingComponent = (participationRatio / 0.65f).coerceIn(0f, 1f) * 11f
-                val melodyComponent = pitchQualityRatio * 16f
-                val computed = (72f + timingComponent + melodyComponent).roundToInt()
-                computed.coerceIn(74, 99)
+                // MEDIUM
+                when {
+                    participationRatio < 0.05f -> {
+                        // Halos walang kanta sa mic
+                        (62..68).random()
+                    }
+                    participationRatio < 0.22f -> {
+                        // Kaunting bahagi lang ang kinanta, base sa tama ng tono
+                        val score = 69 + (participationRatio * 25f).roundToInt() + (pitchQualityRatio * 8f).roundToInt()
+                        score.coerceIn(69, 81)
+                    }
+                    else -> {
+                        // Kinanta nang tuloy-tuloy: 45% participation timing + 55% melody pitch accuracy
+                        val timingComponent = (participationRatio / 0.65f).coerceIn(0f, 1f) * 11f
+                        val melodyComponent = pitchQualityRatio * 16f
+                        val computed = (72f + timingComponent + melodyComponent).roundToInt()
+                        computed.coerceIn(74, 99)
+                    }
+                }
             }
         }
     }
