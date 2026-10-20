@@ -1,7 +1,7 @@
 {
-  "versionCode": 5,
-  "versionName": "2.5",
-  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.5/VideoKey-v2.5.apk",
+  "versionCode": 6,
+  "versionName": "2.6",
+  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.6/VideoKey-v2.6.apk",
   "forceUpdate": false,
-  "releaseNotes": "🎉 VIDEOKEY V2.5 UPDATE:\n• Videoke 4-Dots countdown na nawawala mula kanan pakaliwa (4 -> 3 -> 2 -> 1)\n• Mas malinaw at pantay-pantay na laki ng lyrics na hindi lumalagpas sa screen\n• VIP Activation details (₱99 lamang, One-time lifetime access)\n• Mas maayos na Karaoke Studio controls na walang scroll"
+  "releaseNotes": "🎉 VIDEOKEY V2.6 UPDATE:\n• Normal lyric font size scale (100%) sa TV mode para mas malinaw at madaling basahin sa telebisyon\n• Default username: JUAN profile\n• Malinis na TV mode display (tinanggal ang portrait button sa top header)\n• Itinaas ang R reserved ticker malapit sa Next text"
 }

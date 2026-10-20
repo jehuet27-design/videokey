@@ -160,7 +160,7 @@ data class LyricCustomization(
     val hasDropShadow: Boolean = true,
     val isAllCaps: Boolean = false,
     val isItalic: Boolean = false,
-    val fontScale: Float = 0.85f,
+    val fontScale: Float = 1.0f,
     val lineCount: LyricLineCount = LyricLineCount.TWO_LINES,
     val position: LyricScreenPosition = LyricScreenPosition.BOTTOM,
     val countdownMode: LyricCountdownMode = LyricCountdownMode.CLASSIC_DOTS,
@@ -625,7 +625,13 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     hasDropShadow = prefs.getBoolean("lyric_has_drop_shadow", true),
                     isAllCaps = prefs.getBoolean("lyric_all_caps", false),
                     isItalic = prefs.getBoolean("lyric_is_italic", false),
-                    fontScale = prefs.getFloat("lyric_font_scale", 0.85f),
+                    fontScale = run {
+                        val saved = prefs.getFloat("lyric_font_scale", 1.0f)
+                        if (Math.abs(saved - 0.85f) < 0.01f && !prefs.getBoolean("has_migrated_font_scale_v26", false)) {
+                            prefs.edit().putFloat("lyric_font_scale", 1.0f).putBoolean("has_migrated_font_scale_v26", true).apply()
+                            1.0f
+                        } else saved
+                    },
                     lineCount = initialLineCount,
                     position = initialPosition,
                     countdownMode = initialCountdownMode,
@@ -2002,9 +2008,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     fun initAndroidTvMode() {
         isRunningOnTvDevice = true
         _uiState.update { it.copy(isTvMode = true) }
-        val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v3", false)
+        val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v4", false)
         if (!hasCustomized) {
             applyTvDefaultLyricSettings()
+        } else if (Math.abs(_uiState.value.lyricConfig.fontScale - 0.85f) < 0.01f) {
+            setLyricFontScale(1.0f)
         }
     }
 
@@ -2022,7 +2030,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             hasDropShadow = true,
             isAllCaps = false,
             isItalic = false,
-            fontScale = 0.85f,
+            fontScale = 1.0f, // Normal 100% font scale
             lineCount = LyricLineCount.TWO_LINES,
             position = LyricScreenPosition.BOTTOM,
             countdownMode = LyricCountdownMode.CLASSIC_DOTS,
@@ -2037,9 +2045,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(isTvMode = nextTv) }
         if (nextTv) {
             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v3", false)
+            val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v4", false)
             if (!hasCustomized) {
                 applyTvDefaultLyricSettings()
+            } else if (Math.abs(_uiState.value.lyricConfig.fontScale - 0.85f) < 0.01f) {
+                setLyricFontScale(1.0f)
             }
         } else {
             if (!isRunningOnTvDevice) {
@@ -2051,9 +2061,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     fun enterTvLandscapeMode(activity: android.app.Activity? = null) {
         _uiState.update { it.copy(isTvMode = true) }
         activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v3", false)
+        val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v4", false)
         if (!hasCustomized) {
             applyTvDefaultLyricSettings()
+        } else if (Math.abs(_uiState.value.lyricConfig.fontScale - 0.85f) < 0.01f) {
+            setLyricFontScale(1.0f)
         }
     }
 
@@ -2892,7 +2904,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             .putString("lyric_position", config.position.name)
             .putString("lyric_countdown_mode", config.countdownMode.name)
             .putInt("lyric_timing_offset", config.timingOffsetMs)
-            .putBoolean("has_customized_tv_lyrics_v3", true)
+            .putBoolean("has_customized_tv_lyrics_v4", true)
             .apply()
     }
 
@@ -2912,7 +2924,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 hasDropShadow = true,
                 isAllCaps = false,
                 isItalic = false,
-                fontScale = 0.85f,
+                fontScale = 1.0f,
                 lineCount = LyricLineCount.TWO_LINES,
                 position = LyricScreenPosition.BOTTOM,
                 countdownMode = LyricCountdownMode.CLASSIC_DOTS,
