@@ -93,6 +93,7 @@ fun VideoKeyScreen(
 
     androidx.activity.compose.BackHandler(enabled = true) {
         when {
+            !state.isStartupGatePassed -> activity?.finish()
             showExitConfirmDialog -> showExitConfirmDialog = false
             state.isAdminKeyGeneratorOpen -> viewModel.closeAdminKeyGenerator()
             state.isEditNameDialogOpen -> viewModel.closeEditNameDialog()
@@ -127,7 +128,7 @@ fun VideoKeyScreen(
             onStartSequentialDownload = { viewModel.startSequentialAutoDownload() },
             onCancelDownload = { viewModel.cancelContentDownload() },
             onOpenApp = { viewModel.passStartupGate() },
-            onMinimize = { viewModel.minimizeStartupGate() },
+            onExitApp = { activity?.finish() },
             modifier = modifier.fillMaxSize()
         )
         return

@@ -59,12 +59,6 @@ class SoundEngine(
             displayName = "MegaPro Sound",
             fileName = "mega.sf2",
             description = "MegaPro Karaoke Player SoundFont"
-        ),
-        SoundFontPreset(
-            id = "songhub",
-            displayName = "SongHub Original Sound",
-            fileName = "songhub.sf2",
-            description = "Classic SongHub Videoke SoundFont"
         )
     )
 
@@ -303,9 +297,6 @@ class SoundEngine(
         if (lowerQuery.contains("mega")) {
             allSf2Files.firstOrNull { it.name.lowercase().contains("mega") }?.let { return it }
         }
-        if (lowerQuery.contains("songhub")) {
-            allSf2Files.firstOrNull { it.name.lowercase().contains("songhub") }?.let { return it }
-        }
 
         allSf2Files.firstOrNull {
             it.name.lowercase().contains(lowerQuery) || lowerQuery.contains(it.nameWithoutExtension.lowercase())
@@ -357,11 +348,10 @@ class SoundEngine(
             }
         }
 
-        // Load complete GM/Drum fallback SoundFont (VideoKey_Studio_Minus1.sf2 or songhub.sf2) so no preset is ever missing
+        // Load complete GM/Drum fallback SoundFont (VideoKey_Studio_Minus1.sf2 or Dream SAM2634) so no preset is ever missing
         val fallbackCandidate = findSoundFontFile("VideoKey_Studio_Minus1.sf2")
             ?.takeIf { it.absolutePath != primaryFontPath }
             ?: findSoundFontFile("Dream SAM2634")?.takeIf { it.absolutePath != primaryFontPath }
-            ?: findSoundFontFile("songhub.sf2")?.takeIf { it.absolutePath != primaryFontPath }
 
         if (fallbackCandidate != null && fallbackCandidate.exists()) {
             if (fallbackFontPath != fallbackCandidate.absolutePath || fallbackFontHandle == 0) {

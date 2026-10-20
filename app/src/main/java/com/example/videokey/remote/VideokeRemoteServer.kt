@@ -199,6 +199,9 @@ class VideokeRemoteServer(
                 "open_admin_key_gen" -> {
                     viewModel.openAdminKeyGenerator()
                 }
+                "scan_files" -> {
+                    viewModel.checkAndAutoDetectFiles(triggerAutoDownloadIfMissing = true)
+                }
                 "reserve_code" -> {
                     val code = params["code"]
                     if (!code.isNullOrBlank()) {

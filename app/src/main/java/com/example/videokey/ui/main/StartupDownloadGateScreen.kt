@@ -3,7 +3,6 @@ package com.example.videokey.ui.main
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -24,10 +22,11 @@ import androidx.compose.ui.unit.sp
 import com.example.videokey.data.ContentDownloadManager
 
 /**
- * Startup Download & Setup Gate Screen:
- * Ensures all required videoke assets (SoundFont audio bank & song files) are fully downloaded
- * before allowing access to the main videoke player.
- * Once files are downloaded, subsequent app launches bypass this screen automatically.
+ * Startup File Scanner & Mandatory Auto-Download Gate Screen.
+ * Scans if all required files (SoundFonts, Songs, and Background Videos) are installed.
+ * If any file is missing:
+ * - Automatically initiates the download sequence immediately.
+ * - STRICTLY LOCKS APP OPENING ("hindi mabubuksan ang apps") until 100% of required files exist.
  */
 @Composable
 fun StartupDownloadGateScreen(
@@ -39,7 +38,7 @@ fun StartupDownloadGateScreen(
     onStartSequentialDownload: () -> Unit = {},
     onCancelDownload: () -> Unit,
     onOpenApp: () -> Unit,
-    onMinimize: () -> Unit = {},
+    onExitApp: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val theme = state.appTheme
@@ -47,25 +46,31 @@ fun StartupDownloadGateScreen(
 
     val isAllReady = hasSoundFont && hasSongs && hasBackgrounds
 
-    LaunchedEffect(isAllReady) {
-        if (isAllReady) {
-            onOpenApp()
-        }
-    }
     val downloadStatus = state.downloadStatus
     val isDownloading = downloadStatus is ContentDownloadManager.DownloadStatus.Downloading
     val isExtracting = downloadStatus is ContentDownloadManager.DownloadStatus.Extracting
 
-    val sfItem = state.downloadCatalog.find { it.id == "all_soundfonts" }
-    val songsItem = state.downloadCatalog.find { it.id == "core_songs" }
-    val bgItem = state.downloadCatalog.find { it.id == "all_backgrounds" }
+    // Automatically trigger sequential download immediately if any files are missing!
+    LaunchedEffect(isAllReady, isDownloading, isExtracting) {
+        if (!isAllReady && !isDownloading && !isExtracting) {
+            onStartSequentialDownload()
+        }
+    }
+
+    // Automatically open app as soon as all files are confirmed ready!
+    LaunchedEffect(isAllReady) {
+        if (isAllReady) {
+            kotlinx.coroutines.delay(400)
+            onOpenApp()
+        }
+    }
 
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseGlow by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
+        initialValue = 0.5f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = LinearEasing),
+            animation = tween(900, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "glow"
@@ -89,28 +94,31 @@ fun StartupDownloadGateScreen(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .wrapContentHeight()
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(theme.surfaceColor).copy(alpha = 0.96f))
-                .border(2.dp, Color(theme.primaryColor), RoundedCornerShape(20.dp))
-                .padding(horizontal = 20.dp, vertical = 24.dp),
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color(theme.surfaceColor).copy(alpha = 0.98f))
+                .border(2.dp, Color(theme.primaryColor), RoundedCornerShape(22.dp))
+                .padding(horizontal = 20.dp, vertical = 22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // App Branding Icon + Header
+            // Scanner Icon + Radar Header
             Box(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(Color(theme.primaryColor).copy(alpha = 0.2f))
-                    .border(2.dp, Color(theme.primaryColor), CircleShape),
+                    .background(Color(theme.primaryColor).copy(alpha = 0.2f * pulseGlow))
+                    .border(2.dp, Color(theme.primaryColor).copy(alpha = pulseGlow), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "📥", fontSize = 28.sp)
+                Text(text = if (isAllReady) "✅" else "🔍", fontSize = 28.sp)
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = if (isTagalog) "INIHAHANDA ANG VIDEOKEY" else "INITIAL VIDEOKEY SETUP",
+                    text = if (isAllReady)
+                        (if (isTagalog) "KUMPLETO NA ANG MGA FILES!" else "ALL FILES READY!")
+                    else
+                        (if (isTagalog) "VIDEOKEY FILE SCANNER" else "VIDEOKEY FILE SCANNER"),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.SansSerif,
@@ -120,10 +128,15 @@ fun StartupDownloadGateScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (isTagalog)
-                        "Awtomatikong dina-download ang kinakailangang SoundFont, mga kanta, at background video para sa unang paggamit. Isang beses lang ito idodownload."
-                    else
-                        "Automatically downloading required SoundFont, songs, and background video for initial setup. Only needed once.",
+                    text = if (isAllReady) {
+                        if (isTagalog) "Nandito na ang lahat ng files. Binubuksan na ang VideoKey..."
+                        else "All required files installed. Opening VideoKey..."
+                    } else {
+                        if (isTagalog)
+                            "Sinusuri ang storage kung kumpleto na ang files. Awtomatiko itong idodownload at hindi mabubuksan ang app hangga't may kulang."
+                        else
+                            "Scanning storage for required app files. Missing files will auto-download. The app cannot be opened until all files are ready."
+                    },
                     fontSize = 11.5.sp,
                     color = Color(theme.textMutedColor),
                     fontFamily = FontFamily.SansSerif,
@@ -132,12 +145,12 @@ fun StartupDownloadGateScreen(
                 )
             }
 
-            Divider(color = Color(theme.buttonBorderColor), thickness = 1.dp)
+            HorizontalDivider(color = Color(theme.buttonBorderColor), thickness = 1.dp)
 
-            // Item 1: SoundFont Audio Engine (Dream SAM2634 / Studio Minus-One)
+            // Item 1: SoundFont Audio Engine (Dream SAM2634 / MegaPro / Studio Minus-One)
             GateItemCard(
                 title = "🎛️ SoundFont Audio Engine",
-                subtitle = "345 MB • Dream SAM2634 & Studio Minus-One soundbanks",
+                subtitle = "345 MB • Dream SAM2634, MegaPro, & Studio Minus-One",
                 isInstalled = hasSoundFont,
                 isCurrentlyDownloading = isDownloading && (downloadStatus as? ContentDownloadManager.DownloadStatus.Downloading)?.itemId == "all_soundfonts",
                 isCurrentlyExtracting = isExtracting && (downloadStatus as? ContentDownloadManager.DownloadStatus.Extracting)?.itemId == "all_soundfonts",
@@ -159,7 +172,7 @@ fun StartupDownloadGateScreen(
             // Item 3: HD Background Videos Pack
             GateItemCard(
                 title = "🎬 HD Background Videos Pack",
-                subtitle = "204 MB • HD Drone Shoot nature backgrounds para sa videoke stage",
+                subtitle = "204 MB • HD Drone Shoot nature backgrounds para sa videoke",
                 isInstalled = hasBackgrounds,
                 isCurrentlyDownloading = isDownloading && (downloadStatus as? ContentDownloadManager.DownloadStatus.Downloading)?.itemId == "all_backgrounds",
                 isCurrentlyExtracting = isExtracting && (downloadStatus as? ContentDownloadManager.DownloadStatus.Extracting)?.itemId == "all_backgrounds",
@@ -187,7 +200,7 @@ fun StartupDownloadGateScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = if (isTagalog) "Dina-download..." else "Downloading...",
+                            text = if (isTagalog) "Awtomatikong dina-download..." else "Auto-downloading...",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(theme.primaryColor)
@@ -236,9 +249,9 @@ fun StartupDownloadGateScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // Main Action Button (Locked until completed, or triggers auto-download)
+            // Main Action Button (Locked until completed, or shows downloading status)
             if (isAllReady) {
                 Button(
                     onClick = onOpenApp,
@@ -303,23 +316,45 @@ fun StartupDownloadGateScreen(
                 }
             }
 
-            // Minimize Button: Allows background downloading without interruption
-            OutlinedButton(
-                onClick = onMinimize,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(theme.primaryColor)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.primaryColor).copy(alpha = 0.7f)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-            ) {
-                Text(
-                    text = if (isTagalog) "🗕 I-MINIMIZE (MAG-DOWNLOAD SA BACKGROUND)" else "🗕 MINIMIZE (DOWNLOAD IN BACKGROUND)",
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    color = Color(theme.primaryColor)
-                )
+            // Lock Indicator: Strictly enforces that app cannot be opened until all files are ready
+            if (!isAllReady) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF0F172A),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(text = "🔒", fontSize = 13.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isTagalog)
+                                "Naka-lock: Magbubukas lamang kapag kumpleto ang files"
+                            else
+                                "Locked: Will open only after all files are installed",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+                }
+
+                // Exit App Button if user chooses to quit while downloading
+                TextButton(
+                    onClick = onExitApp,
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text(
+                        text = if (isTagalog) "Isara ang App" else "Exit App",
+                        fontSize = 11.5.sp,
+                        color = Color.Gray,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
@@ -379,7 +414,7 @@ private fun GateItemCard(
                     color = Color(0xFF065F46)
                 ) {
                     Text(
-                        text = if (isTagalog) "✓ NAKABAIT" else "✓ INSTALLED",
+                        text = if (isTagalog) "✓ NAKAINSTALL" else "✓ INSTALLED",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF34D399),
@@ -421,10 +456,10 @@ private fun GateItemCard(
                     color = Color(0xFF334155)
                 ) {
                     Text(
-                        text = if (isTagalog) "⏸️ NAKAPILA" else "⏸️ QUEUED",
+                        text = if (isTagalog) "⏸️ KULANG" else "⏸️ MISSING",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF94A3B8),
+                        color = Color(0xFFF87171),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                     )
                 }

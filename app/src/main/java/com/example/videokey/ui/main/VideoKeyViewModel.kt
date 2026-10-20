@@ -324,8 +324,7 @@ data class VideoKeyUiState(
         "VideoKey Studio Minus-One",
         "Yamaha x Korg x Ketron Studio",
         "Dream SAM2634 v2.1",
-        "MegaPro Sound",
-        "SongHub Original Sound"
+        "MegaPro Sound"
     ),
     val isSoundFontDialogOpen: Boolean = false,
     val isSongbookOpen: Boolean = false,
@@ -460,7 +459,6 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val savedSf = when {
             rawSavedSf.contains("yamaha", ignoreCase = true) || rawSavedSf.contains("korg", ignoreCase = true) || rawSavedSf.contains("ketron", ignoreCase = true) -> "Yamaha x Korg x Ketron Studio"
             rawSavedSf.contains("mega", ignoreCase = true) -> "MegaPro Sound"
-            rawSavedSf.contains("songhub", ignoreCase = true) -> "SongHub Original Sound"
             rawSavedSf.contains("sam", ignoreCase = true) || rawSavedSf.contains("dream", ignoreCase = true) -> "Dream SAM2634 v2.1"
             else -> "VideoKey Studio Minus-One"
         }
@@ -2280,17 +2278,18 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun passStartupGate() {
-        prefs.edit().putBoolean("is_initial_setup_completed", true).apply()
-        _uiState.update { it.copy(isStartupGatePassed = true, isDownloadCenterOpen = false) }
-        viewModelScope.launch {
-            scanInternalStorage(getApplication())
-        }
-    }
-
-    fun minimizeStartupGate() {
-        _uiState.update { it.copy(isStartupGatePassed = true, isDownloadCenterOpen = false) }
-        viewModelScope.launch {
-            scanInternalStorage(getApplication())
+        val allReady = contentDownloadManager.isSoundFontInstalled() &&
+                (repository.getPlayableSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()) &&
+                contentDownloadManager.isBackgroundVideoInstalled()
+        if (allReady) {
+            prefs.edit().putBoolean("is_initial_setup_completed", true).apply()
+            _uiState.update { it.copy(isStartupGatePassed = true, isDownloadCenterOpen = false) }
+            viewModelScope.launch {
+                scanInternalStorage(getApplication())
+            }
+        } else {
+            // Strictly cannot open app if files are missing!
+            checkAndAutoDetectFiles(triggerAutoDownloadIfMissing = true)
         }
     }
 
@@ -2507,7 +2506,6 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 rawSavedSf.contains("minus", ignoreCase = true) || rawSavedSf.contains("videokey", ignoreCase = true) -> "VideoKey Studio Minus-One"
                 rawSavedSf.contains("sam", ignoreCase = true) || rawSavedSf.contains("dream", ignoreCase = true) -> "Dream SAM2634 v2.1"
                 rawSavedSf.contains("mega", ignoreCase = true) -> "MegaPro Sound"
-                rawSavedSf.contains("songhub", ignoreCase = true) -> "SongHub Original Sound"
                 else -> "VideoKey Studio Minus-One"
             }
             soundEngine.setActiveSoundFont(resolvedSf)
