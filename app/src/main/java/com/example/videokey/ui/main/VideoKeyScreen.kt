@@ -696,6 +696,8 @@ fun VideoKeyScreen(
 
                 onToggleAutoMixer = { viewModel.toggleAutoMixer(it) },
 
+                onToggleAutoVolume = { viewModel.toggleAutoVolume(it) },
+
                 onAdjustKey = { viewModel.adjustKey(it) },
 
                 onAdjustTempo = { viewModel.adjustTempo(it) },
@@ -6340,6 +6342,8 @@ fun AudioMixerDialog(
 
     onToggleAutoMixer: (Boolean) -> Unit = {},
 
+    onToggleAutoVolume: (Boolean) -> Unit = {},
+
     onAdjustKey: (Int) -> Unit,
 
     onAdjustTempo: (Int) -> Unit,
@@ -6785,6 +6789,84 @@ fun AudioMixerDialog(
                 }
 
 
+
+                // Auto-Volume Normalization Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (state.isAutoVolumeEnabled) Color(state.appTheme.primaryColor).copy(alpha = 0.14f)
+                            else uniformBtnBg
+                        )
+                        .border(
+                            1.dp,
+                            if (state.isAutoVolumeEnabled) Color(state.appTheme.primaryColor)
+                            else uniformBtnBorder,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(
+                                text = "🔊 AUTO-VOLUME (PANTAY NA TUNOG):",
+                                fontSize = 10.sp,
+                                fontFamily = CleanFont,
+                                color = Color(state.appTheme.primaryColor),
+                                fontWeight = FontWeight.Black
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (state.isAutoVolumeEnabled) Color(0xFF10B981).copy(alpha = 0.22f) else Color(state.appTheme.buttonBorderColor)
+                            ) {
+                                Text(
+                                    text = if (state.isAutoVolumeEnabled) {
+                                        if (isTagalog) "✓ PANTAY (ACTIVE)" else "✓ BALANCED"
+                                    } else {
+                                        "OFF"
+                                    },
+                                    fontSize = 8.5.sp,
+                                    fontFamily = CleanFont,
+                                    color = if (state.isAutoVolumeEnabled) Color(0xFF10B981) else Color(state.appTheme.textColor),
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (state.isAutoVolumeEnabled) {
+                                if (isTagalog) "Awtomatikong pinapantay ang mahihina at malalakas na kanta upang pare-pareho ang tunog."
+                                else "Automatically balances loud and quiet songs for consistent, comfortable volume."
+                            } else {
+                                if (isTagalog) "Naka-off. Ang lakas ay batay sa orihinal na bulto ng MIDI file."
+                                else "Off. Song loudness depends on the original MIDI file mix."
+                            },
+                            fontSize = 8.sp,
+                            fontFamily = CleanFont,
+                            color = Color(state.appTheme.textMutedColor),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Switch(
+                        checked = state.isAutoVolumeEnabled,
+                        onCheckedChange = { onToggleAutoVolume(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(state.appTheme.primaryColor),
+                            checkedTrackColor = Color(state.appTheme.primaryColor).copy(alpha = 0.4f),
+                            uncheckedThumbColor = Color.Gray,
+                            uncheckedTrackColor = Color(0xFF1E293B)
+                        ),
+                        modifier = Modifier.scale(0.75f)
+                    )
+                }
 
                 // Key Transpose & Tempo Compact Row
 

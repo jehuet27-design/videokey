@@ -121,7 +121,20 @@ class SoundEngine(
     private var fallbackFontPath: String = ""
     private val eqFxHandles = IntArray(10)
     private var compressorFxHandle: Int = 0
+    private var autoVolumeDspHandle: Int = 0
     private var recordDspHandle: Int = 0
+
+    // Auto-Volume / AGC (Equal Loudness Normalizer):
+    @Volatile
+    private var isAutoVolumeEnabled: Boolean = true
+    @Volatile
+    private var currentAgcGain: Float = 1.0f
+    @Volatile
+    private var targetAgcGain: Float = 1.0f
+    private val TARGET_RMS = 0.22f // ~ -13.1 dBFS (ideal fullness and clarity)
+    private val SILENCE_RMS_FLOOR = 0.015f // -36.5 dBFS (noise gate freeze: does not amplify silence)
+    private val MIN_AGC_GAIN = 0.55f // -5.2 dB (attenuation for very loud tracks)
+    private val MAX_AGC_GAIN = 2.40f // +7.6 dB (clean boost for quiet tracks)
     private var dspFloatArray = FloatArray(8192)
     private var endSyncHandle: Int = 0
 
@@ -225,6 +238,59 @@ class SoundEngine(
             recorder.onBassMusicPcm(dspFloatArray, floatCount)
         } catch (e: Exception) {
             Log.e(TAG, "Error in recordDspProc", e)
+        }
+    }
+
+    /**
+     * Real-time Auto-Volume / Automatic Gain Control (AGC) DSP:
+     * Continuously analyzes the short-term RMS loudness of the SoundFont audio.
+     * Smoothly scales quiet songs up and loud songs down to the standard videoke target
+     * with zero pumping, preserving full punch and clarity without digital clipping.
+     */
+    private val autoVolumeDspProc = BASS.DSPPROC { _, _, buffer, length, _ ->
+        if (!isAutoVolumeEnabled || buffer == null || length <= 0) return@DSPPROC
+        try {
+            buffer.order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            buffer.rewind()
+            val floatBuffer = buffer.asFloatBuffer()
+            val floatCount = length / 4
+            if (floatCount <= 0) return@DSPPROC
+
+            // 1. Calculate RMS of current chunk
+            var sumSquare = 0.0
+            for (i in 0 until floatCount) {
+                val s = floatBuffer.get(i)
+                sumSquare += (s * s)
+            }
+            val rms = Math.sqrt(sumSquare / floatCount).toFloat()
+
+            // 2. Compute Target Gain with Noise/Silence Gating
+            if (rms >= SILENCE_RMS_FLOOR) {
+                val desiredGain = (TARGET_RMS / rms).coerceIn(MIN_AGC_GAIN, MAX_AGC_GAIN)
+                targetAgcGain = desiredGain
+            }
+
+            // 3. Smooth Exponential Moving Average Ramping
+            val smoothingRate = if (targetAgcGain < currentAgcGain) 0.035f else 0.008f
+            currentAgcGain = currentAgcGain * (1.0f - smoothingRate) + targetAgcGain * smoothingRate
+            val gain = currentAgcGain
+
+            // 4. Apply Gain In-Place with Soft-Knee Analog Limiting
+            floatBuffer.rewind()
+            for (i in 0 until floatCount) {
+                val orig = floatBuffer.get(i)
+                val amplified = orig * gain
+                val limited = if (amplified > 0.85f) {
+                    0.85f + 0.14f * (amplified - 0.85f) / (amplified - 0.85f + 0.40f)
+                } else if (amplified < -0.85f) {
+                    -0.85f - 0.14f * (-amplified - 0.85f) / (-amplified - 0.85f + 0.40f)
+                } else {
+                    amplified
+                }
+                floatBuffer.put(i, limited.coerceIn(-0.99f, 0.99f))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in autoVolumeDspProc", e)
         }
     }
 
@@ -497,7 +563,12 @@ class SoundEngine(
             }
         }
 
-        // 2. Studio Mastering Compressor / Anti-Clipping Limiter ("hindi basag kahit malakas")
+        // 2. Studio Auto-Volume Leveler / AGC (Priority 5: runs after EQ, before Compressor)
+        if (autoVolumeDspHandle == 0) {
+            autoVolumeDspHandle = BASS.BASS_ChannelSetDSP(streamHandle, autoVolumeDspProc, null, 5)
+        }
+
+        // 3. Studio Mastering Compressor / Anti-Clipping Limiter ("hindi basag kahit malakas")
         if (compressorFxHandle == 0) {
             compressorFxHandle = BASS.BASS_ChannelSetFX(streamHandle, BASS_FX.BASS_FX_BFX_COMPRESSOR2, 1)
         }
@@ -761,6 +832,30 @@ class SoundEngine(
                         }
                     }
 
+                    // Smart Initial Song Gain: Pre-normalize based on average channel volumes
+                    if (isAutoVolumeEnabled) {
+                        var sumVol = 0
+                        var activeChans = 0
+                        for (ch in 0..15) {
+                            val v = baseChannelVolumes[ch]
+                            if (v in 1..127) {
+                                sumVol += v
+                                activeChans++
+                            }
+                        }
+                        val avgVol = if (activeChans > 0) sumVol / activeChans else 100
+                        currentAgcGain = when {
+                            avgVol < 75 -> 1.55f // Noticeably quiet MIDI -> start with boost immediately
+                            avgVol < 90 -> 1.25f // Mildly quiet MIDI
+                            avgVol > 120 -> 0.85f // Very loud MIDI -> start slightly tamed
+                            else -> 1.0f
+                        }
+                        targetAgcGain = currentAgcGain
+                    } else {
+                        currentAgcGain = 1.0f
+                        targetAgcGain = 1.0f
+                    }
+
                     // Register real-time MIDI event filter
                     BASSMIDI.BASS_MIDI_StreamSetFilter(handle, false, midiFilterProc, null)
 
@@ -875,6 +970,10 @@ class SoundEngine(
                 if (compressorFxHandle != 0) {
                     BASS.BASS_ChannelRemoveFX(midiStream, compressorFxHandle)
                     compressorFxHandle = 0
+                }
+                if (autoVolumeDspHandle != 0) {
+                    BASS.BASS_ChannelRemoveDSP(midiStream, autoVolumeDspHandle)
+                    autoVolumeDspHandle = 0
                 }
                 if (recordDspHandle != 0) {
                     BASS.BASS_ChannelRemoveDSP(midiStream, recordDspHandle)
@@ -1008,6 +1107,17 @@ class SoundEngine(
     }
 
     fun getMicEcho(): Int = micEchoPercent
+
+    fun setAutoVolumeEnabled(enabled: Boolean) {
+        isAutoVolumeEnabled = enabled
+        if (!enabled) {
+            currentAgcGain = 1.0f
+            targetAgcGain = 1.0f
+        }
+        Log.d(TAG, "Auto Volume Leveling set to: $enabled")
+    }
+
+    fun isAutoVolumeEnabled(): Boolean = isAutoVolumeEnabled
 
     fun setMelodyVolume(percent: Int) {
         melodyPercent = percent.coerceIn(0, 100)

@@ -298,6 +298,7 @@ data class VideoKeyUiState(
     val reverbPercent: Int = 50,
     val micEchoPercent: Int = 50,
     val isAutoMixerEnabled: Boolean = true,
+    val isAutoVolumeEnabled: Boolean = true,
     val activeMixStyle: com.example.videokey.data.MidiMelodyScaler.SongMixStyle = com.example.videokey.data.MidiMelodyScaler.SongMixStyle.STANDARD_POP,
     val selectedBottomNavTab: Int = 0, // 0 = Home, 1 = Sing, 2 = Saved, 3 = Profile
     val selectedCategoryFilter: String = "ALL",
@@ -500,6 +501,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         soundEngine.setReverbVolume(initialReverb)
         val initialAutoMixer = prefs.getBoolean("auto_mixer_enabled", true)
         soundEngine.setAutoMixerEnabled(initialAutoMixer)
+        val savedAutoVolume = prefs.getBoolean("auto_volume_enabled", true)
+        soundEngine.setAutoVolumeEnabled(savedAutoVolume)
 
         val savedThemeName = prefs.getString("app_theme", AppTheme.CYBER_NEON.name) ?: AppTheme.CYBER_NEON.name
         val initialTheme = try {
@@ -619,6 +622,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 stringsBrassPercent = initialStringsBrass,
                 reverbPercent = initialReverb,
                 isAutoMixerEnabled = initialAutoMixer,
+                isAutoVolumeEnabled = savedAutoVolume,
                 appTheme = initialTheme,
                 userName = run {
                     val saved = prefs.getString("user_profile_name", null)
@@ -1916,6 +1920,17 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 reverbPercent = 50
             )
         }
+    }
+
+    fun setAutoVolumeEnabled(enabled: Boolean) {
+        soundEngine.setAutoVolumeEnabled(enabled)
+        prefs.edit().putBoolean("auto_volume_enabled", enabled).apply()
+        _uiState.update { it.copy(isAutoVolumeEnabled = enabled) }
+    }
+
+    fun toggleAutoVolume(enabled: Boolean? = null) {
+        val target = enabled ?: !_uiState.value.isAutoVolumeEnabled
+        setAutoVolumeEnabled(target)
     }
 
     fun toggleAutoMixer(enabled: Boolean) {

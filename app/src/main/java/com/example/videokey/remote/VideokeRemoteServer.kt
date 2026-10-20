@@ -252,6 +252,10 @@ class VideokeRemoteServer(
                 "reset_mixer" -> {
                     viewModel.resetInstrumentMixer()
                 }
+                "toggle_auto_volume" -> {
+                    val enabled = params["enabled"]?.toBooleanStrictOrNull()
+                    if (enabled != null) viewModel.setAutoVolumeEnabled(enabled) else viewModel.toggleAutoVolume()
+                }
                 "tv" -> viewModel.toggleTvMode()
                 "soundfont" -> {
                     val sf = params["name"] ?: params["font"] ?: ""
@@ -355,6 +359,7 @@ class VideokeRemoteServer(
             put("stringsBrassPercent", state.stringsBrassPercent)
             put("reverbPercent", state.reverbPercent)
             put("micEchoPercent", state.micEchoPercent)
+            put("isAutoVolumeEnabled", state.isAutoVolumeEnabled)
             put("isMicScoringEnabled", state.isMicScoringEnabled)
             put("isScoringSoundEnabled", state.isScoringSoundEnabled)
             put("isKeypadVoiceEnabled", state.isKeypadVoiceEnabled)
@@ -1026,6 +1031,17 @@ class VideokeRemoteServer(
         <div class="settings-section">
           <div class="section-title">🎛️ INSTRUMENT & AUDIO MIXER</div>
           
+          <div class="setting-item-row" style="background: rgba(16, 185, 129, 0.12); border: 1px solid #10B981; border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+            <div>
+              <div class="setting-label" style="color: #34D399;">🔊 Auto Volume Leveling</div>
+              <div class="setting-sub">Awtomatikong pinapantay ang lakas ng lahat ng kanta</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleAutoVolume" onchange="sendToggle('toggle_auto_volume', this.checked)">
+              <span class="slider-track"></span>
+            </label>
+          </div>
+          
           <div class="setting-item-row">
             <div>
               <div class="setting-label">🥁 Drums (Tambol)</div>
@@ -1492,6 +1508,7 @@ class VideokeRemoteServer(
       if (document.getElementById('vocalSyncVal')) document.getElementById('vocalSyncVal').innerText = (state.vocalSyncOffsetMs || 280) + 'ms';
 
       // Settings Switches
+      if (document.getElementById('toggleAutoVolume')) document.getElementById('toggleAutoVolume').checked = !!state.isAutoVolumeEnabled;
       if (document.getElementById('toggleMicScoring')) document.getElementById('toggleMicScoring').checked = !!state.isMicScoringEnabled;
       if (document.getElementById('toggleScoringSound')) document.getElementById('toggleScoringSound').checked = !!state.isScoringSoundEnabled;
       if (document.getElementById('toggleKeypadVoice')) document.getElementById('toggleKeypadVoice').checked = !!state.isKeypadVoiceEnabled;
