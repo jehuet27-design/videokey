@@ -913,9 +913,9 @@ private fun VipActivationCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = if (isTagalog)
-                    "I-unlock ang walang limitasyong YouTube Karaoke & Video Background Downloader para sa iyong device!"
+                    "I-unlock ang VIP Access: Awtomatikong SoundFont Synthesizer & Walang limitasyong YouTube Karaoke Downloader para sa iyong device!"
                 else
-                    "Unlock unlimited YouTube Karaoke & Video Background Downloader for your device!",
+                    "Unlock VIP Access: Smart Auto SoundFont Synthesizer & Unlimited YouTube Karaoke Downloader for your device!",
                 fontSize = 11.5.sp,
                 color = Color(theme.textMutedColor),
                 textAlign = TextAlign.Center,

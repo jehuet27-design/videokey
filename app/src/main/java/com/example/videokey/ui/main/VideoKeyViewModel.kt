@@ -319,7 +319,7 @@ data class VideoKeyUiState(
     val currentBackgroundFolder: String = "/storage/emulated/0/VideoKey/backgrounds",
     val isSongFolderPickerOpen: Boolean = false,
     val isBgFolderPickerOpen: Boolean = false,
-    val activeSoundFontName: String = "✨ Awtomatiko (Depende sa Genre)",
+    val activeSoundFontName: String = "🎵 VideoKey OPM & Pop Studio",
     val autoMatchedSoundFontForCurrentSong: String = "🎵 VideoKey OPM & Pop Studio",
     val availableSoundFonts: List<String> = listOf(
         "✨ Awtomatiko (Depende sa Genre)",
@@ -463,9 +463,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val isVip = prefs.getBoolean("is_vip_activated", false)
         val devId = VipLicenseManager.getDeviceId(application)
 
-        val rawSavedSf = prefs.getString("active_soundfont", "✨ Awtomatiko (Depende sa Genre)") ?: "✨ Awtomatiko (Depende sa Genre)"
+        val defaultSf = if (isVip) "✨ Awtomatiko (Depende sa Genre)" else "🎵 VideoKey OPM & Pop Studio"
+        val rawSavedSf = prefs.getString("active_soundfont", defaultSf) ?: defaultSf
+        val isRawAuto = rawSavedSf.contains("auto", ignoreCase = true) || rawSavedSf.contains("awtomatiko", ignoreCase = true)
         val savedSf = when {
-            rawSavedSf.contains("auto", ignoreCase = true) || rawSavedSf.contains("awtomatiko", ignoreCase = true) -> "✨ Awtomatiko (Depende sa Genre)"
+            isRawAuto && isVip -> "✨ Awtomatiko (Depende sa Genre)"
+            isRawAuto && !isVip -> "🎵 VideoKey OPM & Pop Studio"
             rawSavedSf.contains("rock", ignoreCase = true) -> "🎸 VideoKey Rock & Band Studio"
             rawSavedSf.contains("acoustic", ignoreCase = true) || rawSavedSf.contains("ballad", ignoreCase = true) -> "🎹 VideoKey Acoustic & Ballad Studio"
             rawSavedSf.contains("disco", ignoreCase = true) || rawSavedSf.contains("synth", ignoreCase = true) || rawSavedSf.contains("dance", ignoreCase = true) -> "🪩 VideoKey Disco & 80s/90s Synth"
@@ -798,7 +801,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             var midiFile: File? = null
             val currentMelody = _uiState.value.melodyPercent
             val currentSoundFont = _uiState.value.activeSoundFontName
-            val isAutoMode = currentSoundFont.contains("auto", ignoreCase = true) || currentSoundFont.contains("awtomatiko", ignoreCase = true)
+            val isAutoMode = (currentSoundFont.contains("auto", ignoreCase = true) || currentSoundFont.contains("awtomatiko", ignoreCase = true)) && _uiState.value.isVipActivated
             val effectiveSoundFont = if (isAutoMode) {
                 val matched = soundEngine.resolveGenreForSong(song, null)
                 _uiState.update { it.copy(autoMatchedSoundFontForCurrentSong = matched.displayName) }
@@ -2128,9 +2131,20 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun selectSoundFont(name: String) {
-        prefs.edit().putString("active_soundfont", name).apply()
         val isAuto = name.contains("auto", ignoreCase = true) || name.contains("awtomatiko", ignoreCase = true)
         val isTl = _uiState.value.appLanguage == AppLanguage.TAGALOG
+        if (isAuto && !_uiState.value.isVipActivated) {
+            _uiState.update {
+                it.copy(
+                    isSoundFontDialogOpen = false,
+                    alertMessage = if (isTl) "👑 Ang Awtomatikong SoundFont ay para lamang sa mga VIP! I-activate ang VIP para ma-unlock."
+                                   else "👑 Auto SoundFont is exclusive to VIP members! Activate VIP to unlock."
+                )
+            }
+            openYouTubeDownloader(null)
+            return
+        }
+        prefs.edit().putString("active_soundfont", name).apply()
         if (isAuto) {
             val currSong = _uiState.value.currentSong
             val matched = soundEngine.resolveGenreForSong(currSong, null)
@@ -2419,7 +2433,15 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val isValid = VipLicenseManager.verifyLicenseKey(devId, enteredKey)
         if (isValid) {
             prefs.edit().putBoolean("is_vip_activated", true).apply()
-            _uiState.update { it.copy(isVipActivated = true, vipActivationError = null) }
+            val isTl = _uiState.value.appLanguage == AppLanguage.TAGALOG
+            _uiState.update {
+                it.copy(
+                    isVipActivated = true,
+                    vipActivationError = null,
+                    alertMessage = if (isTl) "⭐ Matagumpay na Na-activate ang VIP! Na-unlock na ang YouTube Downloader at Awtomatikong SoundFont!"
+                                   else "⭐ VIP Activated! Unlocked YouTube Downloader & Auto SoundFont!"
+                )
+            }
             return true
         } else {
             val errMsg = if (_uiState.value.appLanguage == AppLanguage.TAGALOG) {

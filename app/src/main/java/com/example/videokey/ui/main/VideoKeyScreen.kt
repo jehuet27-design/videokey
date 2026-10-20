@@ -992,10 +992,15 @@ fun VideoKeyScreen(
                 soundFonts = state.availableSoundFonts,
                 activeSoundFont = state.activeSoundFontName,
                 autoMatchedSoundFont = state.autoMatchedSoundFontForCurrentSong,
+                isVipActivated = state.isVipActivated,
                 isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG,
                 theme = state.appTheme,
                 onSelectSoundFont = { viewModel.selectSoundFont(it) },
                 onScanStorage = { viewModel.scanInternalStorage(context) },
+                onRequireVip = {
+                    viewModel.closeSoundFontDialog()
+                    viewModel.openYouTubeDownloader(null)
+                },
                 onDismiss = { viewModel.closeSoundFontDialog() }
             )
 
@@ -12093,10 +12098,12 @@ fun SoundFontSelectionDialog(
     soundFonts: List<String>,
     activeSoundFont: String,
     autoMatchedSoundFont: String = "",
+    isVipActivated: Boolean = false,
     isTagalog: Boolean = false,
     theme: com.example.videokey.ui.main.AppTheme = com.example.videokey.ui.main.AppTheme.CYBER_NEON,
     onSelectSoundFont: (String) -> Unit,
     onScanStorage: () -> Unit,
+    onRequireVip: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val doneBtnTextClr = getContrastingTextColor(theme.primaryColor)
@@ -12171,7 +12178,7 @@ fun SoundFontSelectionDialog(
                                 else -> "🎛️ "
                             }
                             val sfDesc = when {
-                                isAuto -> if (isTagalog) "Kusang nagpapalit batay sa Rock, Ballad, Pop, Disco, atbp." else "Auto-switches based on Rock, Ballad, Pop, Disco, etc."
+                                isAuto -> if (isTagalog) "👑 VIP Feature: Kusang nagpapalit ng soundbank batay sa Rock, Ballad, Pop, Disco, atbp." else "👑 VIP Feature: Auto-switches soundbank based on Rock, Ballad, Pop, Disco, etc."
                                 sf.contains("Pop") -> if (isTagalog) "Balanced studio minus-one para sa OPM at Pop hits" else "Balanced studio minus-one for OPM & Pop"
                                 sf.contains("Rock") -> if (isTagalog) "Live rock band: malutong na guitar at driving bass" else "Live rock band: crunchy guitars & driving bass"
                                 sf.contains("Acoustic") || sf.contains("Ballad") -> if (isTagalog) "Concert grand piano, acoustic guitar, at lush strings" else "Concert grand piano, acoustic guitar & lush strings"
@@ -12193,7 +12200,13 @@ fun SoundFontSelectionDialog(
                                         color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor),
                                         shape = RoundedCornerShape(8.dp)
                                     )
-                                    .clickable { onSelectSoundFont(sf) }
+                                    .clickable {
+                                        if (isAuto && !isVipActivated) {
+                                            onRequireVip()
+                                        } else {
+                                            onSelectSoundFont(sf)
+                                        }
+                                    }
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -12208,15 +12221,32 @@ fun SoundFontSelectionDialog(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = sf,
-                                            color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            fontSize = 12.sp,
-                                            fontFamily = CleanFont,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = sf,
+                                                color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 12.sp,
+                                                fontFamily = CleanFont,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (isAuto) {
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = Color(0xFFEAB308)
+                                                ) {
+                                                    Text(
+                                                        text = "👑 VIP",
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = Color(0xFF0F172A),
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
                                         if (sfDesc.isNotBlank()) {
                                             Text(
                                                 text = sfDesc,
@@ -12233,7 +12263,7 @@ fun SoundFontSelectionDialog(
                                 if (isSelected) {
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(
-                                            text = if (isAuto) (if (isTagalog) "AKTIBO (AUTO) ✓" else "ACTIVE (AUTO) ✓") else (if (isTagalog) "GINAGAMIT ✓" else "ACTIVE ✓"),
+                                            text = if (isAuto) (if (isTagalog) "AKTIBO (AUTO VIP) ✓" else "ACTIVE (AUTO VIP) ✓") else (if (isTagalog) "GINAGAMIT ✓" else "ACTIVE ✓"),
                                             color = doneBtnTextClr,
                                             fontWeight = FontWeight.Black,
                                             fontSize = 10.sp,
@@ -12252,6 +12282,21 @@ fun SoundFontSelectionDialog(
                                                 modifier = Modifier.padding(top = 2.dp)
                                             )
                                         }
+                                    }
+                                } else if (isAuto && !isVipActivated) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFFEAB308).copy(alpha = 0.15f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEAB308))
+                                    ) {
+                                        Text(
+                                            text = if (isTagalog) "🔒 I-UNLOCK" else "🔒 UNLOCK",
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Black,
+                                            fontFamily = CleanFont,
+                                            color = Color(0xFFEAB308),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
                                     }
                                 }
                             }
