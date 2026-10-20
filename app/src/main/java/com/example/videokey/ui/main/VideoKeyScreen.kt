@@ -12107,14 +12107,19 @@ fun SoundFontSelectionDialog(
     onDismiss: () -> Unit
 ) {
     val doneBtnTextClr = getContrastingTextColor(theme.primaryColor)
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(22.dp),
             color = Color(theme.surfaceColor),
-            border = androidx.compose.foundation.BorderStroke(2.dp, Color(theme.primaryColor)),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(theme.primaryColor)),
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 480.dp)
+                .wrapContentHeight()
+                .padding(vertical = 16.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -12169,16 +12174,19 @@ fun SoundFontSelectionDialog(
                                     sf.contains(activeSoundFont, ignoreCase = true)
                             val isAuto = sf.contains("auto", ignoreCase = true) || sf.contains("awtomatiko", ignoreCase = true)
                             val sfIcon = when {
-                                isAuto -> "✨ "
-                                sf.contains("Rock") -> "🎸 "
-                                sf.contains("Acoustic") || sf.contains("Ballad") -> "🎹 "
-                                sf.contains("Disco") || sf.contains("Synth") -> "🪩 "
-                                sf.contains("Party") -> "🥁 "
-                                sf.contains("Pop") || sf.contains("Minus") -> "🎵 "
-                                else -> "🎛️ "
+                                isAuto -> "✨"
+                                sf.contains("Rock") -> "🎸"
+                                sf.contains("Acoustic") || sf.contains("Ballad") -> "🎹"
+                                sf.contains("Disco") || sf.contains("Synth") -> "🪩"
+                                sf.contains("Party") -> "🥁"
+                                sf.contains("Pop") || sf.contains("Minus") -> "🎵"
+                                sf.contains("Yamaha") || sf.contains("Mega") || sf.contains("SAM") -> "🎛️"
+                                else -> "🎼"
                             }
+                            // Clean display title without duplicate leading emoji icons
+                            val cleanSfName = sf.replace(Regex("^[✨🎵🎸🎹🪩🥁🎛️🎼\\s]+"), "").trim()
                             val sfDesc = when {
-                                isAuto -> if (isTagalog) "👑 VIP Feature: Kusang nagpapalit ng soundbank batay sa Rock, Ballad, Pop, Disco, atbp." else "👑 VIP Feature: Auto-switches soundbank based on Rock, Ballad, Pop, Disco, etc."
+                                isAuto -> if (isTagalog) "Kusang nagpapalit batay sa genre ng kanta (Rock, Ballad, Pop, Disco, Party)" else "Auto-adapts to song genre (Rock, Ballad, Pop, Disco, Party)"
                                 sf.contains("Pop") -> if (isTagalog) "Balanced studio minus-one para sa OPM at Pop hits" else "Balanced studio minus-one for OPM & Pop"
                                 sf.contains("Rock") -> if (isTagalog) "Live rock band: malutong na guitar at driving bass" else "Live rock band: crunchy guitars & driving bass"
                                 sf.contains("Acoustic") || sf.contains("Ballad") -> if (isTagalog) "Concert grand piano, acoustic guitar, at lush strings" else "Concert grand piano, acoustic guitar & lush strings"
@@ -12193,12 +12201,12 @@ fun SoundFontSelectionDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Color(theme.primaryColor).copy(alpha = 0.25f) else Color(theme.buttonBgColor))
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isSelected) Color(theme.primaryColor).copy(alpha = 0.18f) else Color(theme.buttonBgColor))
                                     .border(
                                         width = if (isSelected) 1.5.dp else 1.dp,
                                         color = if (isSelected) Color(theme.primaryColor) else Color(theme.buttonBorderColor),
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = RoundedCornerShape(12.dp)
                                     )
                                     .clickable {
                                         if (isAuto && !isVipActivated) {
@@ -12207,7 +12215,7 @@ fun SoundFontSelectionDialog(
                                             onSelectSoundFont(sf)
                                         }
                                     }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    .padding(horizontal = 14.dp, vertical = 11.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -12215,18 +12223,24 @@ fun SoundFontSelectionDialog(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text(
-                                        text = sfIcon,
-                                        fontSize = 16.sp
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    // Leading Icon in rounded stylish badge
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isSelected) Color(theme.primaryColor).copy(alpha = 0.28f) else Color.White.copy(alpha = 0.06f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(text = sfIcon, fontSize = 16.sp)
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
-                                                text = sf,
+                                                text = cleanSfName,
                                                 color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                fontSize = 12.sp,
+                                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                                                fontSize = 13.sp,
                                                 fontFamily = CleanFont,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -12247,55 +12261,63 @@ fun SoundFontSelectionDialog(
                                                 }
                                             }
                                         }
+                                        if (isSelected && isAuto && autoMatchedSoundFont.isNotBlank()) {
+                                            val cleanAutoMatched = autoMatchedSoundFont.replace(Regex("^[✨🎵🎸🎹🪩🥁🎛️🎼\\s]+"), "").trim()
+                                            Text(
+                                                text = "▶ " + (if (isTagalog) "Aktibo: $cleanAutoMatched" else "Active: $cleanAutoMatched"),
+                                                color = Color(theme.primaryColor),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = CleanFont,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
                                         if (sfDesc.isNotBlank()) {
                                             Text(
                                                 text = sfDesc,
                                                 color = Color(theme.textMutedColor),
-                                                fontSize = 9.5.sp,
+                                                fontSize = 10.sp,
                                                 fontFamily = CleanFont,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                                maxLines = 2,
+                                                lineHeight = 13.sp,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(top = 2.dp)
                                             )
                                         }
                                     }
                                 }
 
+                                Spacer(modifier = Modifier.width(8.dp))
+
                                 if (isSelected) {
-                                    Column(horizontalAlignment = Alignment.End) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(theme.primaryColor)
+                                    ) {
                                         Text(
-                                            text = if (isAuto) (if (isTagalog) "AKTIBO (AUTO VIP) ✓" else "ACTIVE (AUTO VIP) ✓") else (if (isTagalog) "GINAGAMIT ✓" else "ACTIVE ✓"),
+                                            text = if (isAuto) (if (isTagalog) "AKTIBO (VIP) ✓" else "ACTIVE (VIP) ✓") else (if (isTagalog) "AKTIBO ✓" else "ACTIVE ✓"),
                                             color = doneBtnTextClr,
                                             fontWeight = FontWeight.Black,
                                             fontSize = 10.sp,
                                             fontFamily = CleanFont,
-                                            modifier = Modifier
-                                                .background(Color(theme.primaryColor), RoundedCornerShape(4.dp))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
-                                        if (isAuto && autoMatchedSoundFont.isNotBlank()) {
-                                            Text(
-                                                text = "▶ $autoMatchedSoundFont",
-                                                color = Color(theme.primaryColor),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                fontFamily = CleanFont,
-                                                modifier = Modifier.padding(top = 2.dp)
-                                            )
-                                        }
                                     }
                                 } else if (isAuto && !isVipActivated) {
                                     Surface(
-                                        shape = RoundedCornerShape(4.dp),
+                                        shape = RoundedCornerShape(6.dp),
                                         color = Color(0xFFEAB308).copy(alpha = 0.15f),
                                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEAB308))
                                     ) {
                                         Text(
                                             text = if (isTagalog) "🔒 I-UNLOCK" else "🔒 UNLOCK",
-                                            fontSize = 9.5.sp,
+                                            fontSize = 10.sp,
                                             fontWeight = FontWeight.Black,
                                             fontFamily = CleanFont,
                                             color = Color(0xFFEAB308),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
                                     }
                                 }
@@ -12304,23 +12326,26 @@ fun SoundFontSelectionDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Button(
                         onClick = onScanStorage,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 11.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = if (isTagalog) "🔍 I-scan ang Storage" else "🔍 Scan Storage",
-                            fontSize = 11.sp,
+                            text = if (isTagalog) "🔍 I-scan Storage" else "🔍 Scan Storage",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
                             fontFamily = CleanFont,
+                            maxLines = 1,
                             color = Color(theme.textColor)
                         )
                     }
@@ -12328,14 +12353,16 @@ fun SoundFontSelectionDialog(
                     Button(
                         onClick = onDismiss,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 11.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = if (isTagalog) "OK" else "DONE",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = if (isTagalog) "TAPOS NA" else "DONE",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
                             fontFamily = CleanFont,
+                            maxLines = 1,
                             color = doneBtnTextClr
                         )
                     }
