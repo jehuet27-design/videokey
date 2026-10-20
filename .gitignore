@@ -19,3 +19,7 @@ local.properties
 backgrounds_device/
 *.png
 *.py
+# Private Admin tools - DO NOT PUSH TO GITHUB
+*key_generator*
+admin/
+
