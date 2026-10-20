@@ -12896,37 +12896,7 @@ fun VideokeBackgroundLayer(
 
 
 
-        if (!isVideoSong) {
-
-            // Semi-transparent dark vignette scrim for 100% lyric contrast
-
-            Box(
-
-                modifier = Modifier
-
-                    .fillMaxSize()
-
-                    .background(
-
-                        Brush.verticalGradient(
-
-                            colors = listOf(
-
-                                Color.Black.copy(alpha = 0.40f),
-
-                                Color.Black.copy(alpha = 0.25f),
-
-                                Color.Black.copy(alpha = 0.65f)
-
-                            )
-
-                        )
-
-                    )
-
-            )
-
-        }
+// Removed dark vignette scrim to keep background video 100% bright and vibrant
 
     }
 
