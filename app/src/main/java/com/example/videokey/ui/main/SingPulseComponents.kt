@@ -459,32 +459,18 @@ fun SingPulseHomeScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                Button(
+                    onClick = { onPlaySong(featuredSong) },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(
-                        onClick = { onPlaySong(featuredSong) },
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = if (isTagalog) "🎤 Kantahin Muli" else "🎤 Sing Again",
-                            color = getContrastingTextColor(primaryColor),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp
-                        )
-                    }
-                    OutlinedButton(
-                        onClick = onEnterTvMode,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = secondaryColor),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, secondaryColor.copy(alpha = 0.6f)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(text = "⛶ TV Mode", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
+                    Text(
+                        text = if (isTagalog) "🎤 Kantahin Muli" else "🎤 Sing Again",
+                        color = getContrastingTextColor(primaryColor),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp
+                    )
                 }
             }
         }
@@ -1240,33 +1226,6 @@ fun SingPulseProfileScreen(
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
-
-                // TV Mode Button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(buttonBgColor)
-                        .clickable { onEnterTvMode() }
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(text = "📺 Fullscreen TV Mode", color = textColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        Text(
-                            text = if (isTagalog) "I-rotate ang screen na may 130% laking lyrics" else "Rotate screen with extra large 130% lyrics",
-                            color = textMutedColor,
-                            fontSize = 11.sp
-                        )
-                    }
-                    Text(
-                        text = if (isTagalog) "BUKSAN" else "OPEN",
-                        color = secondaryColor,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
 
                 // Audio Mixer Button
                 Row(

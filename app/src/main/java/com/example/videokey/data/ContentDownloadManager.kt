@@ -196,26 +196,29 @@ class ContentDownloadManager(private val context: Context) {
             "all_backgrounds" -> isBackgroundVideoInstalled()
             else -> {
                 val base = getBaseStorageDir()
+                val minSize = if (item.category == ContentCategory.SONGS) 50 * 1024 * 1024L else 1024L
                 val target = File(base, item.checkFileRelativePath)
-                if (target.exists() && target.length() > 0) return true
+                if (target.exists() && target.length() > minSize) return true
                 val inSongs = File(base, "songs/${item.checkFileRelativePath}")
-                if (inSongs.exists() && inSongs.length() > 0) return true
+                if (inSongs.exists() && inSongs.length() > minSize) return true
                 val inSoundfonts = File(base, "soundfonts/${File(item.checkFileRelativePath).name}")
-                if (inSoundfonts.exists() && inSoundfonts.length() > 0) return true
+                if (inSoundfonts.exists() && inSoundfonts.length() > 1024L) return true
                 val inSoundFontCap = File(base, "SoundFont/${File(item.checkFileRelativePath).name}")
-                if (inSoundFontCap.exists() && inSoundFontCap.length() > 0) return true
+                if (inSoundFontCap.exists() && inSoundFontCap.length() > 1024L) return true
                 val inBackgrounds = File(base, "backgrounds/${File(item.checkFileRelativePath).name}")
-                if (inBackgrounds.exists() && inBackgrounds.length() > 0) return true
+                if (inBackgrounds.exists() && inBackgrounds.length() > 1024L) return true
                 val altTarget = File("/storage/emulated/0/SongHub", item.checkFileRelativePath)
-                if (altTarget.exists() && altTarget.length() > 0) return true
+                if (altTarget.exists() && altTarget.length() > minSize) return true
                 val altSongs = File("/storage/emulated/0/SongHub/songs/${item.checkFileRelativePath}")
-                altSongs.exists() && altSongs.length() > 0
+                altSongs.exists() && altSongs.length() > minSize
             }
         }
     }
 
     /**
      * Checks if any songs exist in the base folder, songs subfolder, or SongHub directory.
+     * STRICT: Only genuine .vkpack files (> 50MB) or real MIDI/KAR song files count.
+     * Background video files (.mp4, .mkv) are NEVER counted as songs!
      */
     fun hasAnySongsInstalled(): Boolean {
         val base = getBaseStorageDir()
@@ -232,26 +235,33 @@ class ContentDownloadManager(private val context: Context) {
             File("/storage/emulated/0/SongHub/videokey_songs.vkpack"),
             File("/storage/emulated/0/SongHub/songs/videokey_songs.vkpack")
         )
-        if (checkFiles.any { it.exists() && it.length() > 1024 }) return true
+        // Require at least 50 MB to prevent incomplete or 0-byte stub files from triggering installed
+        if (checkFiles.any { it.exists() && it.length() > 50 * 1024 * 1024L }) return true
+
+        // Check for SongHub offline blob packs if present
+        val songHubBlob = File("/storage/emulated/0/SongHub/blob/shubblob")
+        val songHubIdx = File("/storage/emulated/0/SongHub/blob/shubidx")
+        if (songHubIdx.exists() && songHubBlob.exists() && songHubBlob.length() > 50 * 1024 * 1024L) {
+            return true
+        }
 
         val songsDirs = listOf(
             File(base, "songs"),
-            File(base, ""),
             File("/storage/emulated/0/VideoKey/songs"),
-            File("/storage/emulated/0/VideoKey"),
             File("/sdcard/VideoKey/songs"),
-            File("/sdcard/VideoKey"),
             File(context.getExternalFilesDir(null), "VideoKey/songs"),
-            File(context.getExternalFilesDir(null), "VideoKey"),
             File(context.filesDir, "VideoKey/songs"),
             File("/storage/emulated/0/SongHub/songs"),
-            File("/storage/emulated/0/SongHub/blob")
+            File(base, ""),
+            File("/storage/emulated/0/VideoKey"),
+            File("/sdcard/VideoKey")
         )
         for (dir in songsDirs) {
             try {
                 if (dir.exists() && (dir.listFiles()?.any {
                     val n = it.name.lowercase()
-                    (n.endsWith(".vkpack") || n.endsWith(".mid") || n.endsWith(".kar") || n.endsWith(".mp4") || n.endsWith(".mkv")) && it.length() > 1024
+                    (n.endsWith(".vkpack") && it.length() > 50 * 1024 * 1024L) ||
+                    ((n.endsWith(".mid") || n.endsWith(".kar")) && it.length() > 1024)
                 } == true)) {
                     return true
                 }
@@ -280,7 +290,7 @@ class ContentDownloadManager(private val context: Context) {
         )
         for (dir in sfDirs) {
             try {
-                if (dir.exists() && (dir.listFiles()?.any { it.name.endsWith(".sf2", ignoreCase = true) && it.length() > 1024 } == true)) {
+                if (dir.exists() && (dir.listFiles()?.any { it.name.endsWith(".sf2", ignoreCase = true) && it.length() > 100 * 1024L } == true)) {
                     return true
                 }
             } catch (_: Exception) {}
@@ -309,7 +319,7 @@ class ContentDownloadManager(private val context: Context) {
         for (dir in bgDirs) {
             try {
                 if (dir.exists() && (dir.listFiles()?.any { 
-                    (it.name.endsWith(".mp4", ignoreCase = true) || it.name.endsWith(".mkv", ignoreCase = true)) && it.length() > 1024 
+                    (it.name.endsWith(".mp4", ignoreCase = true) || it.name.endsWith(".mkv", ignoreCase = true)) && it.length() > 1024 * 1024L 
                 } == true)) {
                     return true
                 }

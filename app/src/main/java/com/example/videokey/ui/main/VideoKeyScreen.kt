@@ -117,7 +117,7 @@ fun VideoKeyScreen(
 
     if (!state.isStartupGatePassed) {
         val hasSoundFont = viewModel.contentDownloadManager.isSoundFontInstalled()
-        val hasSongs = state.searchResults.isNotEmpty() || viewModel.contentDownloadManager.hasAnySongsInstalled()
+        val hasSongs = viewModel.contentDownloadManager.hasAnySongsInstalled()
         val hasBackgrounds = viewModel.contentDownloadManager.isBackgroundVideoInstalled()
         StartupDownloadGateScreen(
             state = state,
@@ -3154,13 +3154,6 @@ fun VideokeRemoteConsole(
                 onClick = onOpenBackgroundDialog
             )
 
-            // 8. Landscape TV Mode Icon (📺)
-            ConsoleIconButton(
-                icon = "📺",
-                isActive = state.isTvMode,
-                theme = theme,
-                onClick = onToggleTvMode
-            )
         }
     }
 }
@@ -9147,44 +9140,6 @@ fun AppSettingsDialog(
                         fontSize = 9.sp,
                         color = Color(0xFF94A3B8)
                     )
-                }
-
-                // OPTION 3: TV FULLSCREEN MODE
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1E293B))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (isTagalog) "📺 TV FULLSCREEN MODE" else "📺 TV FULLSCREEN MODE",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                color = Color.White
-                            )
-                            Text(
-                                text = if (state.isTvMode) (if (isTagalog) "BUKAS (Puno ang TV screen)" else "ON (Full TV Screen)") else (if (isTagalog) "SARADO (May Remote Console)" else "OFF (With Remote Console)"),
-                                fontSize = 10.sp,
-                                color = if (state.isTvMode) Color(0xFF00FF88) else Color(0xFF94A3B8)
-                            )
-                        }
-                        Switch(
-                            checked = state.isTvMode,
-                            onCheckedChange = { onToggleTvMode() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFFFFB300),
-                                checkedTrackColor = Color(0xFF78350F)
-                            )
-                        )
-                    }
                 }
 
                 // OPTION 4: MELODY GUIDE TRACK VOLUME

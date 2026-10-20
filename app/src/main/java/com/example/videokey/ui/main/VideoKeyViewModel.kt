@@ -315,7 +315,7 @@ data class VideoKeyUiState(
     val isSingingDetected: Boolean = false,
     val pitchAccuracyPercent: Int = 0,
     val micSensitivity: Float = 1.0f,
-    val currentSongFolder: String = "/storage/emulated/0/SongHub",
+    val currentSongFolder: String = "/storage/emulated/0/VideoKey/songs",
     val currentBackgroundFolder: String = "/storage/emulated/0/VideoKey/backgrounds",
     val isSongFolderPickerOpen: Boolean = false,
     val isBgFolderPickerOpen: Boolean = false,
@@ -419,9 +419,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         // Detect initial song folder
         val savedSongFolder = prefs.getString("song_folder", null)
         val initialSongFolder = when {
+            !savedSongFolder.isNullOrBlank() && File(savedSongFolder).exists() && savedSongFolder != "/storage/emulated/0/SongHub" -> savedSongFolder
+            File("/storage/emulated/0/VideoKey/songs").exists() -> "/storage/emulated/0/VideoKey/songs"
             File("/storage/emulated/0/VideoKey").exists() -> "/storage/emulated/0/VideoKey"
+            File("/sdcard/VideoKey/songs").exists() -> "/sdcard/VideoKey/songs"
             File("/sdcard/VideoKey").exists() -> "/sdcard/VideoKey"
-            !savedSongFolder.isNullOrBlank() && File(savedSongFolder).exists() -> savedSongFolder
             File("/storage/emulated/0/SongHub").exists() -> "/storage/emulated/0/SongHub"
             File("/sdcard/SongHub").exists() -> "/sdcard/SongHub"
             else -> "/storage/emulated/0"
@@ -687,13 +689,13 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                         }
                     } else if (status.itemId == "all_soundfonts") {
                         scanSongFolder(File(_uiState.value.currentSongFolder))
-                        val hasSongs = contentDownloadManager.hasAnySongsInstalled() || repository.getPlayableSongsCount() > 0
+                        val hasSongs = contentDownloadManager.hasAnySongsInstalled()
                         if (hasSongs && contentDownloadManager.isBackgroundVideoInstalled()) {
                             passStartupGate()
                         }
                     } else if (status.itemId == "all_backgrounds") {
                         scanBackgroundMedia(File(_uiState.value.currentBackgroundFolder), forcePickVideo = true)
-                        val hasSongs = contentDownloadManager.hasAnySongsInstalled() || repository.getPlayableSongsCount() > 0
+                        val hasSongs = contentDownloadManager.hasAnySongsInstalled()
                         val hasSf = contentDownloadManager.isSoundFontInstalled()
                         if (hasSongs && hasSf) {
                             passStartupGate()
@@ -2154,6 +2156,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun isContentItemInstalled(item: com.example.videokey.data.ContentDownloadManager.DownloadItem): Boolean {
+        if (item.id == "core_songs") {
+            return contentDownloadManager.hasAnySongsInstalled()
+        }
         return contentDownloadManager.isItemInstalled(item)
     }
 
@@ -2193,7 +2198,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             // 2. Perform live check of all required files
             val hasSf = contentDownloadManager.isSoundFontInstalled()
-            val hasSongs = contentDownloadManager.hasAnySongsInstalled() || repository.getPlayableSongsCount() > 0
+            val hasSongs = contentDownloadManager.hasAnySongsInstalled()
             val hasBg = contentDownloadManager.isBackgroundVideoInstalled()
             val allFilesExist = hasSf && hasSongs && hasBg
 
