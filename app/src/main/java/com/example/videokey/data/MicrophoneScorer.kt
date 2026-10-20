@@ -101,14 +101,14 @@ class MicrophoneScorer(
             Log.d("MicrophoneScorer", "Microphone capture started for melody scoring & recording")
 
             recordingJob = scope.launch {
-                val buffer = ShortArray(bufferSize / 2)
+                val buffer = ShortArray(512)
                 while (isActive) {
                     val read = audioRecord?.read(buffer, 0, buffer.size) ?: -1
                     if (read > 0) {
                         karaokeRecorder?.onMicPcmChunk(buffer, read)
                         analyzeBuffer(buffer, read, sampleRate)
                     } else {
-                        delay(20)
+                        delay(10)
                     }
                 }
             }

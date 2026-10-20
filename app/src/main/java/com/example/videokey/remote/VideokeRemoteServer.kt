@@ -257,6 +257,15 @@ class VideokeRemoteServer(
                     val sf = params["name"] ?: params["font"] ?: ""
                     if (sf.isNotBlank()) viewModel.selectSoundFont(sf)
                 }
+                "vocal_sync" -> {
+                    val delta = params["delta"]?.toIntOrNull()
+                    if (delta != null) {
+                        viewModel.adjustVocalSyncOffset(delta)
+                    } else {
+                        val v = params["offset"]?.toIntOrNull() ?: params["value"]?.toIntOrNull()
+                        if (v != null) viewModel.setVocalSyncOffsetMs(v)
+                    }
+                }
                 "app_theme" -> {
                     val themeName = params["theme"]?.uppercase() ?: ""
                     try {
@@ -350,6 +359,7 @@ class VideokeRemoteServer(
             put("isScoringSoundEnabled", state.isScoringSoundEnabled)
             put("isKeypadVoiceEnabled", state.isKeypadVoiceEnabled)
             put("isTvMode", state.isTvMode)
+            put("vocalSyncOffsetMs", state.vocalSyncOffsetMs)
             put("activeSoundFont", state.activeSoundFontName)
 
             val sfArray = JSONArray()
@@ -1161,6 +1171,18 @@ class VideokeRemoteServer(
 
           <div class="setting-item-row">
             <div>
+              <div class="setting-label">⏱️ Vocal Recording Sync</div>
+              <div class="setting-sub">Timing ng boses sa tugtog para hindi nahuhuli</div>
+            </div>
+            <div class="stepper-box">
+              <button class="btn-step" onclick="adjustTuning('vocal_sync', -20)">-</button>
+              <span id="vocalSyncVal" class="stepper-val">280ms</span>
+              <button class="btn-step" onclick="adjustTuning('vocal_sync', 20)">+</button>
+            </div>
+          </div>
+
+          <div class="setting-item-row">
+            <div>
               <div class="setting-label">Microphone Scoring</div>
               <div class="setting-sub">Grado at puntos sa boses ng kumakanta</div>
             </div>
@@ -1467,6 +1489,7 @@ class VideokeRemoteServer(
       if (document.getElementById('reverbVal')) document.getElementById('reverbVal').innerText = (state.reverbPercent || 50) + '%';
       if (document.getElementById('micEchoVal')) document.getElementById('micEchoVal').innerText = (state.micEchoPercent || 50) + '%';
       if (document.getElementById('fontScaleVal')) document.getElementById('fontScaleVal').innerText = Math.round((state.lyricFontScale || 1.0) * 100) + '%';
+      if (document.getElementById('vocalSyncVal')) document.getElementById('vocalSyncVal').innerText = (state.vocalSyncOffsetMs || 280) + 'ms';
 
       // Settings Switches
       if (document.getElementById('toggleMicScoring')) document.getElementById('toggleMicScoring').checked = !!state.isMicScoringEnabled;

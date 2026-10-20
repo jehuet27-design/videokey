@@ -754,6 +754,8 @@ fun VideoKeyScreen(
 
                 onToggleRecording = { viewModel.toggleRecording() },
 
+                onAdjustVocalSync = { viewModel.adjustVocalSyncOffset(it) },
+
                 onPlayRecording = { viewModel.playSavedRecording(it) },
 
                 onDeleteRecording = { viewModel.deleteSavedRecording(it) },
@@ -19207,6 +19209,8 @@ fun RecordingsDialog(
 
     onToggleRecording: () -> Unit,
 
+    onAdjustVocalSync: (Int) -> Unit = {},
+
     onPlayRecording: (String) -> Unit,
 
     onDeleteRecording: (String) -> Unit,
@@ -19502,6 +19506,70 @@ fun RecordingsDialog(
                 }
 
 
+
+                // Vocal Sync / Timing Offset Card
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(state.appTheme.buttonBgColor)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(state.appTheme.buttonBorderColor)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isTagalog) "⏱️ TIMING NG BOSES (VOCAL SYNC)" else "⏱️ VOCAL RECORDING SYNC",
+                                color = Color(state.appTheme.primaryColor),
+                                fontFamily = CleanFont,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.5.sp
+                            )
+                            Text(
+                                text = if (isTagalog) "Inaayos ang delay para eksaktong sabay ang boses sa tugtog" else "Compensates microphone audio latency",
+                                color = Color(state.appTheme.textMutedColor),
+                                fontFamily = CleanFont,
+                                fontSize = 9.5.sp
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Button(
+                                onClick = { onAdjustVocalSync(-20) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.size(width = 32.dp, height = 30.dp)
+                            ) {
+                                Text("-", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                            }
+                            Text(
+                                text = "${state.vocalSyncOffsetMs}ms",
+                                color = Color(0xFF00FF88),
+                                fontFamily = CleanFont,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Button(
+                                onClick = { onAdjustVocalSync(20) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.size(width = 32.dp, height = 30.dp)
+                            ) {
+                                Text("+", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                }
 
                 // Saved Recordings Header
 

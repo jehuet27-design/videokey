@@ -348,6 +348,7 @@ data class VideoKeyUiState(
     // Recording state:
     val isRecording: Boolean = false,
     val recordingSeconds: Int = 0,
+    val vocalSyncOffsetMs: Int = com.example.videokey.data.KaraokeRecorder.DEFAULT_VOCAL_SYNC_OFFSET_MS,
     val isRecordingsDialogOpen: Boolean = false,
     val savedRecordings: List<com.example.videokey.data.RecordedPerformance> = emptyList(),
     val playingRecordingPath: String? = null,
@@ -660,7 +661,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 ),
                 favoriteCodes = savedFavSet,
                 favoriteSongs = initialFavSongs,
-                savedRecordings = karaokeRecorder.listSavedRecordings()
+                savedRecordings = karaokeRecorder.listSavedRecordings(),
+                vocalSyncOffsetMs = run {
+                    val saved = prefs.getInt("vocal_sync_offset_ms", com.example.videokey.data.KaraokeRecorder.DEFAULT_VOCAL_SYNC_OFFSET_MS)
+                    karaokeRecorder.vocalSyncOffsetMs = saved
+                    saved
+                }
             )
         }
 
@@ -1635,6 +1641,17 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 playingRecordingPath = null
             )
         }
+    }
+
+    fun setVocalSyncOffsetMs(offsetMs: Int) {
+        val clamped = offsetMs.coerceIn(0, 600)
+        karaokeRecorder.vocalSyncOffsetMs = clamped
+        prefs.edit().putInt("vocal_sync_offset_ms", clamped).apply()
+        _uiState.update { it.copy(vocalSyncOffsetMs = clamped) }
+    }
+
+    fun adjustVocalSyncOffset(deltaMs: Int) {
+        setVocalSyncOffsetMs(_uiState.value.vocalSyncOffsetMs + deltaMs)
     }
 
     fun playSavedRecording(path: String) {
