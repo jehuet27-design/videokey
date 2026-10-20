@@ -66,7 +66,9 @@ class SongRepository {
 
     fun addSongs(newSongs: List<Song>) {
         synchronized(songs) {
-            newSongs.forEach {
+            newSongs.forEach { raw ->
+                val resolved = SongMetadataResolver.resolve(raw.code, raw.title, raw.artist)
+                val it = raw.copy(title = resolved.title, artist = resolved.artist, category = resolved.category)
                 val existing = songsByCode[it.code]
                 if (existing == null) {
                     songs.add(it)
@@ -88,8 +90,12 @@ class SongRepository {
         synchronized(songs) {
             songs.clear()
             songsByCode.clear()
-            songs.addAll(newSongs)
-            newSongs.forEach {
+            val resolvedList = newSongs.map { raw ->
+                val resolved = SongMetadataResolver.resolve(raw.code, raw.title, raw.artist)
+                raw.copy(title = resolved.title, artist = resolved.artist, category = resolved.category)
+            }
+            songs.addAll(resolvedList)
+            resolvedList.forEach {
                 songsByCode[it.code] = it
                 val unpadded = it.code.trimStart('0')
                 if (unpadded.isNotEmpty()) songsByCode[unpadded] = it
@@ -129,18 +135,20 @@ class SongRepository {
     fun scanDirectory(directory: File): Int {
         if (!directory.exists() || !directory.isDirectory) return 0
         var count = 0
-        val pattern = Regex("""^(\d{4,6})\s*-\s*(.+?)\s*-\s*(.+?)\.mid$""", RegexOption.IGNORE_CASE)
+        val pattern = Regex("""^(\d{4,6})\s*-\s*(.+?)\s*-\s*(.+?)\.(mid|kar)$""", RegexOption.IGNORE_CASE)
 
         directory.walkTopDown().maxDepth(2).forEach { file ->
             if (file.isFile && (file.extension.equals("mid", true) || file.extension.equals("kar", true))) {
                 val match = pattern.find(file.name)
-                val song = if (match != null) {
+                val rawSong = if (match != null) {
                     val (code, title, artist) = match.destructured
                     Song(code.trim(), title.trim(), artist.trim(), file.absolutePath)
                 } else {
                     val baseName = file.nameWithoutExtension
-                    Song(String.format("%06d", count + 1), baseName, "Unknown", file.absolutePath)
+                    Song(String.format("%06d", count + 1), baseName, "", file.absolutePath)
                 }
+                val resolved = SongMetadataResolver.resolve(rawSong.code, rawSong.title, rawSong.artist)
+                val song = rawSong.copy(title = resolved.title, artist = resolved.artist, category = resolved.category)
 
                 synchronized(songs) {
                     songs.add(song)

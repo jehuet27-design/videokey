@@ -76,6 +76,7 @@ class StorageScanner(private val context: Context) {
             val songDirs = listOf(File(vk, "songs"), vk)
             for (dir in songDirs) {
                 if (dir.exists() && dir.isDirectory) {
+                    val companionBook = loadCompanionSongbook(dir)
                     val files = dir.listFiles() ?: continue
                     for (file in files) {
                         val nameLower = file.name.lowercase()
@@ -89,7 +90,7 @@ class StorageScanner(private val context: Context) {
                                 if (seenCodes.add(song.code)) foundSongs.add(song)
                             }
                         } else if (nameLower.endsWith(".mid") || nameLower.endsWith(".kar") || nameLower.endsWith(".mp4") || nameLower.endsWith(".mkv")) {
-                            val parsed = parseSongFilename(file)
+                            val parsed = parseSongFilename(file, companionBook)
                             if (seenCodes.add(parsed.code)) {
                                 foundSongs.add(parsed)
                             }
@@ -180,13 +181,14 @@ class StorageScanner(private val context: Context) {
                 Log.d("StorageScanner", "Specific folder found SF2: ${file.absolutePath}")
             }
             // 4. MIDI and MP4 Video Karaoke songs (Exclude background videos)
+            val companionBook = loadCompanionSongbook(folder)
             if (nameLower.endsWith(".mid") || nameLower.endsWith(".kar") || nameLower.endsWith(".mp4") || nameLower.endsWith(".mkv")) {
                 if (file.absolutePath.contains("/backgrounds/", ignoreCase = true) ||
                     file.absolutePath.contains("\\backgrounds\\", ignoreCase = true) ||
                     file.parentFile?.name.equals("backgrounds", ignoreCase = true)) {
                     continue
                 }
-                val parsed = parseSongFilename(file)
+                val parsed = parseSongFilename(file, companionBook)
                 if (seenCodes.add(parsed.code)) {
                     foundSongs.add(parsed)
                 }
@@ -213,22 +215,189 @@ class StorageScanner(private val context: Context) {
         )
     }
 
-    fun parseSongFilename(file: File): Song {
-        val baseName = file.nameWithoutExtension
-        val parts = baseName.split(" - ", limit = 3)
-        return when {
-            parts.size >= 3 -> Song(parts[0].trim(), parts[1].trim(), parts[2].trim(), file.absolutePath)
-            parts.size == 2 -> Song(parts[0].trim(), parts[1].trim(), "Karaoke", file.absolutePath)
-            else -> {
-                val pattern = Regex("""^(\d{4,6})\s*-\s*(.+?)\s*-\s*(.+?)$""", RegexOption.IGNORE_CASE)
-                val match = pattern.find(baseName)
-                if (match != null) {
-                    val (c, t, a) = match.destructured
-                    Song(c.trim(), t.trim(), a.trim(), file.absolutePath)
+    /**
+     * Intelligently parses song code, title, and artist from filenames across all videoke conventions:
+     * - "01234 - Title - Artist"
+     * - "01234_Title_Artist"
+     * - "01234 - Title"
+     * - "Title - Artist"
+     * - "Title (Artist)"
+     * - "01234.mid"
+     */
+    fun parseSongFilename(file: File, companionBook: Map<String, Pair<String, String>> = emptyMap()): Song {
+        val baseName = file.nameWithoutExtension.trim()
+        val codeMatch = Regex("""^(\d{4,6})""").find(baseName)
+        val extractedCode = codeMatch?.value
+
+        // 1. Check companion songbook mapping if loaded (e.g. from songbook.txt / songs.csv)
+        if (extractedCode != null && companionBook.containsKey(extractedCode)) {
+            val (t, a) = companionBook[extractedCode]!!
+            val resolved = SongMetadataResolver.resolve(extractedCode, t, a)
+            return Song(extractedCode, resolved.title, resolved.artist, file.absolutePath, resolved.category)
+        }
+
+        var code = ""
+        var rawTitle = ""
+        var rawArtist = ""
+
+        val threePartRegex = Regex("""^(\d{4,6})\s*[-_.]\s*(.+?)\s*[-_]\s*(.+?)$""")
+        val threePartMatch = threePartRegex.find(baseName)
+
+        if (threePartMatch != null) {
+            val (c, t, a) = threePartMatch.destructured
+            code = c.trim()
+            rawTitle = t.trim()
+            rawArtist = a.trim()
+        } else if (baseName.contains(" - ")) {
+            val parts = baseName.split(" - ", limit = 3)
+            if (parts.size >= 3) {
+                if (parts[0].trim().matches(Regex("""^\d{4,6}$"""))) {
+                    code = parts[0].trim()
+                    rawTitle = parts[1].trim()
+                    rawArtist = parts[2].trim()
                 } else {
-                    Song(baseName.take(6), baseName, "Unknown", file.absolutePath)
+                    rawArtist = parts[0].trim()
+                    rawTitle = parts[1].trim()
+                    code = String.format("%06d", Math.abs(baseName.hashCode() % 900000) + 100000)
+                }
+            } else if (parts.size == 2) {
+                if (parts[0].trim().matches(Regex("""^\d{4,6}$"""))) {
+                    code = parts[0].trim()
+                    rawTitle = parts[1].trim()
+                } else {
+                    rawTitle = parts[0].trim()
+                    rawArtist = parts[1].trim()
+                    code = String.format("%06d", Math.abs(baseName.hashCode() % 900000) + 100000)
                 }
             }
+        } else if (baseName.contains("_") && !baseName.contains(" ")) {
+            val parts = baseName.split("_")
+            if (parts.size >= 3 && parts[0].matches(Regex("""^\d{4,6}$"""))) {
+                code = parts[0].trim()
+                rawTitle = parts[1].trim()
+                rawArtist = parts.subList(2, parts.size).joinToString(" ").trim()
+            } else if (parts.size == 2 && parts[0].matches(Regex("""^\d{4,6}$"""))) {
+                code = parts[0].trim()
+                rawTitle = parts[1].trim()
+            } else if (parts.size == 2) {
+                rawTitle = parts[0].trim()
+                rawArtist = parts[1].trim()
+                code = String.format("%06d", Math.abs(baseName.hashCode() % 900000) + 100000)
+            }
+        } else {
+            val twoPartRegex = Regex("""^(\d{4,6})\s*[-_.:]\s*(.+?)$""")
+            val twoPartMatch = twoPartRegex.find(baseName)
+            if (twoPartMatch != null) {
+                val (c, t) = twoPartMatch.destructured
+                code = c.trim()
+                rawTitle = t.trim()
+            } else if (baseName.matches(Regex("""^\d{4,6}$"""))) {
+                code = baseName
+            } else {
+                rawTitle = baseName
+                code = String.format("%06d", Math.abs(baseName.hashCode() % 900000) + 100000)
+            }
+        }
+
+        // Try extracting from MIDI header if artist is still missing
+        if (!SongMetadataResolver.isValidArtist(rawArtist) && (file.extension.equals("mid", true) || file.extension.equals("kar", true))) {
+            val midiMeta = extractMidiMetadata(file)
+            if (midiMeta != null) {
+                if (rawTitle.isEmpty() && midiMeta.first.isNotEmpty()) rawTitle = midiMeta.first
+                if (midiMeta.second.isNotEmpty()) rawArtist = midiMeta.second
+            }
+        }
+
+        val resolved = SongMetadataResolver.resolve(code, rawTitle, rawArtist)
+        return Song(
+            code = if (code.isNotEmpty()) code else String.format("%06d", Math.abs(baseName.hashCode() % 900000) + 100000),
+            title = resolved.title,
+            artist = resolved.artist,
+            filePath = file.absolutePath,
+            category = resolved.category
+        )
+    }
+
+    private fun loadCompanionSongbook(dir: File): Map<String, Pair<String, String>> {
+        val result = HashMap<String, Pair<String, String>>()
+        val candidateNames = listOf("songbook.txt", "songs.txt", "songlist.txt", "songbook.csv", "songs.csv", "songlist.csv", "playlist.txt", "list.txt")
+        val candidateFiles = candidateNames.mapNotNull { name ->
+            val f = File(dir, name)
+            if (f.exists() && f.isFile) f else null
+        }
+        for (f in candidateFiles) {
+            try {
+                f.forEachLine { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.isNotEmpty() && !trimmed.startsWith("#") && !trimmed.startsWith("//")) {
+                        val parts = when {
+                            trimmed.contains("|") -> trimmed.split("|")
+                            trimmed.contains("\t") -> trimmed.split("\t")
+                            trimmed.contains(",") -> trimmed.split(",")
+                            trimmed.contains(" - ") -> trimmed.split(" - ")
+                            else -> emptyList()
+                        }.map { it.trim().trim('"', '\'') }
+
+                        if (parts.size >= 3 && parts[0].matches(Regex("""^\d{1,6}$"""))) {
+                            val code = String.format("%06d", parts[0].toInt())
+                            result[code] = Pair(parts[1], parts[2])
+                            result[parts[0]] = Pair(parts[1], parts[2])
+                        } else if (parts.size == 2 && parts[0].matches(Regex("""^\d{1,6}$"""))) {
+                            val code = String.format("%06d", parts[0].toInt())
+                            result[code] = Pair(parts[1], "")
+                            result[parts[0]] = Pair(parts[1], "")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("StorageScanner", "Could not parse companion songbook ${f.name}", e)
+            }
+        }
+        return result
+    }
+
+    private fun extractMidiMetadata(file: File): Pair<String, String>? {
+        if (!file.exists() || file.length() < 24) return null
+        return try {
+            val headerBytes = ByteArray(minOf(file.length(), 4096L).toInt())
+            java.io.FileInputStream(file).use { it.read(headerBytes) }
+            val text = String(headerBytes, Charsets.ISO_8859_1)
+
+            var foundTitle = ""
+            var foundArtist = ""
+
+            val tMatches = Regex("""@T\s*([^@\r\n\x00]+)""", RegexOption.IGNORE_CASE).findAll(text).map { it.groupValues[1].trim() }.toList()
+            if (tMatches.isNotEmpty()) {
+                foundTitle = tMatches[0]
+                if (tMatches.size > 1 && SongMetadataResolver.isValidArtist(tMatches[1])) {
+                    foundArtist = tMatches[1]
+                }
+            }
+            val aMatch = Regex("""@A\s*([^@\r\n\x00]+)""", RegexOption.IGNORE_CASE).find(text)
+            if (aMatch != null) {
+                val a = aMatch.groupValues[1].trim()
+                if (SongMetadataResolver.isValidArtist(a)) {
+                    foundArtist = a
+                }
+            }
+
+            if (foundTitle.isEmpty() || foundArtist.isEmpty()) {
+                val trackMatch = Regex("""\x00\xFF\x03[\x01-\x7F]([^\r\n\x00]+)""").find(text)
+                if (trackMatch != null) {
+                    val trackName = trackMatch.groupValues[1].trim()
+                    if (trackName.contains(" - ")) {
+                        val p = trackName.split(" - ", limit = 2)
+                        if (foundTitle.isEmpty()) foundTitle = p[0].trim()
+                        if (foundArtist.isEmpty() && SongMetadataResolver.isValidArtist(p[1])) foundArtist = p[1].trim()
+                    }
+                }
+            }
+
+            if (foundTitle.isNotEmpty() || foundArtist.isNotEmpty()) {
+                Pair(foundTitle, foundArtist)
+            } else null
+        } catch (_: Exception) {
+            null
         }
     }
 }

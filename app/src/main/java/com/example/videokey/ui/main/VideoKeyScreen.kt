@@ -10418,7 +10418,7 @@ fun SongbookSearchOverlay(
 
                                         Text(
 
-                                            text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
+                                            text = "🎤 ${com.example.videokey.data.SongMetadataResolver.getDisplayArtist(song)}",
 
                                             color = Color(theme.textMutedColor),
 
@@ -10776,7 +10776,7 @@ fun SongbookSearchOverlay(
 
                                         Text(
 
-                                            text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
+                                            text = "🎤 ${com.example.videokey.data.SongMetadataResolver.getDisplayArtist(song)}",
 
                                             color = Color(theme.textMutedColor),
 
@@ -11058,7 +11058,7 @@ fun SongbookSearchOverlay(
 
                                         Text(
 
-                                            text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else "🎤 OPM / Videoke",
+                                            text = "🎤 ${com.example.videokey.data.SongMetadataResolver.getDisplayArtist(song)}",
 
                                             color = Color(theme.textMutedColor),
 
@@ -11886,7 +11886,7 @@ fun SongbookDialog(
 
                                 Text(
 
-                                    text = if (song.artist.isNotBlank()) "🎤 ${song.artist}" else (if (isTagalog) "🎤 Hindi Kilalang Artist" else "🎤 Unknown Artist"),
+                                    text = "🎤 ${com.example.videokey.data.SongMetadataResolver.getDisplayArtist(song)}",
 
                                     color = Color(theme.textMutedColor),
 

@@ -124,18 +124,20 @@ object VkPackReader {
                 val songs = ArrayList<Song>(count)
                 for (i in 0 until count) {
                     val code = d.readUTF()
-                    val title = d.readUTF()
-                    val artist = d.readUTF()
+                    val rawTitle = d.readUTF()
+                    val rawArtist = d.readUTF()
                     val offset = d.readLong()
                     val compLen = d.readInt()
                     val origLen = d.readInt()
                     val songCrc = d.readInt()
+                    val resolved = SongMetadataResolver.resolve(code, rawTitle, rawArtist)
                     songs.add(
                         Song(
                             code = code,
-                            title = title,
-                            artist = artist,
+                            title = resolved.title,
+                            artist = resolved.artist,
                             filePath = path,
+                            category = resolved.category,
                             packId = i,
                             packOffset = offset,
                             packLength = compLen,
