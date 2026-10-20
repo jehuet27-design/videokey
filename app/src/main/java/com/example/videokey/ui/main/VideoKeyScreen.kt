@@ -1536,7 +1536,7 @@ fun VideokeTvScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                        .padding(start = 12.dp, end = 12.dp, top = if (isLandscape) 2.dp else 4.dp, bottom = 0.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1695,31 +1695,33 @@ fun VideokeTvScreen(
                                         showTvKeypadModal = true
                                     }
                                 )
-                                Surface(
-                                    onClick = onToggleTvMode,
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(state.appTheme.primaryColor),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                if (!isTvMode) {
+                                    Surface(
+                                        onClick = onToggleTvMode,
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(state.appTheme.primaryColor),
+                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
                                     ) {
-                                        Text("📱", fontSize = 12.sp)
-                                        Text(
-                                            "PORTRAIT",
-                                            color = Color.Black,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text("📱", fontSize = 12.sp)
+                                            Text(
+                                                "PORTRAIT",
+                                                color = Color.Black,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
 
                         // When right buttons auto-hide in Landscape, show clean Return to Portrait button
-                        if (!showLandscapeControls) {
+                        if (!showLandscapeControls && !isTvMode) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -1755,7 +1757,8 @@ fun VideokeTvScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = if (isLandscape) 0.dp else 2.dp),
+                            .offset(y = if (isLandscape) (-7).dp else (-2).dp)
+                            .padding(horizontal = 12.dp, vertical = 0.dp),
                         horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1784,7 +1787,8 @@ fun VideokeTvScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 2.dp),
+                            .offset(y = (-2).dp)
+                            .padding(horizontal = 12.dp, vertical = 0.dp),
                         horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically
                     ) {

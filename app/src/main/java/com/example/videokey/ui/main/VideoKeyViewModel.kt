@@ -302,7 +302,7 @@ data class VideoKeyUiState(
     val selectedBottomNavTab: Int = 0, // 0 = Home, 1 = Sing, 2 = Saved, 3 = Profile
     val selectedCategoryFilter: String = "ALL",
     val appTheme: AppTheme = AppTheme.CYBER_NEON,
-    val userName: String = "Jerome Huet",
+    val userName: String = "JUAN",
     val isEditNameDialogOpen: Boolean = false,
     val score: Int = 94,
     val showScoreModal: Boolean = false,
@@ -598,7 +598,13 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 reverbPercent = initialReverb,
                 isAutoMixerEnabled = initialAutoMixer,
                 appTheme = initialTheme,
-                userName = prefs.getString("user_profile_name", "Jerome Huet") ?: "Jerome Huet",
+                userName = run {
+                    val saved = prefs.getString("user_profile_name", null)
+                    if (saved.isNullOrBlank() || saved == "Jerome Huet") {
+                        prefs.edit().putString("user_profile_name", "JUAN").apply()
+                        "JUAN"
+                    } else saved
+                },
                 isMicScoringEnabled = initialScoreMode != ScoreMode.OFF,
                 isScoringSoundEnabled = initialFanfare != FanfareSoundLevel.OFF,
                 isKeypadVoiceEnabled = prefs.getBoolean("is_keypad_voice_enabled", true),
@@ -2981,7 +2987,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun setUserName(name: String) {
-        val clean = name.trim().ifEmpty { "Jerome Huet" }
+        val clean = name.trim().ifEmpty { "JUAN" }
         prefs.edit().putString("user_profile_name", clean).apply()
         _uiState.update { it.copy(userName = clean, isEditNameDialogOpen = false) }
     }
