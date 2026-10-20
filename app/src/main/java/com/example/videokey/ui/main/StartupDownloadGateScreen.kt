@@ -46,6 +46,12 @@ fun StartupDownloadGateScreen(
     val isTagalog = state.appLanguage == AppLanguage.TAGALOG
 
     val isAllReady = hasSoundFont && hasSongs && hasBackgrounds
+
+    LaunchedEffect(isAllReady) {
+        if (isAllReady) {
+            onOpenApp()
+        }
+    }
     val downloadStatus = state.downloadStatus
     val isDownloading = downloadStatus is ContentDownloadManager.DownloadStatus.Downloading
     val isExtracting = downloadStatus is ContentDownloadManager.DownloadStatus.Extracting

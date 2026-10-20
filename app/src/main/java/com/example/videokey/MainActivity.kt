@@ -62,6 +62,16 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.onAppResume()
+        viewModel.checkAndAutoDetectFiles(triggerAutoDownloadIfMissing = true)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        viewModel.checkAndAutoDetectFiles(triggerAutoDownloadIfMissing = true)
     }
 
     override fun onDestroy() {

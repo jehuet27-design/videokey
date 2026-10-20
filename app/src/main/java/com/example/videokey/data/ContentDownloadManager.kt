@@ -137,6 +137,8 @@ class ContentDownloadManager(private val context: Context) {
     fun getBaseStorageDir(): File {
         val root = File("/storage/emulated/0/VideoKey")
         if (root.exists() || root.mkdirs()) return root
+        val sdcard = File("/sdcard/VideoKey")
+        if (sdcard.exists() || sdcard.mkdirs()) return sdcard
         val fallback = File(context.getExternalFilesDir(null), "VideoKey")
         if (!fallback.exists()) fallback.mkdirs()
         return fallback
@@ -222,6 +224,11 @@ class ContentDownloadManager(private val context: Context) {
             File(base, "songs/videokey_songs.vkpack"),
             File("/storage/emulated/0/VideoKey/videokey_songs.vkpack"),
             File("/storage/emulated/0/VideoKey/songs/videokey_songs.vkpack"),
+            File("/sdcard/VideoKey/videokey_songs.vkpack"),
+            File("/sdcard/VideoKey/songs/videokey_songs.vkpack"),
+            File(context.getExternalFilesDir(null), "VideoKey/videokey_songs.vkpack"),
+            File(context.getExternalFilesDir(null), "VideoKey/songs/videokey_songs.vkpack"),
+            File(context.filesDir, "VideoKey/videokey_songs.vkpack"),
             File("/storage/emulated/0/SongHub/videokey_songs.vkpack"),
             File("/storage/emulated/0/SongHub/songs/videokey_songs.vkpack")
         )
@@ -231,16 +238,24 @@ class ContentDownloadManager(private val context: Context) {
             File(base, "songs"),
             File(base, ""),
             File("/storage/emulated/0/VideoKey/songs"),
+            File("/storage/emulated/0/VideoKey"),
+            File("/sdcard/VideoKey/songs"),
+            File("/sdcard/VideoKey"),
+            File(context.getExternalFilesDir(null), "VideoKey/songs"),
+            File(context.getExternalFilesDir(null), "VideoKey"),
+            File(context.filesDir, "VideoKey/songs"),
             File("/storage/emulated/0/SongHub/songs"),
             File("/storage/emulated/0/SongHub/blob")
         )
         for (dir in songsDirs) {
-            if (dir.exists() && (dir.listFiles()?.any {
-                val n = it.name.lowercase()
-                (n.endsWith(".vkpack") || n.endsWith(".mid") || n.endsWith(".kar") || n.endsWith(".mp4") || n.endsWith(".mkv")) && it.length() > 1024
-            } == true)) {
-                return true
-            }
+            try {
+                if (dir.exists() && (dir.listFiles()?.any {
+                    val n = it.name.lowercase()
+                    (n.endsWith(".vkpack") || n.endsWith(".mid") || n.endsWith(".kar") || n.endsWith(".mp4") || n.endsWith(".mkv")) && it.length() > 1024
+                } == true)) {
+                    return true
+                }
+            } catch (_: Exception) {}
         }
         return false
     }
@@ -255,13 +270,20 @@ class ContentDownloadManager(private val context: Context) {
             File(base, "soundfonts"),
             File("/storage/emulated/0/VideoKey/SoundFont"),
             File("/storage/emulated/0/VideoKey/soundfonts"),
+            File("/sdcard/VideoKey/SoundFont"),
+            File("/sdcard/VideoKey/soundfonts"),
+            File(context.getExternalFilesDir(null), "VideoKey/SoundFont"),
+            File(context.getExternalFilesDir(null), "VideoKey/soundfonts"),
+            File(context.filesDir, "SoundFont"),
             File("/storage/emulated/0/SongHub/SoundFont"),
             File("/storage/emulated/0/SongHub/soundfonts")
         )
         for (dir in sfDirs) {
-            if (dir.exists() && (dir.listFiles()?.any { it.name.endsWith(".sf2", ignoreCase = true) && it.length() > 1024 } == true)) {
-                return true
-            }
+            try {
+                if (dir.exists() && (dir.listFiles()?.any { it.name.endsWith(".sf2", ignoreCase = true) && it.length() > 1024 } == true)) {
+                    return true
+                }
+            } catch (_: Exception) {}
         }
         return false
     }
@@ -276,15 +298,22 @@ class ContentDownloadManager(private val context: Context) {
             File(base, "videos"),
             File("/storage/emulated/0/VideoKey/backgrounds"),
             File("/storage/emulated/0/VideoKey/videos"),
+            File("/sdcard/VideoKey/backgrounds"),
+            File("/sdcard/VideoKey/videos"),
+            File(context.getExternalFilesDir(null), "VideoKey/backgrounds"),
+            File(context.getExternalFilesDir(null), "VideoKey/videos"),
+            File(context.filesDir, "backgrounds"),
             File("/storage/emulated/0/SongHub/backgrounds"),
             File("/storage/emulated/0/SongHub/bgv")
         )
         for (dir in bgDirs) {
-            if (dir.exists() && (dir.listFiles()?.any { 
-                (it.name.endsWith(".mp4", ignoreCase = true) || it.name.endsWith(".mkv", ignoreCase = true)) && it.length() > 1024 
-            } == true)) {
-                return true
-            }
+            try {
+                if (dir.exists() && (dir.listFiles()?.any { 
+                    (it.name.endsWith(".mp4", ignoreCase = true) || it.name.endsWith(".mkv", ignoreCase = true)) && it.length() > 1024 
+                } == true)) {
+                    return true
+                }
+            } catch (_: Exception) {}
         }
         return false
     }
@@ -292,7 +321,7 @@ class ContentDownloadManager(private val context: Context) {
     /**
      * Starts downloading the selected content item.
      */
-    fun downloadItem(item: DownloadItem, onFinish: () -> Unit = {}) {
+    fun downloadItem(item: DownloadItem, onFinish: (Boolean) -> Unit = {}) {
         currentDownloadJob?.cancel()
         currentDownloadJob = scope.launch {
             _downloadStatus.value = DownloadStatus.Downloading(
@@ -405,13 +434,16 @@ class ContentDownloadManager(private val context: Context) {
                 }
 
                 withContext(Dispatchers.Main) {
-                    onFinish()
+                    onFinish(true)
                 }
             } catch (e: CancellationException) {
                 Log.d("ContentDownloadManager", "Download cancelled: ${item.id}")
                 destFile.delete()
                 _downloadStatus.value = DownloadStatus.Idle
                 cancelNotification()
+                withContext(Dispatchers.Main) {
+                    onFinish(false)
+                }
             } catch (e: Exception) {
                 Log.e("ContentDownloadManager", "Download failed for ${item.id}", e)
                 destFile.delete()
@@ -420,6 +452,9 @@ class ContentDownloadManager(private val context: Context) {
                     errorMessage = "Hindi natapos ang download: ${e.message ?: "Walang koneksyon"}"
                 )
                 updateNotification("✕ Hindi natapos ang download", item.title, ongoing = false)
+                withContext(Dispatchers.Main) {
+                    onFinish(false)
+                }
             } finally {
                 try {
                     if (wakeLock?.isHeld == true) {

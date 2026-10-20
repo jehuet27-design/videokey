@@ -53,6 +53,10 @@ class SongRepository {
 
     fun getTotalSongsCount(): Int = synchronized(songs) { songs.size }
 
+    fun getPlayableSongsCount(): Int = synchronized(songs) {
+        songs.count { it.isPacked || it.filePath.isNotEmpty() || it.sectorOffset >= 0L }
+    }
+
     fun search(query: String, onlyPlayable: Boolean = false, isCodePlayable: (String) -> Boolean = { false }): List<Song> {
         val listSnapshot = synchronized(songs) { ArrayList(songs) }
         val stream = if (onlyPlayable) {
