@@ -9,23 +9,7 @@ class SongRepository {
     private val songsByCode = ConcurrentHashMap<String, Song>()
 
     init {
-        // Pre-populate with iconic playable tracks from library
-        val defaultSongs = listOf(
-            Song("342800", "Pamela One", "Vhong Navarro", "", "OPM", 23L, 22),
-            Song("342781", "Boom Boom", "Karaoke", "", "OPM", 12L, 26),
-            Song("660567", "'Di Na Muli", "Itchyworms", "", "OPM", 162363L, 25),
-            Song("602686", "'Di Na Natuto", "Gary Valenciano", "", "OPM", 107518L, 19),
-            Song("205901", "#Selfie", "The Chainsmokers", "", "Pop", 256594L, 28),
-            Song("084990", "Teenage Dream", "Katy Perry", "", "Pop")
-        )
-        synchronized(songs) {
-            songs.addAll(defaultSongs)
-            defaultSongs.forEach {
-                songsByCode[it.code] = it
-                val unpadded = it.code.trimStart('0')
-                if (unpadded.isNotEmpty()) songsByCode[unpadded] = it
-            }
-        }
+        // Songs start empty and are populated by scanning VideoKey storage (.vkpack or midi files)
     }
 
     fun getAllSongs(): List<Song> = synchronized(songs) { ArrayList(songs) }
@@ -54,7 +38,7 @@ class SongRepository {
     fun getTotalSongsCount(): Int = synchronized(songs) { songs.size }
 
     fun getPlayableSongsCount(): Int = synchronized(songs) {
-        songs.count { it.isPacked || it.filePath.isNotEmpty() || it.sectorOffset >= 0L }
+        songs.count { (it.isPacked && it.sectorOffset >= 0L) || (it.filePath.isNotEmpty() && !it.filePath.startsWith("http")) }
     }
 
     fun search(query: String, onlyPlayable: Boolean = false, isCodePlayable: (String) -> Boolean = { false }): List<Song> {

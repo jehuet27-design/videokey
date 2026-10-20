@@ -22,34 +22,27 @@ class StorageScanner(private val context: Context) {
     )
 
     fun autoScanInternalStorage(): ScanResult {
-        val rootPaths = listOf(
-            Environment.getExternalStorageDirectory(),
-            File("/storage/emulated/0"),
-            File("/sdcard")
+        // FAST SCAN: Exclusively scans the VideoKey folders on device storage
+        val vkCandidates = listOfNotNull(
+            File("/storage/emulated/0/VideoKey"),
+            File("/sdcard/VideoKey"),
+            File(Environment.getExternalStorageDirectory(), "VideoKey"),
+            context.getExternalFilesDir(null)?.let { File(it, "VideoKey") },
+            File(context.filesDir, "VideoKey")
         ).distinctBy { it.absolutePath }
 
         var foundIdx: File? = null
         var foundBlob: File? = null
         val foundSf2 = mutableListOf<File>()
         val foundSongs = mutableListOf<Song>()
+        val seenCodes = HashSet<String>()
 
-        for (root in rootPaths) {
-            if (!root.exists()) continue
-            Log.d("StorageScanner", "Scanning root directory: ${root.absolutePath}")
+        for (vk in vkCandidates) {
+            if (!vk.exists() || !vk.isDirectory) continue
+            Log.d("StorageScanner", "Fast scanning VideoKey folder: ${vk.absolutePath}")
 
-            // 1. Direct subfolder checks for VideoKey and SongHub IDX
-            val idxDirs = listOf(
-                File(root, "VideoKey/idx"),
-                File(root, "VideoKey"),
-                File(root, "SongHub/idx"),
-                File(root, "SongHub"),
-                File(root, "idx"),
-                File(root, "Music/idx"),
-                File(root, "Music"),
-                File(root, "Download/idx"),
-                File(root, "Download")
-            )
-
+            // 1. Check IDX in VideoKey/idx or VideoKey root
+            val idxDirs = listOf(File(vk, "idx"), vk)
             for (dir in idxDirs) {
                 if (dir.exists() && dir.isDirectory) {
                     dir.listFiles()?.forEach { file ->
@@ -66,19 +59,8 @@ class StorageScanner(private val context: Context) {
                 }
             }
 
-            // 2. Direct SoundFont checks
-            val sfDirs = listOf(
-                File(root, "VideoKey/SoundFont"),
-                File(root, "VideoKey/soundfonts"),
-                File(root, "VideoKey"),
-                File(root, "SongHub/sound"),
-                File(root, "SongHub"),
-                File(root, "SoundFont"),
-                File(root, "soundfonts"),
-                File(root, "Music"),
-                File(root, "Download")
-            )
-
+            // 2. SoundFonts in VideoKey/SoundFont or VideoKey/soundfonts
+            val sfDirs = listOf(File(vk, "SoundFont"), File(vk, "soundfonts"), vk)
             for (dir in sfDirs) {
                 if (dir.exists() && dir.isDirectory) {
                     dir.listFiles()?.forEach { file ->
@@ -90,16 +72,8 @@ class StorageScanner(private val context: Context) {
                 }
             }
 
-            // 3. Direct MIDI songs checks
-            val songDirs = listOf(
-                File(root, "VideoKey/songs"),
-                File(root, "Music/songs"),
-                File(root, "VideoKey"),
-                File(root, "Music"),
-                File(root, "Download")
-            )
-
-            val seenCodes = HashSet<String>()
+            // 3. Songs in VideoKey/songs or VideoKey root (.vkpack and midi files)
+            val songDirs = listOf(File(vk, "songs"), vk)
             for (dir in songDirs) {
                 if (dir.exists() && dir.isDirectory) {
                     val files = dir.listFiles() ?: continue
@@ -123,25 +97,20 @@ class StorageScanner(private val context: Context) {
                     }
                 }
             }
-
-            if (foundSongs.isNotEmpty() && foundSf2.isNotEmpty()) {
-                break
-            }
         }
 
         // 4. Parse shubidx to add songs to songbook
         if (foundIdx != null) {
             val idxSongs = ShubIdxParser.parse(foundIdx!!)
             Log.d("StorageScanner", "Loaded ${idxSongs.size} songs from ${foundIdx!!.name}")
-            val existingCodes = HashSet<String>(foundSongs.map { it.code })
             for (song in idxSongs) {
-                if (existingCodes.add(song.code)) {
+                if (seenCodes.add(song.code)) {
                     foundSongs.add(song)
                 }
             }
         }
 
-        Log.d("StorageScanner", "Scan complete: ${foundSongs.size} total playable songs, ${foundSf2.size} SoundFonts")
+        Log.d("StorageScanner", "Fast scan complete: ${foundSongs.size} total songs, ${foundSf2.size} SoundFonts")
 
         return ScanResult(
             idxFile = foundIdx,
@@ -165,20 +134,17 @@ class StorageScanner(private val context: Context) {
         val seenCodes = HashSet<String>()
 
         val allFiles = try {
-            folder.walkTopDown().maxDepth(3).filter { it.isFile && it.length() > 0L }.toList()
+            folder.walkTopDown().maxDepth(2).filter { it.isFile && it.length() > 0L }.toList()
         } catch (e: Exception) {
             folder.listFiles()?.filter { it.isFile && it.length() > 0L } ?: emptyList()
         }
 
-        // 0. Encrypted VideoKey packs (.vkpack) – loaded first so they take priority
+        // 0. Encrypted VideoKey packs (.vkpack) – strictly inside VideoKey directories
         val packCandidateDirs = listOfNotNull(
             folder,
-            folder.parentFile,
             File(folder, "songs"),
             File("/storage/emulated/0/VideoKey"),
             File("/storage/emulated/0/VideoKey/songs"),
-            File("/storage/emulated/0/SongHub"),
-            File("/storage/emulated/0/SongHub/songs"),
             File("/sdcard/VideoKey"),
             File("/sdcard/VideoKey/songs"),
             File(context.getExternalFilesDir(null), "VideoKey"),

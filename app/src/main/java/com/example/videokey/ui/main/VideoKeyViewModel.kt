@@ -2241,7 +2241,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             }
 
             // 2. Check & download Songs if missing
-            val songsExist = repository.getPlayableSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()
+            val songsExist = contentDownloadManager.hasAnySongsInstalled()
             if (!songsExist && songsItem != null) {
                 val deferred = kotlinx.coroutines.CompletableDeferred<Boolean>()
                 contentDownloadManager.downloadItem(songsItem) { success ->
@@ -2265,7 +2265,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             // Final check: if all 3 are now fully installed, pass startup gate automatically!
             val allReady = contentDownloadManager.isSoundFontInstalled() &&
-                    (repository.getPlayableSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()) &&
+                    contentDownloadManager.hasAnySongsInstalled() &&
                     contentDownloadManager.isBackgroundVideoInstalled()
 
             if (allReady) {
@@ -2284,7 +2284,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun passStartupGate() {
         val allReady = contentDownloadManager.isSoundFontInstalled() &&
-                (repository.getPlayableSongsCount() > 0 || contentDownloadManager.hasAnySongsInstalled()) &&
+                contentDownloadManager.hasAnySongsInstalled() &&
                 contentDownloadManager.isBackgroundVideoInstalled()
         if (allReady) {
             prefs.edit().putBoolean("is_initial_setup_completed", true).apply()
