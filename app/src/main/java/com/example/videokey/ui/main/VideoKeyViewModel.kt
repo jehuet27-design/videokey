@@ -2362,6 +2362,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         youTubeDownloader.cancelDownload()
     }
 
+    fun setVipActivated(active: Boolean) {
+        prefs.edit().putBoolean("is_vip_activated", active).apply()
+        _uiState.update { it.copy(isVipActivated = active) }
+    }
+
     fun activateVip(enteredKey: String): Boolean {
         val devId = _uiState.value.deviceId.ifBlank { VipLicenseManager.getDeviceId(getApplication()) }
         val isValid = VipLicenseManager.verifyLicenseKey(devId, enteredKey)

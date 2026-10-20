@@ -192,6 +192,10 @@ class VideokeRemoteServer(
                     val q = params["q"] ?: params["query"]
                     viewModel.openYouTubeDownloader(q)
                 }
+                "set_vip" -> {
+                    val active = params["active"]?.toBooleanStrictOrNull() ?: false
+                    viewModel.setVipActivated(active)
+                }
                 "reserve_code" -> {
                     val code = params["code"]
                     if (!code.isNullOrBlank()) {

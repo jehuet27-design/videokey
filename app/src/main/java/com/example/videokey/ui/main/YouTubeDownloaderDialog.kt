@@ -31,6 +31,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import android.widget.Toast
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.example.videokey.data.Song
@@ -1042,11 +1044,121 @@ private fun VipActivationCard(
                 }
             }
 
+            // Dedicated Facebook / Messenger Contact Box with 1-Tap Open & Copy
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF0F172A))
+                    .border(1.dp, Color(0xFF1877F2).copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(text = "🌐", fontSize = 12.sp)
+                        Text(
+                            text = if (isTagalog) "Facebook Contact & Support:" else "Facebook Contact & Support:",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF38BDF8)
+                        )
+                    }
+                    Text(
+                        text = if (isTagalog) "I-send dito ang Device ID" else "Send Device ID here",
+                        fontSize = 9.5.sp,
+                        color = Color(0xFF00FF88),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text(
+                            text = "https://www.facebook.com/jehuet27",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            color = Color(0xFF60A5FA),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Jerome Huet",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Button(
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString("https://www.facebook.com/jehuet27"))
+                                Toast.makeText(
+                                    context,
+                                    if (isTagalog) "Nakopya ang Facebook link!" else "Facebook link copied!",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text(
+                                text = "📋",
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                try {
+                                    val fbIntent = Intent(
+                                        Intent.ACTION_VIEW,
+                                        Uri.parse("https://www.facebook.com/jehuet27")
+                                    ).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(fbIntent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Cannot open link", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text(
+                                text = if (isTagalog) "💬 I-CHAT" else "💬 CHAT",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+
             Text(
                 text = if (isTagalog)
-                    "1. Magbayad ng ₱99 (One-Time Lifetime Payment) sa GCash o Maya sa itaas.\n2. I-send ang iyong Device ID kasama ang resibo upang matanggap agad ang iyong 8-digit Activation Key."
+                    "1. Magbayad ng ₱99 (One-Time Lifetime Access) sa GCash o Maya sa itaas.\n2. Pindutin ang '💬 I-CHAT' sa itaas para mag-message sa Facebook (facebook.com/jehuet27) at i-send ang iyong Device ID kasama ang resibo upang matanggap agad ang iyong 8-digit Activation Key."
                 else
-                    "1. Send ₱99 (One-Time Lifetime Payment) to GCash or Maya details above.\n2. Send your Device ID with payment proof to receive your instant 8-digit Activation Key.",
+                    "1. Send ₱99 (One-Time Lifetime Access) to GCash or Maya details above.\n2. Tap '💬 CHAT' above to message on Facebook (facebook.com/jehuet27) and send your Device ID with payment proof to receive your instant 8-digit Activation Key.",
                 fontSize = 11.sp,
                 color = Color(theme.textColor),
                 lineHeight = 16.sp
