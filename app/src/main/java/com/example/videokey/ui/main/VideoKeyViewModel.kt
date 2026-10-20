@@ -299,6 +299,7 @@ data class VideoKeyUiState(
     val micEchoPercent: Int = 50,
     val isAutoMixerEnabled: Boolean = true,
     val isAutoVolumeEnabled: Boolean = true,
+    val isAutoMelodyNormalizeEnabled: Boolean = true,
     val activeMixStyle: com.example.videokey.data.MidiMelodyScaler.SongMixStyle = com.example.videokey.data.MidiMelodyScaler.SongMixStyle.STANDARD_POP,
     val selectedBottomNavTab: Int = 0, // 0 = Home, 1 = Sing, 2 = Saved, 3 = Profile
     val selectedCategoryFilter: String = "ALL",
@@ -503,6 +504,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         soundEngine.setAutoMixerEnabled(initialAutoMixer)
         val savedAutoVolume = prefs.getBoolean("auto_volume_enabled", true)
         soundEngine.setAutoVolumeEnabled(savedAutoVolume)
+        val savedAutoMelody = prefs.getBoolean("auto_melody_normalize_enabled", true)
+        soundEngine.setAutoMelodyNormalizeEnabled(savedAutoMelody)
 
         val savedThemeName = prefs.getString("app_theme", AppTheme.CYBER_NEON.name) ?: AppTheme.CYBER_NEON.name
         val initialTheme = try {
@@ -623,6 +626,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 reverbPercent = initialReverb,
                 isAutoMixerEnabled = initialAutoMixer,
                 isAutoVolumeEnabled = savedAutoVolume,
+                isAutoMelodyNormalizeEnabled = savedAutoMelody,
                 appTheme = initialTheme,
                 userName = run {
                     val saved = prefs.getString("user_profile_name", null)
@@ -1931,6 +1935,17 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     fun toggleAutoVolume(enabled: Boolean? = null) {
         val target = enabled ?: !_uiState.value.isAutoVolumeEnabled
         setAutoVolumeEnabled(target)
+    }
+
+    fun setAutoMelodyNormalizeEnabled(enabled: Boolean) {
+        soundEngine.setAutoMelodyNormalizeEnabled(enabled)
+        prefs.edit().putBoolean("auto_melody_normalize_enabled", enabled).apply()
+        _uiState.update { it.copy(isAutoMelodyNormalizeEnabled = enabled) }
+    }
+
+    fun toggleAutoMelodyNormalize(enabled: Boolean? = null) {
+        val target = enabled ?: !_uiState.value.isAutoMelodyNormalizeEnabled
+        setAutoMelodyNormalizeEnabled(target)
     }
 
     fun toggleAutoMixer(enabled: Boolean) {

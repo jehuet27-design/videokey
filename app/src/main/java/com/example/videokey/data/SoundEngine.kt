@@ -128,6 +128,8 @@ class SoundEngine(
     @Volatile
     private var isAutoVolumeEnabled: Boolean = true
     @Volatile
+    private var isAutoMelodyNormalizeEnabled: Boolean = true
+    @Volatile
     private var currentAgcGain: Float = 1.0f
     @Volatile
     private var targetAgcGain: Float = 1.0f
@@ -198,15 +200,24 @@ class SoundEngine(
             BASSMIDI.MIDI_EVENT_NOTE -> {
                 if (track != -1) {
                     val analysis = currentAnalysis
-                    // If melody shares a channel with accompaniment in a multi-track file, scale melody track notes
-                    if (analysis != null && analysis.numTracks > 1 && analysis.melodyTracks.contains(track)) {
+                    val isMelody = (analysis != null) && (
+                        (analysis.numTracks > 1 && analysis.melodyTracks.contains(track)) ||
+                        (analysis.exclusiveMelodyChannels.contains(ch)) ||
+                        (analysis.numTracks <= 1 && analysis.melodyChannels.contains(ch))
+                    )
+                    if (isMelody) {
                         val key = event.param and 0xFF
                         val vel = (event.param shr 8) and 0xFF
                         if (vel in 1..127) {
                             if (melodyPercent <= 0) {
                                 return@MIDIFILTERPROC false
                             }
-                            val scaledVel = ((vel * melodyPercent) / 100).coerceIn(1, 127)
+                            val effectiveVel = if (isAutoMelodyNormalizeEnabled) {
+                                normalizeMelodyVelocity(vel, ch, liveChannelPrograms[ch], analysis)
+                            } else {
+                                vel
+                            }
+                            val scaledVel = ((effectiveVel * melodyPercent) / 100).coerceIn(1, 127)
                             event.param = key or (scaledVel shl 8)
                         }
                     }
@@ -247,6 +258,49 @@ class SoundEngine(
      * Smoothly scales quiet songs up and loud songs down to the standard videoke target
      * with zero pumping, preserving full punch and clarity without digital clipping.
      */
+    /**
+     * Studio Melody Auto-Normalization:
+     * Centers guide melody velocity around nominal target (78 / 127) so the guide vocal
+     * is never uncomfortably loud / piercing and never faint / drowned out.
+     * Also compensates for SoundFont instrument timbre loudness (e.g. piercing brass vs soft flute).
+     */
+    private fun normalizeMelodyVelocity(rawVel: Int, channel: Int, program: Int, analysis: MidiMelodyScaler.MidiAnalysis?): Int {
+        if (rawVel <= 0) return 0
+        val ch = channel.coerceIn(0, 15)
+        val songAvgVel = analysis?.channelAvgVelocities?.getOrNull(ch) ?: 80
+
+        // 1. Center around nominal target (78 out of 127)
+        val target = 78.0f
+        val diff = (rawVel - target)
+
+        // Compress extreme velocity dynamics (30..127) into sweet-spot guide corridor (65..90)
+        val compressedVel = if (diff > 0) {
+            target + diff * 0.28f // 127 -> ~91.7
+        } else {
+            target + diff * 0.38f // 40 -> ~63.5
+        }
+
+        // 2. Timbre Loudness Compensation (SoundFont instrument perceptual loudness)
+        val timbreScale = when (program) {
+            in 56..63 -> 0.88f // Brass / Trumpet / Trombone (piercing high harmonics)
+            in 80..87 -> 0.88f // Synth Leads (sustained aggressive waveforms)
+            in 64..71 -> 0.94f // Sax / Reeds (punchy mid-range)
+            in 72..79 -> 1.10f // Flutes / Pipes (soft breathy tone)
+            in 24..31 -> 1.05f // Guitars
+            else -> 1.00f
+        }
+
+        // 3. Song-level baseline adjustment
+        val songScale = when {
+            songAvgVel > 110 -> 0.92f // Overall loud melody song
+            songAvgVel < 60 -> 1.12f // Overall very soft melody song
+            else -> 1.00f
+        }
+
+        val finalVel = (compressedVel * timbreScale * songScale).toInt()
+        return finalVel.coerceIn(40, 102)
+    }
+
     private val autoVolumeDspProc = BASS.DSPPROC { _, _, buffer, length, _ ->
         if (!isAutoVolumeEnabled || buffer == null || length <= 0) return@DSPPROC
         try {
@@ -622,9 +676,18 @@ class SoundEngine(
                 else -> MidiMelodyScaler.InstrumentCategory.STRINGS_BRASS
             }
         }
+        val effectiveBaseVol = if (isAutoMelodyNormalizeEnabled && category == MidiMelodyScaler.InstrumentCategory.MELODY) {
+            when {
+                baseVol < 75 -> 95 // Soft melody channel boosted to standard
+                baseVol > 120 -> 100 // Blasting melody channel toned down to standard
+                else -> baseVol
+            }
+        } else {
+            baseVol
+        }
         val pct = getPercentForCategory(category)
         if (pct <= 0) return 0
-        return ((baseVol * pct) / 100).coerceIn(1, 127)
+        return ((effectiveBaseVol * pct) / 100).coerceIn(1, 127)
     }
 
     /**
@@ -1118,6 +1181,13 @@ class SoundEngine(
     }
 
     fun isAutoVolumeEnabled(): Boolean = isAutoVolumeEnabled
+
+    fun setAutoMelodyNormalizeEnabled(enabled: Boolean) {
+        isAutoMelodyNormalizeEnabled = enabled
+        Log.d(TAG, "Auto Melody Normalize set to: $enabled")
+    }
+
+    fun isAutoMelodyNormalizeEnabled(): Boolean = isAutoMelodyNormalizeEnabled
 
     fun setMelodyVolume(percent: Int) {
         melodyPercent = percent.coerceIn(0, 100)

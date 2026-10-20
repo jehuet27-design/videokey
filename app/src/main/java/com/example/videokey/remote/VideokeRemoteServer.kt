@@ -256,6 +256,10 @@ class VideokeRemoteServer(
                     val enabled = params["enabled"]?.toBooleanStrictOrNull()
                     if (enabled != null) viewModel.setAutoVolumeEnabled(enabled) else viewModel.toggleAutoVolume()
                 }
+                "toggle_auto_melody_normalize" -> {
+                    val enabled = params["enabled"]?.toBooleanStrictOrNull()
+                    if (enabled != null) viewModel.setAutoMelodyNormalizeEnabled(enabled) else viewModel.toggleAutoMelodyNormalize()
+                }
                 "tv" -> viewModel.toggleTvMode()
                 "soundfont" -> {
                     val sf = params["name"] ?: params["font"] ?: ""
@@ -360,6 +364,7 @@ class VideokeRemoteServer(
             put("reverbPercent", state.reverbPercent)
             put("micEchoPercent", state.micEchoPercent)
             put("isAutoVolumeEnabled", state.isAutoVolumeEnabled)
+            put("isAutoMelodyNormalizeEnabled", state.isAutoMelodyNormalizeEnabled)
             put("isMicScoringEnabled", state.isMicScoringEnabled)
             put("isScoringSoundEnabled", state.isScoringSoundEnabled)
             put("isKeypadVoiceEnabled", state.isKeypadVoiceEnabled)
@@ -1041,6 +1046,17 @@ class VideokeRemoteServer(
               <span class="slider-track"></span>
             </label>
           </div>
+
+          <div class="setting-item-row" style="background: rgba(16, 185, 129, 0.12); border: 1px solid #10B981; border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+            <div>
+              <div class="setting-label" style="color: #34D399;">🎤 Auto-Normalize Melody Voice</div>
+              <div class="setting-sub">Hindi sobrang lakas at hindi sobrang hina ang guide melody</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleAutoMelodyNormalize" onchange="sendToggle('toggle_auto_melody_normalize', this.checked)">
+              <span class="slider-track"></span>
+            </label>
+          </div>
           
           <div class="setting-item-row">
             <div>
@@ -1509,6 +1525,7 @@ class VideokeRemoteServer(
 
       // Settings Switches
       if (document.getElementById('toggleAutoVolume')) document.getElementById('toggleAutoVolume').checked = !!state.isAutoVolumeEnabled;
+      if (document.getElementById('toggleAutoMelodyNormalize')) document.getElementById('toggleAutoMelodyNormalize').checked = !!state.isAutoMelodyNormalizeEnabled;
       if (document.getElementById('toggleMicScoring')) document.getElementById('toggleMicScoring').checked = !!state.isMicScoringEnabled;
       if (document.getElementById('toggleScoringSound')) document.getElementById('toggleScoringSound').checked = !!state.isScoringSoundEnabled;
       if (document.getElementById('toggleKeypadVoice')) document.getElementById('toggleKeypadVoice').checked = !!state.isKeypadVoiceEnabled;

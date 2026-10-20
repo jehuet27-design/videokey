@@ -108,6 +108,7 @@ object MidiMelodyScaler {
         val drumChannels: Set<Int>,
         val channelPrograms: IntArray,
         val channelNoteCounts: IntArray,
+        val channelAvgVelocities: IntArray = IntArray(16) { 80 },
         val detectedBpm: Int = 120,
         val detectedMixStyle: SongMixStyle = SongMixStyle.STANDARD_POP
     ) {
@@ -323,6 +324,7 @@ object MidiMelodyScaler {
         // Pass 2: Correlate Note-On events with lyric ticks & track Program Changes per channel
         val activeProgPerChan = IntArray(16) { 0 }
         val channelPitchSums = LongArray(16)
+        val channelVelocitySums = LongArray(16)
         checkPos = 14
         tIdx = 0
         while (checkPos + 8 <= len) {
@@ -366,6 +368,7 @@ object MidiMelodyScaler {
                             if (vel > 0) {
                                 noteCounts[channel]++
                                 channelPitchSums[channel] += note.toLong()
+                                channelVelocitySums[channel] += vel.toLong()
                                 trackChannelsUsed.getOrPut(tIdx) { HashSet() }.add(channel)
                                 val curProg = activeProgPerChan[channel].coerceIn(0, 127)
                                 programNoteWeights[channel][curProg]++
@@ -531,6 +534,11 @@ object MidiMelodyScaler {
             else -> SongMixStyle.STANDARD_POP
         }
 
+        val avgVelocities = IntArray(16) { ch ->
+            val c = noteCounts[ch]
+            if (c > 0) (channelVelocitySums[ch] / c).toInt().coerceIn(1, 127) else 80
+        }
+
         return MidiAnalysis(
             numTracks = totalTracks,
             melodyTracks = namedMelodyTracks,
@@ -539,6 +547,7 @@ object MidiMelodyScaler {
             drumChannels = drumChannels,
             channelPrograms = defaultPrograms,
             channelNoteCounts = noteCounts,
+            channelAvgVelocities = avgVelocities,
             detectedBpm = finalBpm,
             detectedMixStyle = detectedStyle
         )

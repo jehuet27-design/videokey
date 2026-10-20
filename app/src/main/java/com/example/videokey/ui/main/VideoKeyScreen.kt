@@ -698,6 +698,8 @@ fun VideoKeyScreen(
 
                 onToggleAutoVolume = { viewModel.toggleAutoVolume(it) },
 
+                onToggleAutoMelodyNormalize = { viewModel.toggleAutoMelodyNormalize(it) },
+
                 onAdjustKey = { viewModel.adjustKey(it) },
 
                 onAdjustTempo = { viewModel.adjustTempo(it) },
@@ -6344,6 +6346,8 @@ fun AudioMixerDialog(
 
     onToggleAutoVolume: (Boolean) -> Unit = {},
 
+    onToggleAutoMelodyNormalize: (Boolean) -> Unit = {},
+
     onAdjustKey: (Int) -> Unit,
 
     onAdjustTempo: (Int) -> Unit,
@@ -6858,6 +6862,84 @@ fun AudioMixerDialog(
                     Switch(
                         checked = state.isAutoVolumeEnabled,
                         onCheckedChange = { onToggleAutoVolume(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(state.appTheme.primaryColor),
+                            checkedTrackColor = Color(state.appTheme.primaryColor).copy(alpha = 0.4f),
+                            uncheckedThumbColor = Color.Gray,
+                            uncheckedTrackColor = Color(0xFF1E293B)
+                        ),
+                        modifier = Modifier.scale(0.75f)
+                    )
+                }
+
+                // Auto-Normalize Melody Voice Row (Guide Melody AGC)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (state.isAutoMelodyNormalizeEnabled) Color(state.appTheme.primaryColor).copy(alpha = 0.14f)
+                            else uniformBtnBg
+                        )
+                        .border(
+                            1.dp,
+                            if (state.isAutoMelodyNormalizeEnabled) Color(state.appTheme.primaryColor)
+                            else uniformBtnBorder,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(
+                                text = "🎤 AUTO-NORMALIZE MELODY (GUIDE BOSES):",
+                                fontSize = 10.sp,
+                                fontFamily = CleanFont,
+                                color = Color(state.appTheme.primaryColor),
+                                fontWeight = FontWeight.Black
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (state.isAutoMelodyNormalizeEnabled) Color(0xFF10B981).copy(alpha = 0.22f) else Color(state.appTheme.buttonBorderColor)
+                            ) {
+                                Text(
+                                    text = if (state.isAutoMelodyNormalizeEnabled) {
+                                        if (isTagalog) "✓ BALANSE (ACTIVE)" else "✓ BALANCED"
+                                    } else {
+                                        "OFF"
+                                    },
+                                    fontSize = 8.5.sp,
+                                    fontFamily = CleanFont,
+                                    color = if (state.isAutoMelodyNormalizeEnabled) Color(0xFF10B981) else Color(state.appTheme.textColor),
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (state.isAutoMelodyNormalizeEnabled) {
+                                if (isTagalog) "Awtomatikong binabalanse ang tono/melody ng boses upang hindi sobrang lakas at hindi mahina."
+                                else "Automatically normalizes guide melody voice to prevent harsh spikes or quiet notes."
+                            } else {
+                                if (isTagalog) "Naka-off. Ang lakas ng melody ay batay sa orihinal na bilis at lakas ng MIDI."
+                                else "Off. Melody volume follows raw MIDI note velocities and mix."
+                            },
+                            fontSize = 8.sp,
+                            fontFamily = CleanFont,
+                            color = Color(state.appTheme.textMutedColor),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Switch(
+                        checked = state.isAutoMelodyNormalizeEnabled,
+                        onCheckedChange = { onToggleAutoMelodyNormalize(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color(state.appTheme.primaryColor),
                             checkedTrackColor = Color(state.appTheme.primaryColor).copy(alpha = 0.4f),
