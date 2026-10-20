@@ -2166,6 +2166,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun checkAndAutoDetectFiles(triggerAutoDownloadIfMissing: Boolean = true) {
         viewModelScope.launch(Dispatchers.IO) {
+            // Auto remove legacy or dummy files (e.g. obsolete songhub.sf2, corrupt <50MB packs, stubs)
+            contentDownloadManager.cleanLegacyOrDummyFiles()
+
             // 1. Resolve storage directories if accessible
             val vkRoot = when {
                 File("/storage/emulated/0/VideoKey").exists() -> File("/storage/emulated/0/VideoKey")

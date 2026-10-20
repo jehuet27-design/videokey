@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -290,7 +291,11 @@ class ContentDownloadManager(private val context: Context) {
         )
         for (dir in sfDirs) {
             try {
-                if (dir.exists() && (dir.listFiles()?.any { it.name.endsWith(".sf2", ignoreCase = true) && it.length() > 100 * 1024L } == true)) {
+                if (dir.exists() && (dir.listFiles()?.any {
+                    it.name.endsWith(".sf2", ignoreCase = true) &&
+                    !it.name.equals("songhub.sf2", ignoreCase = true) &&
+                    it.length() > 100 * 1024L
+                } == true)) {
                     return true
                 }
             } catch (_: Exception) {}
@@ -329,7 +334,96 @@ class ContentDownloadManager(private val context: Context) {
     }
 
     /**
-     * Starts downloading the selected content item.
+     * Cleans up legacy dummy files, obsolete soundfonts (like songhub.sf2), and corrupted/incomplete downloads.
+     */
+    fun cleanLegacyOrDummyFiles() {
+        try {
+            val baseDirs = listOf(
+                getBaseStorageDir(),
+                File("/storage/emulated/0/VideoKey"),
+                File("/sdcard/VideoKey"),
+                File(context.getExternalFilesDir(null), "VideoKey"),
+                File(context.filesDir, "VideoKey"),
+                File("/storage/emulated/0/SongHub"),
+                File("/sdcard/SongHub")
+            )
+            for (base in baseDirs) {
+                if (!base.exists()) continue
+
+                // 1. Remove obsolete songhub.sf2
+                val obsoleteSf2Names = listOf("songhub.sf2", "SongHub.sf2", "SONGHUB.SF2")
+                val sfDirs = listOf(File(base, "SoundFont"), File(base, "soundfonts"), base)
+                for (d in sfDirs) {
+                    if (d.exists()) {
+                        for (sfName in obsoleteSf2Names) {
+                            val f = File(d, sfName)
+                            if (f.exists()) {
+                                Log.i("ContentDownloadManager", "Removing obsolete SoundFont: ${f.absolutePath}")
+                                f.delete()
+                            }
+                        }
+                    }
+                }
+
+                // 2. Remove corrupted or incomplete .vkpack files (< 50MB) that are not .part files
+                val songDirs = listOf(base, File(base, "songs"))
+                for (d in songDirs) {
+                    if (d.exists()) {
+                        d.listFiles()?.forEach { file ->
+                            if (file.isFile && file.name.endsWith(".vkpack", ignoreCase = true)) {
+                                if (file.length() < 50 * 1024 * 1024L) {
+                                    Log.i("ContentDownloadManager", "Removing dummy/incomplete vkpack: ${file.absolutePath} (${file.length()} bytes)")
+                                    file.delete()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Remove 0-byte or corrupted .sf2 files (< 100KB)
+                for (d in sfDirs) {
+                    if (d.exists()) {
+                        d.listFiles()?.forEach { file ->
+                            if (file.isFile && file.name.endsWith(".sf2", ignoreCase = true)) {
+                                if (file.length() < 100 * 1024L) {
+                                    Log.i("ContentDownloadManager", "Removing corrupt/dummy sf2: ${file.absolutePath} (${file.length()} bytes)")
+                                    file.delete()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 4. Remove 0-byte or corrupted video files (< 1MB)
+                val bgDirs = listOf(File(base, "backgrounds"), File(base, "videos"), base)
+                for (d in bgDirs) {
+                    if (d.exists()) {
+                        d.listFiles()?.forEach { file ->
+                            if (file.isFile && (file.name.endsWith(".mp4", ignoreCase = true) || file.name.endsWith(".mkv", ignoreCase = true))) {
+                                if (file.length() < 1024 * 1024L) {
+                                    Log.i("ContentDownloadManager", "Removing corrupt/dummy video: ${file.absolutePath} (${file.length()} bytes)")
+                                    file.delete()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 5. Clean stale temporary zip cache files
+            context.cacheDir?.listFiles()?.forEach { file ->
+                if (file.isFile && (file.name.endsWith("_temp.zip") || file.name.endsWith(".tmp"))) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ContentDownloadManager", "Error in cleanLegacyOrDummyFiles", e)
+        }
+    }
+
+    /**
+     * Starts or resumes downloading the selected content item with HTTP Range support.
+     * Interrupted downloads will resume where they left off instead of restarting from 0%.
      */
     fun downloadItem(item: DownloadItem, onFinish: (Boolean) -> Unit = {}) {
         currentDownloadJob?.cancel()
@@ -357,43 +451,94 @@ class ContentDownloadManager(private val context: Context) {
                     parentFile?.mkdirs()
                 }
             }
+            val partFile = File(destFile.parentFile ?: context.cacheDir, "${destFile.name}.part")
 
             try {
-                val url = URL(item.downloadUrl)
-                val conn = (url.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 15000
-                    readTimeout = 20000
-                    instanceFollowRedirects = true
-                    setRequestProperty("User-Agent", "VideoKey-Android-App/1.0")
-                }
+                var existingBytes = if (partFile.exists()) partFile.length() else 0L
 
-                // Handle HTTP redirects (GitHub releases redirect to AWS S3/objects)
-                var redirectCode = conn.responseCode
-                var currentConn = conn
-                var redirectCount = 0
-                while ((redirectCode == HttpURLConnection.HTTP_MOVED_TEMP ||
-                        redirectCode == HttpURLConnection.HTTP_MOVED_PERM ||
-                        redirectCode == 307 || redirectCode == 308) && redirectCount < 5
-                ) {
-                    val newUrl = currentConn.getHeaderField("Location")
-                    currentConn.disconnect()
-                    currentConn = (URL(newUrl).openConnection() as HttpURLConnection).apply {
+                fun openConnection(rangeStart: Long): HttpURLConnection {
+                    var u = URL(item.downloadUrl)
+                    var c = (u.openConnection() as HttpURLConnection).apply {
                         connectTimeout = 15000
                         readTimeout = 20000
+                        instanceFollowRedirects = true
                         setRequestProperty("User-Agent", "VideoKey-Android-App/1.0")
+                        if (rangeStart > 0) {
+                            setRequestProperty("Range", "bytes=$rangeStart-")
+                        }
                     }
-                    redirectCode = currentConn.responseCode
-                    redirectCount++
+                    var code = c.responseCode
+                    var count = 0
+                    while ((code == HttpURLConnection.HTTP_MOVED_TEMP ||
+                            code == HttpURLConnection.HTTP_MOVED_PERM ||
+                            code == 307 || code == 308) && count < 5) {
+                        val loc = c.getHeaderField("Location") ?: break
+                        c.disconnect()
+                        u = URL(loc)
+                        c = (u.openConnection() as HttpURLConnection).apply {
+                            connectTimeout = 15000
+                            readTimeout = 20000
+                            setRequestProperty("User-Agent", "VideoKey-Android-App/1.0")
+                            if (rangeStart > 0) {
+                                setRequestProperty("Range", "bytes=$rangeStart-")
+                            }
+                        }
+                        code = c.responseCode
+                        count++
+                    }
+                    return c
                 }
 
-                val contentLength = currentConn.contentLength.toLong()
-                var downloaded = 0L
+                var currentConn = openConnection(existingBytes)
+                var responseCode = currentConn.responseCode
+
+                // 416 Requested Range Not Satisfiable (e.g. file already completed or altered)
+                if (responseCode == 416) {
+                    partFile.delete()
+                    existingBytes = 0L
+                    currentConn.disconnect()
+                    currentConn = openConnection(0L)
+                    responseCode = currentConn.responseCode
+                }
+
+                val isPartial = (responseCode == HttpURLConnection.HTTP_PARTIAL)
+                val isOk = (responseCode == HttpURLConnection.HTTP_OK)
+
+                if (!isPartial && !isOk) {
+                    throw IOException("HTTP error $responseCode: ${currentConn.responseMessage}")
+                }
+
+                val append = isPartial && existingBytes > 0
+                if (!append) {
+                    existingBytes = 0L
+                }
+
+                val totalBytes = if (isPartial) {
+                    val contentRange = currentConn.getHeaderField("Content-Range")
+                    val totalFromHeader = contentRange?.substringAfterLast('/')?.toLongOrNull()
+                    totalFromHeader ?: (existingBytes + currentConn.contentLength.toLong())
+                } else {
+                    currentConn.contentLength.toLong()
+                }
+
+                var downloaded = existingBytes
                 var lastProgressUpdate = 0L
                 var lastNotificationUpdate = 0L
 
+                // Show resumed progress immediately
+                if (downloaded > 0 && totalBytes > 0) {
+                    val initialPercent = ((downloaded * 100) / totalBytes).toInt().coerceIn(0, 99)
+                    _downloadStatus.value = DownloadStatus.Downloading(
+                        itemId = item.id,
+                        percent = initialPercent,
+                        downloadedBytes = downloaded,
+                        totalBytes = totalBytes
+                    )
+                }
+
                 currentConn.inputStream.use { input ->
-                    FileOutputStream(destFile).use { output ->
-                        val buffer = ByteArray(32768)
+                    FileOutputStream(partFile, append).use { output ->
+                        val buffer = ByteArray(65536)
                         var bytesRead: Int
                         while (input.read(buffer).also { bytesRead = it } != -1) {
                             ensureActive()
@@ -403,20 +548,20 @@ class ContentDownloadManager(private val context: Context) {
                             val now = System.currentTimeMillis()
                             if (now - lastProgressUpdate > 150) {
                                 lastProgressUpdate = now
-                                val percent = if (contentLength > 0) {
-                                    ((downloaded * 100) / contentLength).toInt().coerceIn(0, 99)
+                                val percent = if (totalBytes > 0) {
+                                    ((downloaded * 100) / totalBytes).toInt().coerceIn(0, 99)
                                 } else 0
                                 _downloadStatus.value = DownloadStatus.Downloading(
                                     itemId = item.id,
                                     percent = percent,
                                     downloadedBytes = downloaded,
-                                    totalBytes = contentLength
+                                    totalBytes = totalBytes
                                 )
 
                                 if (now - lastNotificationUpdate > 1000) {
                                     lastNotificationUpdate = now
                                     val mbDl = downloaded / (1024f * 1024f)
-                                    val mbTot = contentLength / (1024f * 1024f)
+                                    val mbTot = totalBytes / (1024f * 1024f)
                                     val text = "${String.format("%.1f", mbDl)} MB / ${String.format("%.1f", mbTot)} MB ($percent%)"
                                     updateNotification("Dina-download: ${item.title}", text, percent, ongoing = true)
                                 }
@@ -426,6 +571,19 @@ class ContentDownloadManager(private val context: Context) {
                     }
                 }
                 currentConn.disconnect()
+
+                // Finished downloading full stream. Atomically rename partFile to destFile
+                if (destFile.exists()) {
+                    destFile.delete()
+                }
+                if (!partFile.renameTo(destFile)) {
+                    partFile.inputStream().use { src ->
+                        destFile.outputStream().use { dst ->
+                            src.copyTo(dst)
+                        }
+                    }
+                    partFile.delete()
+                }
 
                 // If ZIP file, extract automatically to target directory
                 if (item.isZip) {
@@ -447,21 +605,21 @@ class ContentDownloadManager(private val context: Context) {
                     onFinish(true)
                 }
             } catch (e: CancellationException) {
-                Log.d("ContentDownloadManager", "Download cancelled: ${item.id}")
-                destFile.delete()
+                Log.d("ContentDownloadManager", "Download paused/cancelled: ${item.id}")
+                // Keep partFile for auto-resume! DO NOT delete partFile!
                 _downloadStatus.value = DownloadStatus.Idle
                 cancelNotification()
                 withContext(Dispatchers.Main) {
                     onFinish(false)
                 }
             } catch (e: Exception) {
-                Log.e("ContentDownloadManager", "Download failed for ${item.id}", e)
-                destFile.delete()
+                Log.e("ContentDownloadManager", "Download interrupted for ${item.id}", e)
+                // Keep partFile for auto-resume! DO NOT delete partFile!
                 _downloadStatus.value = DownloadStatus.Error(
                     itemId = item.id,
-                    errorMessage = "Hindi natapos ang download: ${e.message ?: "Walang koneksyon"}"
+                    errorMessage = "Naantala ang download (naka-save ang progreso): ${e.message ?: "Koneksyon naputol"}"
                 )
-                updateNotification("✕ Hindi natapos ang download", item.title, ongoing = false)
+                updateNotification("✕ Naantala ang download", "I-tap para i-resume", ongoing = false)
                 withContext(Dispatchers.Main) {
                     onFinish(false)
                 }
