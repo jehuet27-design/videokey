@@ -196,6 +196,9 @@ class VideokeRemoteServer(
                     val active = params["active"]?.toBooleanStrictOrNull() ?: false
                     viewModel.setVipActivated(active)
                 }
+                "open_admin_key_gen" -> {
+                    viewModel.openAdminKeyGenerator()
+                }
                 "reserve_code" -> {
                     val code = params["code"]
                     if (!code.isNullOrBlank()) {

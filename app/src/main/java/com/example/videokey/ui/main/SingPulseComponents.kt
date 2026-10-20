@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -177,6 +178,7 @@ fun SingPulseHomeScreen(
     onEnterTvMode: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenEditName: () -> Unit = onOpenProfile,
+    onOpenAdminKeyGenerator: () -> Unit = {},
     onOpenYouTubeDownloader: (String?) -> Unit = {},
     onOpenDownloadCenter: () -> Unit = {},
     onSpeakDigit: ((Char) -> Unit)? = null,
@@ -201,6 +203,27 @@ fun SingPulseHomeScreen(
         Pair("Medley", "🎶 Medley")
     )
 
+    val coroutineScope = rememberCoroutineScope()
+    var headerTapCount by remember { mutableStateOf(0) }
+    var headerTapJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    val onHeaderTapped: () -> Unit = {
+        headerTapCount++
+        headerTapJob?.cancel()
+        if (headerTapCount >= 10) {
+            headerTapCount = 0
+            onOpenAdminKeyGenerator()
+        } else {
+            headerTapJob = coroutineScope.launch {
+                kotlinx.coroutines.delay(450)
+                if (headerTapCount == 1) {
+                    onOpenEditName()
+                }
+                headerTapCount = 0
+            }
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -215,7 +238,7 @@ fun SingPulseHomeScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
-                modifier = Modifier.clickable { onOpenEditName() }
+                modifier = Modifier.clickable { onHeaderTapped() }
             ) {
                 Text(
                     text = if (isTagalog) "Maligayang pagbabalik," else "Welcome back,",
@@ -907,6 +930,7 @@ fun SingPulseProfileScreen(
     onToggleRecording: () -> Unit,
     onSelectLanguage: (AppLanguage) -> Unit = {},
     onOpenEditName: () -> Unit = {},
+    onOpenAdminKeyGenerator: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val theme = state.appTheme
@@ -919,6 +943,27 @@ fun SingPulseProfileScreen(
     val textColor = Color(theme.textColor)
     val textMutedColor = Color(theme.textMutedColor)
     val buttonBgColor = Color(theme.buttonBgColor)
+
+    val coroutineScope = rememberCoroutineScope()
+    var profileTapCount by remember { mutableStateOf(0) }
+    var profileTapJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    val onProfileNameTapped: () -> Unit = {
+        profileTapCount++
+        profileTapJob?.cancel()
+        if (profileTapCount >= 10) {
+            profileTapCount = 0
+            onOpenAdminKeyGenerator()
+        } else {
+            profileTapJob = coroutineScope.launch {
+                kotlinx.coroutines.delay(450)
+                if (profileTapCount == 1) {
+                    onOpenEditName()
+                }
+                profileTapCount = 0
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -947,7 +992,7 @@ fun SingPulseProfileScreen(
                         .size(64.dp)
                         .clip(CircleShape)
                         .background(Brush.linearGradient(listOf(primaryColor, secondaryColor)))
-                        .clickable { onOpenEditName() }
+                        .clickable { onProfileNameTapped() }
                         .padding(2.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -967,7 +1012,7 @@ fun SingPulseProfileScreen(
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable { onOpenEditName() }
+                        .clickable { onProfileNameTapped() }
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(text = state.userName, color = textColor, fontWeight = FontWeight.Bold, fontSize = 17.sp)

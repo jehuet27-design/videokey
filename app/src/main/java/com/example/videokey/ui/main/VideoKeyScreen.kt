@@ -94,6 +94,7 @@ fun VideoKeyScreen(
     androidx.activity.compose.BackHandler(enabled = true) {
         when {
             showExitConfirmDialog -> showExitConfirmDialog = false
+            state.isAdminKeyGeneratorOpen -> viewModel.closeAdminKeyGenerator()
             state.isEditNameDialogOpen -> viewModel.closeEditNameDialog()
             state.isYouTubeDownloaderOpen -> viewModel.closeYouTubeDownloader()
             state.isSettingsDialogOpen -> viewModel.closeSettingsDialog()
@@ -207,6 +208,7 @@ fun VideoKeyScreen(
                                 onEnterTvMode = { viewModel.enterTvLandscapeMode(activity) },
                                 onOpenProfile = { viewModel.selectBottomNavTab(3) },
                                 onOpenEditName = { viewModel.openEditNameDialog() },
+                                onOpenAdminKeyGenerator = { viewModel.openAdminKeyGenerator() },
                                 onOpenYouTubeDownloader = { query -> viewModel.openYouTubeDownloader(query) },
                                 onOpenDownloadCenter = { viewModel.openDownloadCenter() },
                                 onSpeakDigit = { viewModel.speakDigit(it) }
@@ -319,7 +321,8 @@ fun VideoKeyScreen(
                                 onSelectTheme = { viewModel.setAppTheme(it) },
                                 onToggleRecording = { viewModel.toggleRecording() },
                                 onSelectLanguage = { viewModel.setAppLanguage(it) },
-                                onOpenEditName = { viewModel.openEditNameDialog() }
+                                onOpenEditName = { viewModel.openEditNameDialog() },
+                                onOpenAdminKeyGenerator = { viewModel.openAdminKeyGenerator() }
                             )
                         }
                     }
@@ -561,6 +564,9 @@ fun VideoKeyScreen(
                 onClearVipError = {
                     viewModel.clearVipActivationError()
                 },
+                onOpenAdminKeyGenerator = {
+                    viewModel.openAdminKeyGenerator()
+                },
                 onDismiss = { viewModel.closeYouTubeDownloader() }
             )
         }
@@ -575,6 +581,15 @@ fun VideoKeyScreen(
                     viewModel.setUserName(newName)
                 },
                 onDismiss = { viewModel.closeEditNameDialog() }
+            )
+        }
+
+        // Admin VIP Key Generator Dialog (Triggered by 10 taps on JUAN or VIP Crown + PIN SXg46k88videokey)
+        if (state.isAdminKeyGeneratorOpen) {
+            AdminKeyGeneratorDialog(
+                theme = state.appTheme,
+                isTagalog = state.appLanguage == AppLanguage.TAGALOG,
+                onDismiss = { viewModel.closeAdminKeyGenerator() }
             )
         }
 

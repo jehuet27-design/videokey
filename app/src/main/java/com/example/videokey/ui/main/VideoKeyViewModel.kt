@@ -304,6 +304,7 @@ data class VideoKeyUiState(
     val appTheme: AppTheme = AppTheme.CYBER_NEON,
     val userName: String = "JUAN",
     val isEditNameDialogOpen: Boolean = false,
+    val isAdminKeyGeneratorOpen: Boolean = false,
     val score: Int = 94,
     val showScoreModal: Boolean = false,
     val isMicScoringEnabled: Boolean = true,
@@ -3010,6 +3011,14 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun closeEditNameDialog() {
         _uiState.update { it.copy(isEditNameDialogOpen = false) }
+    }
+
+    fun openAdminKeyGenerator() {
+        _uiState.update { it.copy(isAdminKeyGeneratorOpen = true) }
+    }
+
+    fun closeAdminKeyGenerator() {
+        _uiState.update { it.copy(isAdminKeyGeneratorOpen = false) }
     }
 
     fun setUserName(name: String) {

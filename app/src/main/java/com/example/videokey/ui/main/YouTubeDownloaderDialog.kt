@@ -51,6 +51,7 @@ fun YouTubeDownloaderDialog(
     onDeleteDownloadedSong: (Song) -> Unit = {},
     onActivateVip: (String) -> Boolean = { false },
     onClearVipError: () -> Unit = {},
+    onOpenAdminKeyGenerator: () -> Unit = {},
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -151,7 +152,8 @@ fun YouTubeDownloaderDialog(
                         theme = theme,
                         isTagalog = isTagalog,
                         onActivate = onActivateVip,
-                        onClearError = onClearVipError
+                        onClearError = onClearVipError,
+                        onOpenAdminKeyGenerator = onOpenAdminKeyGenerator
                     )
                 } else {
                     // 2. Segmented Navigation Tabs (Search vs Downloaded MP4s)
@@ -825,11 +827,28 @@ private fun VipActivationCard(
     theme: AppTheme,
     isTagalog: Boolean,
     onActivate: (String) -> Boolean,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
+    onOpenAdminKeyGenerator: () -> Unit = {}
 ) {
     var enteredKey by remember { mutableStateOf("") }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+
+    var vipTapCount by remember { mutableStateOf(0) }
+    var lastVipTapTime by remember { mutableStateOf(0L) }
+    val onVipCrownTapped = {
+        val now = System.currentTimeMillis()
+        if (now - lastVipTapTime > 2000L) {
+            vipTapCount = 1
+        } else {
+            vipTapCount++
+        }
+        lastVipTapTime = now
+        if (vipTapCount >= 10) {
+            vipTapCount = 0
+            onOpenAdminKeyGenerator()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -839,19 +858,23 @@ private fun VipActivationCard(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // VIP Banner / Lock Icon
+        // VIP Banner / Lock Icon (Tapping 10 times opens secret Admin Key Generator)
         Box(
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
                 .background(Color(0xFFEAB308).copy(alpha = 0.15f))
-                .border(2.dp, Color(0xFFEAB308), CircleShape),
+                .border(2.dp, Color(0xFFEAB308), CircleShape)
+                .clickable { onVipCrownTapped() },
             contentAlignment = Alignment.Center
         ) {
             Text(text = "👑", fontSize = 28.sp)
         }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable { onVipCrownTapped() }
+        ) {
             Text(
                 text = if (isTagalog) "VIP FEATURE ACTIVATION" else "VIP FEATURE ACTIVATION",
                 fontWeight = FontWeight.Black,
