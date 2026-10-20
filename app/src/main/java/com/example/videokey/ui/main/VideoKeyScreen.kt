@@ -169,7 +169,7 @@ fun VideoKeyScreen(
                 onOpenLyricStyleDialog = { viewModel.openLyricStyleDialog() },
                 onOpenAudioMixerDialog = { viewModel.openAudioMixerDialog() },
                 onOpenSettingsDialog = { viewModel.openSettingsDialog() },
-                onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() },
+                onOpenYouTubeDownloader = { query -> viewModel.openYouTubeDownloader(query) },
                 onAdvanceBackground = { viewModel.advanceNextBackground() },
                 onPlay = { viewModel.onPlay() },
                 onNext = { viewModel.onNext() },
@@ -207,7 +207,8 @@ fun VideoKeyScreen(
                                 onEnterTvMode = { viewModel.enterTvLandscapeMode(activity) },
                                 onOpenProfile = { viewModel.selectBottomNavTab(3) },
                                 onOpenEditName = { viewModel.openEditNameDialog() },
-                                onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() },
+                                onOpenYouTubeDownloader = { query -> viewModel.openYouTubeDownloader(query) },
+                                onOpenDownloadCenter = { viewModel.openDownloadCenter() },
                                 onSpeakDigit = { viewModel.speakDigit(it) }
                             )
                         }
@@ -247,7 +248,7 @@ fun VideoKeyScreen(
                                         onOpenLyricStyleDialog = { viewModel.openLyricStyleDialog() },
                                         onOpenAudioMixerDialog = { viewModel.openAudioMixerDialog() },
                                         onOpenSettingsDialog = { viewModel.openSettingsDialog() },
-                                        onOpenYouTubeDownloader = { viewModel.openYouTubeDownloader() },
+                                        onOpenYouTubeDownloader = { query -> viewModel.openYouTubeDownloader(query) },
                                         onAdvanceBackground = { viewModel.advanceNextBackground() },
                                         onPlay = { viewModel.onPlay() },
                                         onNext = { viewModel.onNext() },
@@ -1429,7 +1430,7 @@ fun VideokeTvScreen(
     onOpenLyricStyleDialog: () -> Unit = {},
     onOpenAudioMixerDialog: () -> Unit = {},
     onOpenSettingsDialog: () -> Unit = {},
-    onOpenYouTubeDownloader: () -> Unit = {},
+    onOpenYouTubeDownloader: (String?) -> Unit = {},
     onAdvanceBackground: () -> Unit = {},
     onPlay: () -> Unit = {},
     onNext: () -> Unit = {},
@@ -4791,7 +4792,7 @@ fun SongbookSearchOverlay(
     onSwitchTab: (Int) -> Unit = {},
     onToggleFilter: (Boolean) -> Unit = {},
     onOpenFolderLocator: () -> Unit = {},
-    onOpenYouTubeDownloader: () -> Unit = {},
+    onOpenYouTubeDownloader: (String?) -> Unit = {},
     onQueryChange: (String) -> Unit = {},
     onSelectSong: (Song) -> Unit = {},
     onReserveSong: (Song) -> Unit = {},
@@ -4976,7 +4977,7 @@ fun SongbookSearchOverlay(
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = Color(0xFFE50914),
-                                modifier = Modifier.clickable { onOpenYouTubeDownloader() }
+                                modifier = Modifier.clickable { onOpenYouTubeDownloader(null) }
                             ) {
                                 Text(
                                     text = "▶ YouTube",
@@ -5122,21 +5123,46 @@ fun SongbookSearchOverlay(
                     ) {
                         if (songs.isEmpty()) {
                             item {
-                                Box(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 16.dp),
-                                    contentAlignment = Alignment.Center
+                                        .padding(vertical = 16.dp, horizontal = 10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
                                         text = if (isScanning)
                                             (if (isTagalog) "Nag-i-scan ng mga kanta..." else "Scanning songs...")
+                                        else if (searchQuery.isNotBlank())
+                                            (if (isTagalog) "Walang nahanap na kanta para sa \"$searchQuery\"." else "No matching songs found for \"$searchQuery\".")
                                         else
                                             (if (isTagalog) "Walang nahanap na kanta." else "No matching songs found."),
-                                        color = Color.Gray,
-                                        fontSize = 11.sp,
+                                        color = Color.LightGray,
+                                        fontSize = 11.5.sp,
                                         textAlign = TextAlign.Center
                                     )
+                                    if (searchQuery.isNotBlank() && !isScanning) {
+                                        Surface(
+                                            onClick = { onOpenYouTubeDownloader(searchQuery) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color(0xFFE53935),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text("▶", fontSize = 11.sp, color = Color.White)
+                                                Text(
+                                                    text = if (isTagalog) "I-DOWNLOAD SA YOUTUBE / MP4" else "DOWNLOAD VIA YOUTUBE / MP4",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

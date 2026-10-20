@@ -184,6 +184,14 @@ class VideokeRemoteServer(
                         viewModel.selectSong(song)
                     }
                 }
+                "search" -> {
+                    val q = params["q"] ?: params["query"] ?: ""
+                    viewModel.searchSongbook(q)
+                }
+                "open_downloader" -> {
+                    val q = params["q"] ?: params["query"]
+                    viewModel.openYouTubeDownloader(q)
+                }
                 "reserve_code" -> {
                     val code = params["code"]
                     if (!code.isNullOrBlank()) {

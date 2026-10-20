@@ -58,6 +58,12 @@ fun YouTubeDownloaderDialog(
     var selectedTab by remember { mutableStateOf(0) } // 0 = YouTube Search, 1 = Downloaded MP4s
     var songToDelete by remember { mutableStateOf<Song?>(null) }
 
+    LaunchedEffect(state.youTubeSearchQuery) {
+        if (state.youTubeSearchQuery.isNotBlank() && searchQuery != state.youTubeSearchQuery) {
+            searchQuery = state.youTubeSearchQuery
+        }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)

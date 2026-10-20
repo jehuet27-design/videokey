@@ -6,6 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -174,7 +177,8 @@ fun SingPulseHomeScreen(
     onEnterTvMode: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenEditName: () -> Unit = onOpenProfile,
-    onOpenYouTubeDownloader: () -> Unit = {},
+    onOpenYouTubeDownloader: (String?) -> Unit = {},
+    onOpenDownloadCenter: () -> Unit = {},
     onSpeakDigit: ((Char) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -235,7 +239,7 @@ fun SingPulseHomeScreen(
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = Color(0xFFDC2626),
-                    modifier = Modifier.clickable { onOpenYouTubeDownloader() }
+                    modifier = Modifier.clickable { onOpenYouTubeDownloader(null) }
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -328,6 +332,14 @@ fun SingPulseHomeScreen(
             },
             singleLine = true,
             shape = RoundedCornerShape(16.dp),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(
+                onSearch = {
+                    if (state.songbookQuery.isNotBlank() && state.searchResults.isEmpty()) {
+                        onOpenYouTubeDownloader(state.songbookQuery)
+                    }
+                }
+            ),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = cardBg,
                 unfocusedContainerColor = cardBg,
@@ -487,6 +499,104 @@ fun SingPulseHomeScreen(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
+            if (state.songbookQuery.isNotBlank() && displaySongs.isEmpty()) {
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = cardBg),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFEF4444).copy(alpha = 0.7f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFEF4444).copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("📥", fontSize = 24.sp)
+                            }
+
+                            Text(
+                                text = if (isTagalog) "Walang Nahanap na Kanta" else "No Song Files Found",
+                                color = textColor,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp,
+                                fontFamily = cleanFont
+                            )
+
+                            Text(
+                                text = if (isTagalog)
+                                    "Walang nadetect na lokal na file para sa \"${state.songbookQuery}\". Awtomatikong handa ang downloader para hanapin at i-download ito nang libre!"
+                                else
+                                    "No local file detected for \"${state.songbookQuery}\". Downloader is ready to search and download it for free!",
+                                color = textMutedColor,
+                                fontSize = 12.sp,
+                                fontFamily = cleanFont,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Button(
+                                onClick = { onOpenYouTubeDownloader(state.songbookQuery) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text("▶", fontSize = 13.sp, color = Color.White)
+                                    Text(
+                                        text = if (isTagalog) "I-DOWNLOAD SA YOUTUBE / MP4" else "DOWNLOAD VIA YOUTUBE / MP4",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        fontFamily = cleanFont
+                                    )
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = onOpenDownloadCenter,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, primaryColor),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text("📦", fontSize = 13.sp)
+                                    Text(
+                                        text = if (isTagalog) "BUKSAN ANG DOWNLOAD CENTER (FULL PACK)" else "OPEN DOWNLOAD CENTER (FULL PACK)",
+                                        color = primaryColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp,
+                                        fontFamily = cleanFont
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             items(displaySongs.take(60)) { song ->
                 Row(
                     modifier = Modifier

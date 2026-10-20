@@ -2343,9 +2343,18 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun openYouTubeDownloader() {
+    fun openYouTubeDownloader(prefilledQuery: String? = null) {
         refreshDownloadedMp4Songs()
-        _uiState.update { it.copy(isYouTubeDownloaderOpen = true) }
+        val cleanQuery = prefilledQuery?.trim().orEmpty()
+        _uiState.update {
+            it.copy(
+                isYouTubeDownloaderOpen = true,
+                youTubeSearchQuery = if (cleanQuery.isNotEmpty()) cleanQuery else it.youTubeSearchQuery
+            )
+        }
+        if (cleanQuery.isNotEmpty()) {
+            searchYouTube(cleanQuery)
+        }
     }
 
     fun closeYouTubeDownloader() {
