@@ -6496,303 +6496,163 @@ fun AudioMixerDialog(
 
 
 
-                // Active SoundFont Quick Bar + Reset Button
-
+                                // Active SoundFont Quick Bar + Reset Button
                 Row(
-
                     modifier = Modifier
-
                         .fillMaxWidth()
-
                         .clip(RoundedCornerShape(8.dp))
-
                         .background(Color(state.appTheme.buttonBgColor))
-
                         .border(1.dp, uniformBtnBorder, RoundedCornerShape(8.dp))
-
                         .padding(horizontal = 8.dp, vertical = 5.dp),
-
                     horizontalArrangement = Arrangement.SpaceBetween,
-
                     verticalAlignment = Alignment.CenterVertically
-
                 ) {
-
                     Row(
-
                         modifier = Modifier.weight(1f).padding(end = 6.dp),
-
                         verticalAlignment = Alignment.CenterVertically,
-
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
-
                     ) {
-
                         Text(
-
                             text = "🎛️ SF2:",
-
                             fontSize = 10.sp,
-
                             fontFamily = CleanFont,
-
                             color = Color(state.appTheme.primaryColor),
-
                             fontWeight = FontWeight.Black
-
                         )
-
                         Text(
-
                             text = state.activeSoundFontName,
-
-                            fontSize = 10.5.sp,
-
+                            fontSize = 10.sp,
                             fontFamily = CleanFont,
-
                             color = Color(state.appTheme.textColor),
-
                             fontWeight = FontWeight.Bold,
-
                             maxLines = 1,
-
                             overflow = TextOverflow.Ellipsis
-
                         )
-
                     }
-
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-
                         Surface(
-
                             shape = RoundedCornerShape(6.dp),
-
                             color = uniformBtnBg,
-
                             border = androidx.compose.foundation.BorderStroke(1.dp, uniformBtnBorder),
-
                             modifier = Modifier
-
                                 .height(26.dp)
-
                                 .clickable { onOpenSoundFontDialog() }
-
                         ) {
-
                             Box(modifier = Modifier.padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
-
                                 Text(
-
-                                    text = if (isTagalog) "Palitan SF2" else "Change SF2",
-
+                                    text = if (isTagalog) "Palitan" else "Change",
                                     color = Color(state.appTheme.textColor),
-
                                     fontFamily = CleanFont,
-
                                     fontSize = 9.5.sp,
-
-                                    fontWeight = FontWeight.Bold
-
+                                    fontWeight = FontWeight.Bold,
+                                    softWrap = false,
+                                    maxLines = 1
                                 )
-
                             }
-
                         }
-
                         Surface(
-
                             shape = RoundedCornerShape(6.dp),
-
                             color = uniformBtnBg,
-
                             border = androidx.compose.foundation.BorderStroke(1.dp, uniformBtnBorder),
-
                             modifier = Modifier
-
                                 .height(26.dp)
-
                                 .clickable { onResetMixer() }
-
                         ) {
-
                             Box(modifier = Modifier.padding(horizontal = 7.dp), contentAlignment = Alignment.Center) {
-
                                 Text(
-
-                                    text = if (isTagalog) "🔄 Reset" else "🔄 Reset",
-
+                                    text = "🔄 Reset",
                                     color = Color(state.appTheme.textColor),
-
                                     fontFamily = CleanFont,
-
                                     fontSize = 9.5.sp,
-
-                                    fontWeight = FontWeight.Bold
-
+                                    fontWeight = FontWeight.Bold,
+                                    softWrap = false,
+                                    maxLines = 1
                                 )
-
                             }
-
                         }
-
                     }
-
                 }
-
-
 
                 // Smart Auto-Mixer Row
-
                 Row(
-
                     modifier = Modifier
-
                         .fillMaxWidth()
-
                         .clip(RoundedCornerShape(8.dp))
-
                         .background(
-
                             if (state.isAutoMixerEnabled) Color(state.appTheme.primaryColor).copy(alpha = 0.14f)
-
                             else uniformBtnBg
-
                         )
-
                         .border(
-
                             1.dp,
-
                             if (state.isAutoMixerEnabled) Color(state.appTheme.primaryColor)
-
                             else uniformBtnBorder,
-
                             RoundedCornerShape(8.dp)
-
                         )
-
                         .padding(horizontal = 8.dp, vertical = 5.dp),
-
                     horizontalArrangement = Arrangement.SpaceBetween,
-
                     verticalAlignment = Alignment.CenterVertically
-
                 ) {
-
-                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
-
+                    Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
                         Row(
-
                             verticalAlignment = Alignment.CenterVertically,
-
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-
                             Text(
-
-                                text = "🤖 SMART AUTO-MIX:",
-
+                                text = "🤖 SMART AUTO-MIX",
                                 fontSize = 10.sp,
-
                                 fontFamily = CleanFont,
-
                                 color = Color(state.appTheme.primaryColor),
-
-                                fontWeight = FontWeight.Black
-
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.weight(1f, fill = false),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-
                             Surface(
-
                                 shape = RoundedCornerShape(4.dp),
-
                                 color = if (state.isAutoMixerEnabled) Color(state.appTheme.primaryColor).copy(alpha = 0.22f) else Color(state.appTheme.buttonBorderColor)
-
                             ) {
-
                                 Text(
-
                                     text = if (state.isAutoMixerEnabled) {
-
-                                        "${state.activeMixStyle.emoji} ${if (isTagalog) state.activeMixStyle.labelTagalog else state.activeMixStyle.labelEnglish}"
-
+                                        "${state.activeMixStyle.emoji} " + (if (isTagalog) state.activeMixStyle.labelTagalog else state.activeMixStyle.labelEnglish)
                                     } else {
-
-                                        if (isTagalog) "MANUAL (OFF)" else "MANUAL (OFF)"
-
+                                        "MANUAL (OFF)"
                                     },
-
                                     fontSize = 8.5.sp,
-
                                     fontFamily = CleanFont,
-
                                     color = if (state.isAutoMixerEnabled) Color(state.appTheme.primaryColor) else Color(state.appTheme.textColor),
-
                                     fontWeight = FontWeight.Black,
-
+                                    softWrap = false,
+                                    maxLines = 1,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-
                                 )
-
                             }
-
                         }
-
                         Text(
-
                             text = if (state.isAutoMixerEnabled) {
-
                                 if (isTagalog) state.activeMixStyle.descriptionTagalog else state.activeMixStyle.descriptionEnglish
-
                             } else {
-
                                 if (isTagalog) "Naka-manual mix. Kayo ang may buong kontrol sa mga sliders sa ibaba." else "Manual mode. You have full custom control of all sliders below."
-
                             },
-
                             fontSize = 8.sp,
-
                             fontFamily = CleanFont,
-
                             color = Color(state.appTheme.textMutedColor),
-
                             maxLines = 1,
-
                             overflow = TextOverflow.Ellipsis
-
                         )
-
                     }
 
-
-
                     Switch(
-
                         checked = state.isAutoMixerEnabled,
-
                         onCheckedChange = { onToggleAutoMixer(it) },
-
                         colors = SwitchDefaults.colors(
-
                             checkedThumbColor = Color(state.appTheme.primaryColor),
-
                             checkedTrackColor = Color(state.appTheme.primaryColor).copy(alpha = 0.4f),
-
                             uncheckedThumbColor = Color.Gray,
-
                             uncheckedTrackColor = Color(0xFF1E293B)
-
                         ),
-
                         modifier = Modifier.scale(0.75f)
-
                     )
-
                 }
-
-
 
                 // Auto-Volume Normalization Row
                 Row(
@@ -6813,17 +6673,20 @@ fun AudioMixerDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "🔊 AUTO-VOLUME (PANTAY NA TUNOG):",
+                                text = "🔊 AUTO-VOLUME (AGC)",
                                 fontSize = 10.sp,
                                 fontFamily = CleanFont,
                                 color = Color(state.appTheme.primaryColor),
-                                fontWeight = FontWeight.Black
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.weight(1f, fill = false),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
@@ -6831,7 +6694,7 @@ fun AudioMixerDialog(
                             ) {
                                 Text(
                                     text = if (state.isAutoVolumeEnabled) {
-                                        if (isTagalog) "✓ PANTAY (ACTIVE)" else "✓ BALANCED"
+                                        if (isTagalog) "✓ PANTAY" else "✓ BALANCED"
                                     } else {
                                         "OFF"
                                     },
@@ -6839,14 +6702,16 @@ fun AudioMixerDialog(
                                     fontFamily = CleanFont,
                                     color = if (state.isAutoVolumeEnabled) Color(0xFF10B981) else Color(state.appTheme.textColor),
                                     fontWeight = FontWeight.Black,
+                                    softWrap = false,
+                                    maxLines = 1,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                 )
                             }
                         }
                         Text(
                             text = if (state.isAutoVolumeEnabled) {
-                                if (isTagalog) "Awtomatikong pinapantay ang mahihina at malalakas na kanta upang pare-pareho ang tunog."
-                                else "Automatically balances loud and quiet songs for consistent, comfortable volume."
+                                if (isTagalog) "Awtomatikong pinapantay ang bawat kanta para komportable ang tunog."
+                                else "Automatically balances volume across songs for consistent playback."
                             } else {
                                 if (isTagalog) "Naka-off. Ang lakas ay batay sa orihinal na bulto ng MIDI file."
                                 else "Off. Song loudness depends on the original MIDI file mix."
@@ -6891,17 +6756,20 @@ fun AudioMixerDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "🎤 AUTO-NORMALIZE MELODY (GUIDE BOSES):",
+                                text = "🎤 AUTO-MELODY GUIDE",
                                 fontSize = 10.sp,
                                 fontFamily = CleanFont,
                                 color = Color(state.appTheme.primaryColor),
-                                fontWeight = FontWeight.Black
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.weight(1f, fill = false),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
@@ -6909,7 +6777,7 @@ fun AudioMixerDialog(
                             ) {
                                 Text(
                                     text = if (state.isAutoMelodyNormalizeEnabled) {
-                                        if (isTagalog) "✓ BALANSE (ACTIVE)" else "✓ BALANCED"
+                                        if (isTagalog) "✓ BALANSE" else "✓ BALANCED"
                                     } else {
                                         "OFF"
                                     },
@@ -6917,14 +6785,16 @@ fun AudioMixerDialog(
                                     fontFamily = CleanFont,
                                     color = if (state.isAutoMelodyNormalizeEnabled) Color(0xFF10B981) else Color(state.appTheme.textColor),
                                     fontWeight = FontWeight.Black,
+                                    softWrap = false,
+                                    maxLines = 1,
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                 )
                             }
                         }
                         Text(
                             text = if (state.isAutoMelodyNormalizeEnabled) {
-                                if (isTagalog) "Awtomatikong binabalanse ang tono/melody ng boses upang hindi sobrang lakas at hindi mahina."
-                                else "Automatically normalizes guide melody voice to prevent harsh spikes or quiet notes."
+                                if (isTagalog) "Binabalanse ang guide melody ng boses upang hindi sobrang lakas o mahina."
+                                else "Normalizes guide melody voice to prevent harsh spikes or quiet notes."
                             } else {
                                 if (isTagalog) "Naka-off. Ang lakas ng melody ay batay sa orihinal na bilis at lakas ng MIDI."
                                 else "Off. Melody volume follows raw MIDI note velocities and mix."
@@ -6950,7 +6820,7 @@ fun AudioMixerDialog(
                     )
                 }
 
-                // Key Transpose & Tempo Compact Row
+// Key Transpose & Tempo Compact Row
 
                 Row(
 
@@ -12387,45 +12257,51 @@ fun SoundFontSelectionDialog(
                                             onSelectSoundFont(sf)
                                         }
                                     }
-                                    .padding(horizontal = 14.dp, vertical = 11.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.Top
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
+                                // Leading Icon in rounded stylish badge, aligned to top
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) Color(theme.primaryColor).copy(alpha = 0.28f) else Color.White.copy(alpha = 0.06f)),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    // Leading Icon in rounded stylish badge
-                                    Box(
-                                        modifier = Modifier
-                                            .size(34.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(if (isSelected) Color(theme.primaryColor).copy(alpha = 0.28f) else Color.White.copy(alpha = 0.06f)),
-                                        contentAlignment = Alignment.Center
+                                    Text(text = sfIcon, fontSize = 16.sp)
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    // Row 1: Title + VIP tag (left) & Status pill (right)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(text = sfIcon, fontSize = 16.sp)
-                                    }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Row(
+                                            modifier = Modifier.weight(1f, fill = false),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
                                             Text(
                                                 text = cleanSfName,
                                                 color = if (isSelected) Color(theme.primaryColor) else Color(theme.textColor),
                                                 fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                                                fontSize = 13.sp,
+                                                fontSize = 12.5.sp,
                                                 fontFamily = CleanFont,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                             if (isAuto) {
-                                                Spacer(modifier = Modifier.width(6.dp))
                                                 Surface(
                                                     shape = RoundedCornerShape(4.dp),
                                                     color = Color(0xFFEAB308)
                                                 ) {
                                                     Text(
                                                         text = "👑 VIP",
-                                                        fontSize = 9.sp,
+                                                        fontSize = 8.sp,
                                                         fontWeight = FontWeight.Black,
                                                         color = Color(0xFF0F172A),
                                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
@@ -12433,63 +12309,71 @@ fun SoundFontSelectionDialog(
                                                 }
                                             }
                                         }
-                                        if (isSelected && isAuto && autoMatchedSoundFont.isNotBlank()) {
-                                            val cleanAutoMatched = autoMatchedSoundFont.replace(Regex("^[✨🎵🎸🎹🪩🥁🎛️🎼\\s]+"), "").trim()
-                                            Text(
-                                                text = "▶ " + (if (isTagalog) "Aktibo: $cleanAutoMatched" else "Active: $cleanAutoMatched"),
-                                                color = Color(theme.primaryColor),
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                fontFamily = CleanFont,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.padding(top = 2.dp)
-                                            )
-                                        }
-                                        if (sfDesc.isNotBlank()) {
-                                            Text(
-                                                text = sfDesc,
-                                                color = Color(theme.textMutedColor),
-                                                fontSize = 10.sp,
-                                                fontFamily = CleanFont,
-                                                maxLines = 2,
-                                                lineHeight = 13.sp,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.padding(top = 2.dp)
-                                            )
+
+                                        Spacer(modifier = Modifier.width(6.dp))
+
+                                        if (isSelected) {
+                                            Surface(
+                                                shape = RoundedCornerShape(5.dp),
+                                                color = Color(theme.primaryColor)
+                                            ) {
+                                                Text(
+                                                    text = if (isTagalog) "AKTIBO ✓" else "ACTIVE ✓",
+                                                    color = doneBtnTextClr,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 9.sp,
+                                                    fontFamily = CleanFont,
+                                                    softWrap = false,
+                                                    maxLines = 1,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        } else if (isAuto && !isVipActivated) {
+                                            Surface(
+                                                shape = RoundedCornerShape(5.dp),
+                                                color = Color(0xFFEAB308).copy(alpha = 0.15f),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEAB308))
+                                            ) {
+                                                Text(
+                                                    text = if (isTagalog) "🔒 I-UNLOCK" else "🔒 UNLOCK",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontFamily = CleanFont,
+                                                    color = Color(0xFFEAB308),
+                                                    softWrap = false,
+                                                    maxLines = 1,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
                                         }
                                     }
-                                }
 
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                if (isSelected) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(theme.primaryColor)
-                                    ) {
+                                    // Row 2: Currently matched soundfont (when Auto is active)
+                                    if (isSelected && isAuto && autoMatchedSoundFont.isNotBlank()) {
+                                        val cleanAutoMatched = autoMatchedSoundFont.replace(Regex("^[✨🎵🎸🎹🪩🥁🎛️🎼\\s]+"), "").trim()
                                         Text(
-                                            text = if (isAuto) (if (isTagalog) "AKTIBO (VIP) ✓" else "ACTIVE (VIP) ✓") else (if (isTagalog) "AKTIBO ✓" else "ACTIVE ✓"),
-                                            color = doneBtnTextClr,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 10.sp,
+                                            text = "▶ " + (if (isTagalog) "Aktibo: $cleanAutoMatched" else "Active: $cleanAutoMatched"),
+                                            color = Color(theme.primaryColor),
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
                                             fontFamily = CleanFont,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(top = 2.dp)
                                         )
                                     }
-                                } else if (isAuto && !isVipActivated) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFEAB308).copy(alpha = 0.15f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEAB308))
-                                    ) {
+
+                                    // Row 3: Description text
+                                    if (sfDesc.isNotBlank()) {
                                         Text(
-                                            text = if (isTagalog) "🔒 I-UNLOCK" else "🔒 UNLOCK",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black,
+                                            text = sfDesc,
+                                            color = Color(theme.textMutedColor),
+                                            fontSize = 9.sp,
                                             fontFamily = CleanFont,
-                                            color = Color(0xFFEAB308),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            maxLines = 2,
+                                            lineHeight = 12.sp,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(top = 2.dp)
                                         )
                                     }
                                 }
@@ -12498,7 +12382,7 @@ fun SoundFontSelectionDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -12507,14 +12391,14 @@ fun SoundFontSelectionDialog(
                     Button(
                         onClick = onScanStorage,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 11.dp),
-                        modifier = Modifier.weight(1f)
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
+                        modifier = Modifier.weight(1f).height(42.dp)
                     ) {
                         Text(
                             text = if (isTagalog) "🔍 I-scan Storage" else "🔍 Scan Storage",
-                            fontSize = 12.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = CleanFont,
                             maxLines = 1,
@@ -12525,12 +12409,12 @@ fun SoundFontSelectionDialog(
                     Button(
                         onClick = onDismiss,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 11.dp),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier.weight(1f).height(42.dp)
                     ) {
                         Text(
-                            text = if (isTagalog) "TAPOS NA" else "DONE",
+                            text = if (isTagalog) "TAPOS NA ✓" else "DONE ✓",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = CleanFont,
