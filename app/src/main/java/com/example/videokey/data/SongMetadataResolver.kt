@@ -1651,19 +1651,32 @@ object SongMetadataResolver {
         "BAWAT ORAS" to "Sharon Cuneta",
     )
 
+    // Precompiled regexes for ultra-fast song list loading
+    private val LEADING_CODE_REGEX = Regex("^\\d{4,6}\\s*[-_.:]\\s*")
+    private val EXT_REGEX = Regex("(?i)\\.(mid|kar|mp4|mkv|mp3)$")
+    private val NORM_REGEX = Regex("[^a-zA-Z0-9]+")
+    private val EMBEDDED_PAREN_REGEX = Regex("^(.+?)\\s*\\(([^()]+)\\)$")
+    private val EMBEDDED_BY_REGEX = Regex("^(.+?)\\s+by\\s+(.+?)$", RegexOption.IGNORE_CASE)
+
     /**
      * Resolves song metadata (title, artist, category) given code, raw title, and raw artist.
      * Guarantees that artist will NEVER be "Unknown" or blank.
      */
     fun resolve(code: String, rawTitle: String, rawArtist: String): ResolvedSongMeta {
-        val trimmedCode = code.trim()
-        val trimmedTitle = rawTitle.trim()
         val trimmedArtist = rawArtist.trim()
 
-        // 1. Check code in curated knowledge base
+        // 1. Instant Fast Path: If artist is already valid, return in O(1) time
+        if (isValidArtist(trimmedArtist)) {
+            val cleanedTitle = cleanTitle(rawTitle)
+            return ResolvedSongMeta(cleanedTitle, trimmedArtist, "OPM")
+        }
+
+        val trimmedCode = code.trim()
+        val trimmedTitle = rawTitle.trim()
+
+        // 2. Check code in curated knowledge base
         val byCode = CODE_MAP[trimmedCode] ?: CODE_MAP[trimmedCode.trimStart('0')]
         if (byCode != null) {
-            // If raw title has good casing or user customized it, keep it, but ensure artist is genuine
             val finalTitle = if (trimmedTitle.isNotBlank() && !trimmedTitle.equals(trimmedCode, true) && !trimmedTitle.equals("Unknown", true)) {
                 cleanTitle(trimmedTitle)
             } else {
@@ -1673,14 +1686,8 @@ object SongMetadataResolver {
             return ResolvedSongMeta(finalTitle, finalArtist, byCode.category)
         }
 
-        // 2. Clean raw title if it starts with code (e.g. "01234 - Song Title")
+        // 3. Clean raw title if it starts with code (e.g. "01234 - Song Title")
         val cleanedTitle = cleanTitle(trimmedTitle)
-
-        // 3. If raw artist is already valid, return with cleaned title
-        if (isValidArtist(trimmedArtist)) {
-            val cat = detectCategory(cleanedTitle, trimmedArtist)
-            return ResolvedSongMeta(cleanedTitle, trimmedArtist, cat)
-        }
 
         // 4. Try matching title in knowledge base
         val normTitle = normalizeTitle(cleanedTitle)
@@ -1744,18 +1751,26 @@ object SongMetadataResolver {
      * Strips leading track numbers, timestamps, and redundant tags from song titles.
      */
     fun cleanTitle(rawTitle: String): String {
-        var t = rawTitle.trim()
-        // Strip leading numbers: "01234 - Title", "01234. Title", "01234_Title"
-        t = t.replace(Regex("^\\d{4,6}\\s*[-_.:]\\s*"), "")
-        // Strip file extensions if accidentally kept
-        t = t.replace(Regex("(?i)\\.(mid|kar|mp4|mkv|mp3)$"), "")
-        // Clean leading or trailing dashes / underscores
-        t = t.trim('-', '_', ' ')
-        return if (t.isEmpty()) rawTitle else t
+        val t = rawTitle.trim()
+        if (t.isEmpty()) return rawTitle
+        val startsWithDigit = t[0].isDigit()
+        val hasExt = t.endsWith(".mid", true) || t.endsWith(".kar", true) || t.endsWith(".mp4", true) || t.endsWith(".mkv", true) || t.endsWith(".mp3", true)
+        if (!startsWithDigit && !hasExt && !t.startsWith("-") && !t.startsWith("_")) {
+            return t
+        }
+        var cleaned = t
+        if (startsWithDigit) {
+            cleaned = LEADING_CODE_REGEX.replace(cleaned, "")
+        }
+        if (hasExt) {
+            cleaned = EXT_REGEX.replace(cleaned, "")
+        }
+        cleaned = cleaned.trim('-', '_', ' ')
+        return if (cleaned.isEmpty()) rawTitle else cleaned
     }
 
     private fun normalizeTitle(title: String): String {
-        return title.replace(Regex("[^a-zA-Z0-9]+"), " ").trim().uppercase(Locale.ROOT)
+        return NORM_REGEX.replace(title, " ").trim().uppercase(Locale.ROOT)
     }
 
     private fun extractEmbeddedArtist(title: String): Pair<String, String>? {
@@ -1769,7 +1784,7 @@ object SongMetadataResolver {
             }
         }
         // "Title (Artist)"
-        val parenMatch = Regex("^(.+?)\\s*\\(([^()]+)\\)$").find(title)
+        val parenMatch = EMBEDDED_PAREN_REGEX.find(title)
         if (parenMatch != null) {
             val (t, a) = parenMatch.destructured
             if (isValidArtist(a.trim())) {
@@ -1777,7 +1792,7 @@ object SongMetadataResolver {
             }
         }
         // "Title by Artist"
-        val byMatch = Regex("^(.+?)\\s+by\\s+(.+?)$", RegexOption.IGNORE_CASE).find(title)
+        val byMatch = EMBEDDED_BY_REGEX.find(title)
         if (byMatch != null) {
             val (t, a) = byMatch.destructured
             if (isValidArtist(a.trim())) {

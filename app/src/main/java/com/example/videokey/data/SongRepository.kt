@@ -67,8 +67,12 @@ class SongRepository {
     fun addSongs(newSongs: List<Song>) {
         synchronized(songs) {
             newSongs.forEach { raw ->
-                val resolved = SongMetadataResolver.resolve(raw.code, raw.title, raw.artist)
-                val it = raw.copy(title = resolved.title, artist = resolved.artist, category = resolved.category)
+                val it = if (SongMetadataResolver.isValidArtist(raw.artist)) {
+                    raw
+                } else {
+                    val resolved = SongMetadataResolver.resolve(raw.code, raw.title, raw.artist)
+                    raw.copy(title = resolved.title, artist = resolved.artist, category = resolved.category)
+                }
                 val existing = songsByCode[it.code]
                 if (existing == null) {
                     songs.add(it)
@@ -91,8 +95,12 @@ class SongRepository {
             songs.clear()
             songsByCode.clear()
             val resolvedList = newSongs.map { raw ->
-                val resolved = SongMetadataResolver.resolve(raw.code, raw.title, raw.artist)
-                raw.copy(title = resolved.title, artist = resolved.artist, category = resolved.category)
+                if (SongMetadataResolver.isValidArtist(raw.artist)) {
+                    raw
+                } else {
+                    val resolved = SongMetadataResolver.resolve(raw.code, raw.title, raw.artist)
+                    raw.copy(title = resolved.title, artist = resolved.artist, category = resolved.category)
+                }
             }
             songs.addAll(resolvedList)
             resolvedList.forEach {

@@ -364,6 +364,8 @@ object MidiMelodyScaler {
         val activeProgPerChan = IntArray(16) { 0 }
         val channelPitchSums = LongArray(16)
         val channelVelocitySums = LongArray(16)
+        val lastNoteTickPerChan = LongArray(16) { -1L }
+        val simultaneousNoteCounts = IntArray(16)
         checkPos = 14
         tIdx = 0
         while (checkPos + 8 <= len) {
@@ -405,6 +407,10 @@ object MidiMelodyScaler {
                             val note = midiBytes[p].toInt() and 0x7F
                             val vel = midiBytes[p + 1].toInt() and 0xFF
                             if (vel > 0) {
+                                if (lastNoteTickPerChan[channel] == curTick) {
+                                    simultaneousNoteCounts[channel]++
+                                }
+                                lastNoteTickPerChan[channel] = curTick
                                 noteCounts[channel]++
                                 channelPitchSums[channel] += note.toLong()
                                 channelVelocitySums[channel] += vel.toLong()
@@ -483,12 +489,20 @@ object MidiMelodyScaler {
             defaultPrograms[ch] = bestProg
         }
 
+        // Identify polyphonic chordal accompaniment channels (e.g. Piano/Guitar chords, Brass stabs, String pads)
+        // A vocal guide melody is monophonic (one note at a time). Channels with >10% simultaneous chords are backing band!
+        val isChordalChannel = BooleanArray(16) { ch ->
+            val totalNotes = noteCounts[ch]
+            totalNotes > 12 && (simultaneousNoteCounts[ch].toFloat() / totalNotes) > 0.10f
+        }
+
         // Determine Melody Channel(s) and Track(s)
         val melodyChannels = HashSet<Int>()
         var bestLyricChannel = -1
         var bestLyricScore = 0
         for (ch in 0..15) {
             if (ch == 9 || defaultPrograms[ch] in 32..39) continue // Skip drums and bass
+            if (isChordalChannel[ch]) continue // Exclude polyphonic chords (accompaniment band)
             val matches = channelLyricMatchCounts[ch]
             if (matches > bestLyricScore) {
                 bestLyricScore = matches
@@ -499,16 +513,28 @@ object MidiMelodyScaler {
             melodyChannels.add(bestLyricChannel)
         }
         if (melodyChannels.isEmpty()) {
-            if (noteCounts[3] > 0 && defaultPrograms[3] !in 32..39) {
-                melodyChannels.add(3)
-            } else if (noteCounts[0] > 0 && defaultPrograms[0] !in 32..39) {
-                melodyChannels.add(0)
+            // Check standard Philippine videoke melody channels (3, 4, 15, 6, 2, 0)
+            val candidateChannels = listOf(3, 4, 15, 6, 2, 0)
+            for (ch in candidateChannels) {
+                if (noteCounts[ch] > 15 && defaultPrograms[ch] !in 32..39 && !isChordalChannel[ch]) {
+                    melodyChannels.add(ch)
+                    break
+                }
+            }
+            if (melodyChannels.isEmpty()) {
+                if (noteCounts[3] > 0 && defaultPrograms[3] !in 32..39) {
+                    melodyChannels.add(3)
+                } else if (noteCounts[4] > 0 && defaultPrograms[4] !in 32..39) {
+                    melodyChannels.add(4)
+                }
             }
         }
 
         var bestLyricTrack = -1
         var bestTrackMatches = 0
         for ((trk, matches) in trackLyricMatchCounts) {
+            val chans = trackChannelsUsed[trk] ?: emptySet()
+            if (chans.all { it == 9 || defaultPrograms[it] in 32..39 || isChordalChannel[it] }) continue
             if (matches > bestTrackMatches) {
                 bestTrackMatches = matches
                 bestLyricTrack = trk

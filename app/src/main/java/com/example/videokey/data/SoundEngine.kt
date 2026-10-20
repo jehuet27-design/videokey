@@ -213,20 +213,12 @@ class SoundEngine(
                         (analysis.numTracks <= 1 && analysis.melodyChannels.contains(ch))
                     )
                     if (isMelody) {
-                        val key = event.param and 0xFF
-                        val vel = (event.param shr 8) and 0xFF
-                        if (vel in 1..127) {
-                            if (melodyPercent <= 0) {
-                                return@MIDIFILTERPROC false
-                            }
-                            val effectiveVel = if (isAutoMelodyNormalizeEnabled) {
-                                normalizeMelodyVelocity(vel, ch, liveChannelPrograms[ch], analysis)
-                            } else {
-                                vel
-                            }
-                            val scaledVel = ((effectiveVel * melodyPercent) / 100).coerceIn(1, 127)
-                            event.param = key or (scaledVel shl 8)
+                        if (melodyPercent <= 0) {
+                            return@MIDIFILTERPROC false // Clean minus-one vocal guide mute
                         }
+                        // Note: Keep original note velocity untouched to preserve
+                        // authentic SoundFont instrument dynamics, multi-sample layers,
+                        // and acoustic expression ("kuha ang original na kanta").
                     }
                 }
             }
@@ -696,6 +688,7 @@ class SoundEngine(
                 else -> MidiMelodyScaler.InstrumentCategory.STRINGS_BRASS
             }
         }
+        val isMultiTrackMelody = (analysis != null && analysis.numTracks > 1 && analysis.melodyTracks.isNotEmpty())
         val effectiveBaseVol = if (isAutoMelodyNormalizeEnabled && category == MidiMelodyScaler.InstrumentCategory.MELODY) {
             when {
                 baseVol < 75 -> 95 // Soft melody channel boosted to standard
@@ -706,8 +699,14 @@ class SoundEngine(
             baseVol
         }
         val pct = getPercentForCategory(category)
-        if (pct <= 0) return 0
-        return ((effectiveBaseVol * pct) / 100).coerceIn(1, 127)
+        // If melody is already scaled at track level via BASS_ATTRIB_MIDI_TRACK_VOL, avoid double attenuation
+        val effectivePct = if (isMultiTrackMelody && category == MidiMelodyScaler.InstrumentCategory.MELODY) {
+            if (melodyPercent <= 0) 0 else 100
+        } else {
+            pct
+        }
+        if (effectivePct <= 0) return 0
+        return ((effectiveBaseVol * effectivePct) / 100).coerceIn(1, 127)
     }
 
     /**
@@ -720,7 +719,8 @@ class SoundEngine(
         val analysis = currentAnalysis
 
         // 1. Scale dedicated Melody Track(s) via BASS_ATTRIB_MIDI_TRACK_VOL when multi-track
-        if (analysis != null && analysis.numTracks > 1 && analysis.melodyTracks.isNotEmpty()) {
+        val isMultiTrackMelody = (analysis != null && analysis.numTracks > 1 && analysis.melodyTracks.isNotEmpty())
+        if (isMultiTrackMelody) {
             val melodyGain = (melodyPercent.coerceIn(0, 100) / 100.0f)
             for (trk in analysis.melodyTracks) {
                 BASS.BASS_ChannelSetAttribute(handle, BASSMIDI.BASS_ATTRIB_MIDI_TRACK_VOL + trk, melodyGain)
@@ -747,7 +747,13 @@ class SoundEngine(
             }
             val pct = getPercentForCategory(category)
             val baseVol = baseChannelVolumes[ch].coerceIn(1, 127)
-            val scaledVol = if (pct <= 0) 0 else ((baseVol * pct) / 100).coerceIn(1, 127)
+            // If melody is already scaled at track level, do not double-scale channel volume
+            val effectivePct = if (isMultiTrackMelody && category == MidiMelodyScaler.InstrumentCategory.MELODY) {
+                if (melodyPercent <= 0) 0 else 100
+            } else {
+                pct
+            }
+            val scaledVol = if (effectivePct <= 0) 0 else ((baseVol * effectivePct) / 100).coerceIn(1, 127)
             BASSMIDI.BASS_MIDI_StreamEvent(handle, ch, BASSMIDI.MIDI_EVENT_VOLUME, scaledVol)
 
             // Also apply BASSMIDI mixlevel boost for sliders set above 100% (101% .. 150%)
