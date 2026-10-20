@@ -319,9 +319,15 @@ data class VideoKeyUiState(
     val currentBackgroundFolder: String = "/storage/emulated/0/VideoKey/backgrounds",
     val isSongFolderPickerOpen: Boolean = false,
     val isBgFolderPickerOpen: Boolean = false,
-    val activeSoundFontName: String = "VideoKey Studio Minus-One",
+    val activeSoundFontName: String = "✨ Awtomatiko (Depende sa Genre)",
+    val autoMatchedSoundFontForCurrentSong: String = "🎵 VideoKey OPM & Pop Studio",
     val availableSoundFonts: List<String> = listOf(
-        "VideoKey Studio Minus-One",
+        "✨ Awtomatiko (Depende sa Genre)",
+        "🎵 VideoKey OPM & Pop Studio",
+        "🎸 VideoKey Rock & Band Studio",
+        "🎹 VideoKey Acoustic & Ballad Studio",
+        "🪩 VideoKey Disco & 80s/90s Synth",
+        "🥁 VideoKey Party & Mega Beat",
         "Yamaha x Korg x Ketron Studio",
         "Dream SAM2634 v2.1",
         "MegaPro Sound"
@@ -457,14 +463,24 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val isVip = prefs.getBoolean("is_vip_activated", false)
         val devId = VipLicenseManager.getDeviceId(application)
 
-        val rawSavedSf = prefs.getString("active_soundfont", "VideoKey Studio Minus-One") ?: "VideoKey Studio Minus-One"
+        val rawSavedSf = prefs.getString("active_soundfont", "✨ Awtomatiko (Depende sa Genre)") ?: "✨ Awtomatiko (Depende sa Genre)"
         val savedSf = when {
+            rawSavedSf.contains("auto", ignoreCase = true) || rawSavedSf.contains("awtomatiko", ignoreCase = true) -> "✨ Awtomatiko (Depende sa Genre)"
+            rawSavedSf.contains("rock", ignoreCase = true) -> "🎸 VideoKey Rock & Band Studio"
+            rawSavedSf.contains("acoustic", ignoreCase = true) || rawSavedSf.contains("ballad", ignoreCase = true) -> "🎹 VideoKey Acoustic & Ballad Studio"
+            rawSavedSf.contains("disco", ignoreCase = true) || rawSavedSf.contains("synth", ignoreCase = true) || rawSavedSf.contains("dance", ignoreCase = true) -> "🪩 VideoKey Disco & 80s/90s Synth"
+            rawSavedSf.contains("party", ignoreCase = true) -> "🥁 VideoKey Party & Mega Beat"
             rawSavedSf.contains("yamaha", ignoreCase = true) || rawSavedSf.contains("korg", ignoreCase = true) || rawSavedSf.contains("ketron", ignoreCase = true) -> "Yamaha x Korg x Ketron Studio"
             rawSavedSf.contains("mega", ignoreCase = true) -> "MegaPro Sound"
             rawSavedSf.contains("sam", ignoreCase = true) || rawSavedSf.contains("dream", ignoreCase = true) -> "Dream SAM2634 v2.1"
-            else -> "VideoKey Studio Minus-One"
+            else -> "🎵 VideoKey OPM & Pop Studio"
         }
-        soundEngine.setActiveSoundFont(savedSf)
+        val initialSoundFontToLoad = if (savedSf.contains("auto", ignoreCase = true) || savedSf.contains("awtomatiko", ignoreCase = true)) {
+            "videokey_pop"
+        } else {
+            savedSf
+        }
+        soundEngine.setActiveSoundFont(initialSoundFontToLoad)
         val initialMelody = prefs.getInt("melody_percent", 60)
         val initialDrums = prefs.getInt("drums_percent", 100)
         val initialBass = prefs.getInt("bass_percent", 100)
@@ -782,7 +798,15 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             var midiFile: File? = null
             val currentMelody = _uiState.value.melodyPercent
             val currentSoundFont = _uiState.value.activeSoundFontName
-            soundEngine.setActiveSoundFont(currentSoundFont)
+            val isAutoMode = currentSoundFont.contains("auto", ignoreCase = true) || currentSoundFont.contains("awtomatiko", ignoreCase = true)
+            val effectiveSoundFont = if (isAutoMode) {
+                val matched = soundEngine.resolveGenreForSong(song, null)
+                _uiState.update { it.copy(autoMatchedSoundFontForCurrentSong = matched.displayName) }
+                matched.id
+            } else {
+                currentSoundFont
+            }
+            soundEngine.setActiveSoundFont(effectiveSoundFont)
 
             // 1. Encrypted .vkpack song
             if (song.isPacked) {
@@ -2105,15 +2129,30 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun selectSoundFont(name: String) {
         prefs.edit().putString("active_soundfont", name).apply()
-        soundEngine.setActiveSoundFont(name)
-        val resolvedName = soundEngine.getActiveSoundFont().displayName
-        _uiState.update {
-            val isTl = it.appLanguage == AppLanguage.TAGALOG
-            it.copy(
-                activeSoundFontName = resolvedName,
-                isSoundFontDialogOpen = false,
-                alertMessage = if (isTl) "🎛️ Na-apply ang SoundFont: $resolvedName" else "🎛️ Applied SoundFont: $resolvedName"
-            )
+        val isAuto = name.contains("auto", ignoreCase = true) || name.contains("awtomatiko", ignoreCase = true)
+        val isTl = _uiState.value.appLanguage == AppLanguage.TAGALOG
+        if (isAuto) {
+            val currSong = _uiState.value.currentSong
+            val matched = soundEngine.resolveGenreForSong(currSong, null)
+            soundEngine.setActiveSoundFont(matched.id)
+            _uiState.update {
+                it.copy(
+                    activeSoundFontName = name,
+                    autoMatchedSoundFontForCurrentSong = matched.displayName,
+                    isSoundFontDialogOpen = false,
+                    alertMessage = if (isTl) "✨ Naka-on ang Awtomatikong SoundFont (Depende sa Genre)" else "✨ Auto SoundFont enabled (Adapts to song genre)"
+                )
+            }
+        } else {
+            soundEngine.setActiveSoundFont(name)
+            val resolvedName = soundEngine.getActiveSoundFont().displayName
+            _uiState.update {
+                it.copy(
+                    activeSoundFontName = resolvedName,
+                    isSoundFontDialogOpen = false,
+                    alertMessage = if (isTl) "🎛️ Na-apply ang SoundFont: $resolvedName" else "🎛️ Applied SoundFont: $resolvedName"
+                )
+            }
         }
     }
 

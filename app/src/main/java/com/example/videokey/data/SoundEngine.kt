@@ -32,33 +32,73 @@ class SoundEngine(
         val id: String,
         val displayName: String,
         val fileName: String,
-        val description: String
+        val description: String,
+        val genreTag: String = "ALL"
     )
 
     val availableSoundFonts = listOf(
         SoundFontPreset(
-            id = "videokey_minus1",
-            displayName = "VideoKey Studio Minus-One",
+            id = "auto_genre",
+            displayName = "✨ Awtomatiko (Depende sa Genre)",
+            fileName = "auto",
+            description = "Matalinong pagpili ng SoundFont batay sa genre ng kanta (Rock, Ballad, Pop, Disco, atbp.)",
+            genreTag = "AUTO"
+        ),
+        SoundFontPreset(
+            id = "videokey_pop",
+            displayName = "🎵 VideoKey OPM & Pop Studio",
             fileName = "VideoKey_Studio_Minus1.sf2",
-            description = "Balanced Live Band Minus-One (Buo at Malinaw na Instrumento)"
+            description = "Balanced Studio Minus-One para sa OPM, Pop, at Billboard charts",
+            genreTag = "POP"
+        ),
+        SoundFontPreset(
+            id = "videokey_rock",
+            displayName = "🎸 VideoKey Rock & Band Studio",
+            fileName = "VideoKey_Studio_Minus1.sf2",
+            description = "Lakas ng live rock band: malutong na electric guitar, driving bass, at punchy snare",
+            genreTag = "ROCK"
+        ),
+        SoundFontPreset(
+            id = "videokey_acoustic",
+            displayName = "🎹 VideoKey Acoustic & Ballad Studio",
+            fileName = "VideoKey_Studio_Minus1.sf2",
+            description = "Concert Grand Piano, Nylon Guitar, at lush warm strings para sa Love Songs",
+            genreTag = "BALLAD"
+        ),
+        SoundFontPreset(
+            id = "videokey_disco",
+            displayName = "🪩 VideoKey Disco & 80s/90s Synth",
+            fileName = "Dream SAM2634 (ver. 2.1).sf2",
+            description = "Classic hardware videoke synthesizer soundchip, bouncy dance beat, at synth bass",
+            genreTag = "DANCE"
+        ),
+        SoundFontPreset(
+            id = "videokey_party",
+            displayName = "🥁 VideoKey Party & Mega Beat",
+            fileName = "mega.sf2",
+            description = "High-energy party sound, dynamic brass section, at punchy sub-bass",
+            genreTag = "PARTY"
         ),
         SoundFontPreset(
             id = "yamaha_korg_ketron",
             displayName = "Yamaha x Korg x Ketron Studio",
             fileName = "yamaha x korg x ketron x dream sam (custom made by jc).sf2",
-            description = "905MB Multi-Sampled Live Acoustic & Electric Band"
+            description = "905MB Multi-Sampled Live Acoustic & Electric Band",
+            genreTag = "STUDIO"
         ),
         SoundFontPreset(
             id = "dreamsam",
             displayName = "Dream SAM2634 v2.1",
             fileName = "Dream SAM2634 (ver. 2.1).sf2",
-            description = "Dream Hardware Synthesizer Soundchip"
+            description = "Dream Hardware Synthesizer Soundchip",
+            genreTag = "SYNTH"
         ),
         SoundFontPreset(
             id = "mega",
             displayName = "MegaPro Sound",
             fileName = "mega.sf2",
-            description = "MegaPro Karaoke Player SoundFont"
+            description = "MegaPro Karaoke Player SoundFont",
+            genreTag = "MEGAPRO"
         )
     )
 
@@ -311,16 +351,43 @@ class SoundEngine(
     private fun loadSoundFontHandles() {
         if (!bassInitialized) return
         val lowerActive = activeSoundFontName.lowercase()
-        val isDefaultStudio = lowerActive.contains("minus") || lowerActive.contains("videokey")
 
-        // When default "VideoKey Studio Minus-One" is selected, prefer the 904MB Yamaha x Korg x Ketron Studio SF2
-        // as primary if installed on device, stacked over VideoKey_Studio_Minus1.sf2 as complete GM/Drum base!
-        val primaryFile = if (isDefaultStudio) {
-            findSoundFontFile("yamaha x korg x ketron")
-                ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
-                ?: findSoundFontFile(activeSoundFontName)
-        } else {
-            findSoundFontFile(activeSoundFontName) ?: findSoundFontFile(activeSoundFont.fileName)
+        val primaryFile = when {
+            lowerActive.contains("acoustic") || lowerActive.contains("ballad") -> {
+                findSoundFontFile("yamaha x korg x ketron")
+                    ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+            }
+            lowerActive.contains("disco") || lowerActive.contains("synth") || lowerActive.contains("dance") -> {
+                findSoundFontFile("Dream SAM2634 (ver. 2.1).sf2")
+                    ?: findSoundFontFile("mega.sf2")
+                    ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+            }
+            lowerActive.contains("party") -> {
+                findSoundFontFile("mega.sf2")
+                    ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+            }
+            lowerActive.contains("rock") -> {
+                findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+                    ?: findSoundFontFile("mega.sf2")
+            }
+            lowerActive.contains("yamaha") || lowerActive.contains("korg") -> {
+                findSoundFontFile("yamaha x korg x ketron")
+                    ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+            }
+            lowerActive.contains("dream") || lowerActive.contains("sam") -> {
+                findSoundFontFile("Dream SAM2634 (ver. 2.1).sf2")
+                    ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+            }
+            lowerActive.contains("mega") -> {
+                findSoundFontFile("mega.sf2")
+                    ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+            }
+            else -> {
+                // Default Studio / Pop
+                findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+                    ?: findSoundFontFile(activeSoundFontName)
+                    ?: findSoundFontFile(activeSoundFont.fileName)
+            }
         }
 
         if (primaryFile != null && primaryFile.exists()) {
@@ -1047,6 +1114,63 @@ class SoundEngine(
         } catch (e: Exception) {
             Log.w(TAG, "Failed to hot-swap SoundFont: ${e.message}")
         }
+    }
+
+    fun resolveGenreForSong(song: Song?, analysis: MidiMelodyScaler.MidiAnalysis? = null): SoundFontPreset {
+        if (song == null) return availableSoundFonts.find { it.id == "videokey_pop" } ?: availableSoundFonts[1]
+
+        val cat = song.category.uppercase()
+        val title = song.title.uppercase()
+        val artist = song.artist.uppercase()
+        val fullText = "$title $artist"
+
+        // 1. Rock check
+        val isRock = cat.contains("ROCK") ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.ROCK_UPBEAT ||
+                fullText.contains("AEGIS") || fullText.contains("KAMIKAZEE") || fullText.contains("PAROKYA") ||
+                fullText.contains("ERASERHEADS") || fullText.contains("RIVERMAYA") || fullText.contains("SLAPSHOCK") ||
+                fullText.contains("QUEEN") || fullText.contains("BON JOVI") || fullText.contains("SCORPIONS") ||
+                fullText.contains("METALLICA") || fullText.contains("GUNS N")
+
+        if (isRock) {
+            return availableSoundFonts.find { it.id == "videokey_rock" } ?: availableSoundFonts.first()
+        }
+
+        // 2. Acoustic / Ballad / Love Songs check
+        val isBallad = cat.contains("BALLAD") || cat.contains("ACOUSTIC") || cat.contains("SLOW") || cat.contains("LOVE") ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.ACOUSTIC ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.BALLAD ||
+                (analysis != null && analysis.detectedBpm in 1..88) ||
+                fullText.contains("REGINE") || fullText.contains("SHARON") || fullText.contains("GARY V") ||
+                fullText.contains("AIR SUPPLY") || fullText.contains("WESTLIFE") || fullText.contains("CARPENTERS") ||
+                fullText.contains("BALLAD") || fullText.contains("ACOUSTIC")
+
+        if (isBallad) {
+            return availableSoundFonts.find { it.id == "videokey_acoustic" } ?: availableSoundFonts.first()
+        }
+
+        // 3. Disco / Dance / 80s/90s Synth check
+        val isDisco = cat.contains("DISCO") || cat.contains("DANCE") || cat.contains("RETRO") || cat.contains("ELECTRONIC") ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.DANCE_DISCO ||
+                (analysis != null && analysis.detectedBpm >= 124) ||
+                fullText.contains("VST") || fullText.contains("HAGIBIS") || fullText.contains("BOYFRIENDS") ||
+                fullText.contains("ABBA") || fullText.contains("BEE GEES") || fullText.contains("BONEY M") ||
+                fullText.contains("CHACHA") || fullText.contains("CHA CHA")
+
+        if (isDisco) {
+            return availableSoundFonts.find { it.id == "videokey_disco" } ?: availableSoundFonts.first()
+        }
+
+        // 4. Party / Hip-Hop / Novelty
+        val isParty = cat.contains("PARTY") || cat.contains("NOVELTY") || cat.contains("RAP") ||
+                fullText.contains("GRIN DEPT") || fullText.contains("ANDREW E") || fullText.contains("YOYOY")
+
+        if (isParty) {
+            return availableSoundFonts.find { it.id == "videokey_party" } ?: availableSoundFonts.first()
+        }
+
+        // 5. Default OPM & Pop Studio
+        return availableSoundFonts.find { it.id == "videokey_pop" } ?: availableSoundFonts.first()
     }
 
     fun findMidiFileForSong(song: Song): File? {

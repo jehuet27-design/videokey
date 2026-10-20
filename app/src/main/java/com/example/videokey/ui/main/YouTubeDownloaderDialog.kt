@@ -208,6 +208,9 @@ fun YouTubeDownloaderDialog(
                 if (selectedTab == 0) {
                     // TAB 0: YOUTUBE SEARCH & DOWNLOAD
                     // Search Bar + Action Button
+                    val clipboardManager = LocalClipboardManager.current
+                    val context = LocalContext.current
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -215,7 +218,7 @@ fun YouTubeDownloaderDialog(
                     ) {
                         OutlinedTextField(
                             value = searchQuery,
-                            onValueChange = { searchQuery = it },
+                            onValueChange = { searchQuery = it.replace("\n", "").replace("\r", "") },
                             placeholder = {
                                 Text(
                                     text = if (isTagalog) "Maghanap o mag-paste ng YouTube link..." else "Search or paste YouTube URL...",
@@ -242,8 +245,33 @@ fun YouTubeDownloaderDialog(
                             shape = RoundedCornerShape(10.dp)
                         )
 
+                        // Dedicated 📋 PASTE button for 1-tap clipboard paste!
                         Button(
-                            onClick = { onSearch(searchQuery) },
+                            onClick = {
+                                val clipText = clipboardManager.getText()?.text?.trim() ?: ""
+                                if (clipText.isNotBlank()) {
+                                    val clean = clipText.replace("\n", "").replace("\r", "").trim()
+                                    searchQuery = clean
+                                    Toast.makeText(context, if (isTagalog) "Na-paste ang link!" else "Link pasted!", Toast.LENGTH_SHORT).show()
+                                    onSearch(clean)
+                                } else {
+                                    Toast.makeText(context, if (isTagalog) "Walang laman ang clipboard" else "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.height(52.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp)
+                        ) {
+                            Text(
+                                text = "📋",
+                                fontSize = 16.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = { onSearch(searchQuery.trim()) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.height(52.dp)

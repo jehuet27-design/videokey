@@ -136,17 +136,35 @@ object MidiMelodyScaler {
     fun resolveProfile(soundFontName: String): SoundFontProfile {
         val lower = soundFontName.trim().lowercase()
         return when {
+            lower.contains("rock") || lower.contains("band") -> SoundFontProfile(
+                name = soundFontName,
+                fontGain = 0.84f,
+                eqGainsDb = floatArrayOf(2.5f, 3.2f, 1.8f, 0.4f, -0.6f, 0.8f, 1.8f, 2.4f, 2.2f, 1.8f),
+                reverbLevel = 0.38f
+            )
+            lower.contains("acoustic") || lower.contains("ballad") -> SoundFontProfile(
+                name = soundFontName,
+                fontGain = 0.80f,
+                eqGainsDb = floatArrayOf(1.2f, 1.8f, 1.0f, 0.2f, 0.8f, 1.2f, 1.5f, 1.8f, 2.0f, 1.6f),
+                reverbLevel = 0.50f
+            )
+            lower.contains("disco") || lower.contains("dance") || lower.contains("synth") -> SoundFontProfile(
+                name = soundFontName,
+                fontGain = 0.82f,
+                eqGainsDb = floatArrayOf(2.0f, 2.6f, 1.6f, 0.0f, -0.8f, 0.4f, 1.2f, 1.8f, 2.2f, 2.0f),
+                reverbLevel = 0.42f
+            )
+            lower.contains("party") -> SoundFontProfile(
+                name = soundFontName,
+                fontGain = 0.82f,
+                eqGainsDb = floatArrayOf(2.2f, 3.2f, 1.8f, 0.2f, -0.6f, 0.5f, 1.4f, 1.8f, 2.0f, 1.8f),
+                reverbLevel = 0.40f
+            )
             lower.contains("yamaha") || lower.contains("korg") || lower.contains("ketron") -> SoundFontProfile(
                 name = soundFontName,
                 fontGain = 0.78f,
                 eqGainsDb = floatArrayOf(1.5f, 2.2f, 1.2f, 0.0f, -0.8f, 0.2f, 0.8f, 1.4f, 1.8f, 1.5f),
                 reverbLevel = 0.45f
-            )
-            lower.contains("minus") || lower.contains("studio") || lower.contains("videokey") -> SoundFontProfile(
-                name = soundFontName,
-                fontGain = 0.80f,
-                eqGainsDb = floatArrayOf(1.8f, 2.5f, 1.5f, 0.2f, -1.0f, 0.3f, 1.0f, 1.5f, 1.8f, 1.6f),
-                reverbLevel = 0.42f
             )
             lower.contains("dream") || lower.contains("sam") || lower.contains("2634") -> SoundFontProfile(
                 name = soundFontName,
@@ -160,32 +178,18 @@ object MidiMelodyScaler {
                 eqGainsDb = floatArrayOf(1.4f, 2.0f, 1.2f, 0.0f, -0.6f, 0.4f, 1.1f, 1.5f, 1.6f, 1.4f),
                 reverbLevel = 0.40f
             )
-            lower.contains("songhub") || lower.isBlank() -> SoundFontProfile(
+            lower.contains("minus") || lower.contains("studio") || lower.contains("videokey") || lower.contains("pop") || lower.contains("opm") -> SoundFontProfile(
                 name = soundFontName,
                 fontGain = 0.80f,
-                eqGainsDb = floatArrayOf(1.5f, 2.0f, 1.2f, 0.0f, -0.8f, 0.2f, 0.8f, 1.2f, 1.5f, 1.4f),
-                reverbLevel = 0.40f
+                eqGainsDb = floatArrayOf(1.8f, 2.5f, 1.5f, 0.2f, -1.0f, 0.3f, 1.0f, 1.5f, 1.8f, 1.6f),
+                reverbLevel = 0.42f
             )
-            else -> {
-                val hash = abs(lower.hashCode())
-                SoundFontProfile(
-                    name = soundFontName,
-                    fontGain = 0.78f,
-                    eqGainsDb = floatArrayOf(
-                        1.4f + (hash % 5) * 0.1f,
-                        2.0f + (hash % 6) * 0.1f,
-                        1.2f,
-                        0.0f,
-                        -0.8f,
-                        0.2f,
-                        0.9f,
-                        1.3f,
-                        1.6f,
-                        1.4f
-                    ),
-                    reverbLevel = 0.42f
-                )
-            }
+            else -> SoundFontProfile(
+                name = soundFontName,
+                fontGain = 0.80f,
+                eqGainsDb = floatArrayOf(1.8f, 2.5f, 1.5f, 0.2f, -1.0f, 0.3f, 1.0f, 1.5f, 1.8f, 1.6f),
+                reverbLevel = 0.42f
+            )
         }
     }
 

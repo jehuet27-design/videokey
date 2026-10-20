@@ -72,11 +72,77 @@ class YouTubeKaraokeDownloader(private val context: Context) {
         return dir
     }
 
+    fun extractVideoId(input: String): String? {
+        val trimmed = input.trim()
+        val urlRegex = Regex("""(?:https?://)?(?:www\.|m\.)?(?:youtube\.com/(?:watch\?.*v=|shorts/|live/|embed/)|youtu\.be/)([a-zA-Z0-9_-]{11})""")
+        val match = urlRegex.find(trimmed)
+        if (match != null) {
+            return match.groupValues[1]
+        }
+        if (trimmed.length == 11 && trimmed.matches(Regex("""[a-zA-Z0-9_-]{11}"""))) {
+            return trimmed
+        }
+        return null
+    }
+
     /**
      * Search YouTube for karaoke songs or background videos using Piped API
      */
     suspend fun search(query: String): List<YouTubeVideoItem> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
+
+        val directVideoId = extractVideoId(query)
+        if (directVideoId != null) {
+            // User pasted a YouTube URL or direct Video ID!
+            for (instance in PIPED_INSTANCES) {
+                try {
+                    val streamApiUrl = "$instance/streams/$directVideoId"
+                    val conn = (URL(streamApiUrl).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 8000
+                        readTimeout = 8000
+                        setRequestProperty("User-Agent", "Mozilla/5.0 (Android) VideoKey/2.0")
+                        setRequestProperty("Accept", "application/json")
+                    }
+                    if (conn.responseCode == 200) {
+                        val body = conn.inputStream.bufferedReader().use { it.readText() }
+                        conn.disconnect()
+                        val json = JSONObject(body)
+                        val title = json.optString("title", "YouTube Karaoke Video")
+                        val uploader = json.optString("uploader", "YouTube")
+                        val durationSec = json.optInt("duration", 0)
+                        val mins = durationSec / 60
+                        val secs = durationSec % 60
+                        val durFormatted = String.format(Locale.US, "%02d:%02d", mins, secs)
+                        val thumb = json.optString("thumbnailUrl", "https://i.ytimg.com/vi/$directVideoId/hqdefault.jpg")
+
+                        return@withContext listOf(
+                            YouTubeVideoItem(
+                                id = directVideoId,
+                                title = title,
+                                uploader = uploader,
+                                durationFormatted = durFormatted,
+                                durationSeconds = durationSec,
+                                thumbnailUrl = thumb
+                            )
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Direct video fetch from $instance failed: ${e.message}")
+                }
+            }
+
+            // Fallback direct item so user can still play/download
+            return@withContext listOf(
+                YouTubeVideoItem(
+                    id = directVideoId,
+                    title = "YouTube Video ($directVideoId)",
+                    uploader = "YouTube Direct",
+                    durationFormatted = "00:00",
+                    durationSeconds = 0,
+                    thumbnailUrl = "https://i.ytimg.com/vi/$directVideoId/hqdefault.jpg"
+                )
+            )
+        }
 
         val encodedQuery = URLEncoder.encode(query.trim(), "UTF-8")
         for (instance in PIPED_INSTANCES) {
