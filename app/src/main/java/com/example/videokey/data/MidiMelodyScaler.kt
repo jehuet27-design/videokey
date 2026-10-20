@@ -34,73 +34,112 @@ object MidiMelodyScaler {
         val descriptionEnglish: String
     ) {
         BALLAD(
-            labelTagalog = "Ballad / Mabagal",
+            labelTagalog = "Ballad / Love Song",
             labelEnglish = "Ballad & Love Song",
-            emoji = "🎻",
+            emoji = "🎹",
             melody = 50,
-            drums = 85,
+            drums = 82,
             bass = 95,
-            guitarPiano = 110,
-            stringsBrass = 115,
-            reverb = 62,
-            descriptionTagalog = "Lutang ang piano & strings, banayad ang drums, may concert hall reverb.",
-            descriptionEnglish = "Lush piano & orchestral strings, soft drums, spacious concert reverb."
+            guitarPiano = 115,
+            stringsBrass = 120,
+            reverb = 60,
+            descriptionTagalog = "Lutang ang concert grand piano & strings, banayad ang drums, may concert hall reverb.",
+            descriptionEnglish = "Lush grand piano & orchestral strings upfront, soft acoustic drums, spacious concert reverb."
         ),
         ROCK_UPBEAT(
-            labelTagalog = "Rock / Mabilis na Beat",
-            labelEnglish = "Rock & Upbeat Band",
+            labelTagalog = "Rock / Live Band",
+            labelEnglish = "Rock & Live Band",
             emoji = "🎸",
-            melody = 55,
-            drums = 118,
-            bass = 112,
-            guitarPiano = 100,
-            stringsBrass = 95,
-            reverb = 38,
-            descriptionTagalog = "Punchy drums at kalabit ng bass guitar, tight reverb para sa mabilis na tugtog.",
-            descriptionEnglish = "Punchy kick & snare, driven bass guitar, tight reverb for fast live rhythms."
+            melody = 54,
+            drums = 122,
+            bass = 116,
+            guitarPiano = 105,
+            stringsBrass = 90,
+            reverb = 32,
+            descriptionTagalog = "Punchy rock drums, malutong na electric guitar, at mabigat na bass line.",
+            descriptionEnglish = "Punchy kick & snare, driven bass guitar, biting electric rhythm guitars."
         ),
         ACOUSTIC(
             labelTagalog = "Acoustic / Unplugged",
-            labelEnglish = "Acoustic Unplugged",
-            emoji = "🎹",
-            melody = 55,
-            drums = 75,
-            bass = 90,
-            guitarPiano = 120,
-            stringsBrass = 95,
-            reverb = 45,
-            descriptionTagalog = "Malinaw na acoustic guitar & piano, natural na studio ambience.",
-            descriptionEnglish = "Warm acoustic guitar and piano upfront, gentle natural studio ambience."
+            labelEnglish = "Acoustic & Unplugged",
+            emoji = "🎶",
+            melody = 50,
+            drums = 70,
+            bass = 88,
+            guitarPiano = 125,
+            stringsBrass = 85,
+            reverb = 44,
+            descriptionTagalog = "Malinaw at lutang na acoustic guitar strumming & piano, natural na room ambience.",
+            descriptionEnglish = "Warm acoustic guitar and piano upfront, delicate percussion, warm natural room."
         ),
         DANCE_DISCO(
-            labelTagalog = "Dance / Disco Party",
-            labelEnglish = "Dance & Disco Party",
+            labelTagalog = "Disco / Retro Dance",
+            labelEnglish = "Disco & Retro Dance",
             emoji = "🪩",
-            melody = 60,
-            drums = 120,
-            bass = 115,
-            guitarPiano = 95,
-            stringsBrass = 105,
-            reverb = 42,
-            descriptionTagalog = "Mabigat na 4-on-the-floor beat at synth/groove bass, energetic party sound.",
-            descriptionEnglish = "High-energy dance groove, boosted kick & bass, dynamic party brass & synths."
+            melody = 58,
+            drums = 122,
+            bass = 120,
+            guitarPiano = 96,
+            stringsBrass = 112,
+            reverb = 38,
+            descriptionTagalog = "Mabigat na 4-on-the-floor beat, funky groove bass, at sparkling brass stabs.",
+            descriptionEnglish = "High-energy dance groove, boosted kick & bass, dynamic brass & synths."
+        ),
+        LATIN_CHACHA(
+            labelTagalog = "Cha-Cha / Ballroom",
+            labelEnglish = "Cha-Cha & Latin Ballroom",
+            emoji = "🎺",
+            melody = 55,
+            drums = 118,
+            bass = 106,
+            guitarPiano = 100,
+            stringsBrass = 118,
+            reverb = 44,
+            descriptionTagalog = "Malulutong na Latin percussion (congas/timbales), masiglang brass, at buoyant bass.",
+            descriptionEnglish = "Crisp Latin percussion, bright horn stabs, dynamic ballroom dance rhythm."
+        ),
+        RNB_SOUL(
+            labelTagalog = "R&B / Smooth Groove",
+            labelEnglish = "R&B & Smooth Groove",
+            emoji = "🎷",
+            melody = 52,
+            drums = 110,
+            bass = 116,
+            guitarPiano = 108,
+            stringsBrass = 104,
+            reverb = 48,
+            descriptionTagalog = "Malalim na low-end bass groove, malambing na electric piano, at silky reverb.",
+            descriptionEnglish = "Thick kick pocket, warm Rhodes electric piano, deep rounded bass groove."
+        ),
+        PARTY_FIESTA(
+            labelTagalog = "Party / Fiesta Beat",
+            labelEnglish = "Party & Fiesta Beat",
+            emoji = "🎉",
+            melody = 58,
+            drums = 124,
+            bass = 116,
+            guitarPiano = 102,
+            stringsBrass = 114,
+            reverb = 40,
+            descriptionTagalog = "Mataas na enerhiya, malakas na tambol, at masayang videoke party vibe.",
+            descriptionEnglish = "High-energy party beat, lively brass section, maximum festive presence."
         ),
         STANDARD_POP(
-            labelTagalog = "Balanseng Live Band",
-            labelEnglish = "Balanced Live Band",
-            emoji = "🎤",
-            melody = 60,
-            drums = 100,
-            bass = 100,
-            guitarPiano = 100,
-            stringsBrass = 100,
+            labelTagalog = "OPM & Studio Pop",
+            labelEnglish = "OPM & Studio Pop",
+            emoji = "🇵🇭",
+            melody = 55,
+            drums = 104,
+            bass = 104,
+            guitarPiano = 104,
+            stringsBrass = 104,
             reverb = 50,
-            descriptionTagalog = "Pantay at balanseng timpla ng buong banda para sa standard pop songs.",
-            descriptionEnglish = "Even, studio-balanced mix across all instruments for classic pop karaoke."
+            descriptionTagalog = "Balanseng studio minus-one sound para sa OPM at billboard pop hits.",
+            descriptionEnglish = "Even, CD-mastered balance across all instruments for classic OPM & pop."
         )
     }
 
-    data class MidiAnalysis(
+        data class MidiAnalysis(
         val numTracks: Int,
         val melodyTracks: Set<Int>,
         val melodyChannels: Set<Int>,
@@ -505,32 +544,44 @@ object MidiMelodyScaler {
         var hasDistortionGuitar = false
         var hasPianoOrStrings = false
         var hasSynth = false
+        var hasAcousticGuitar = false
+        var hasBrassSection = false
+        var hasSlapOrSynthBass = false
 
         for (ch in 0..15) {
             if (ch in drumChannels) continue
             val prog = defaultPrograms[ch]
             val notes = noteCounts[ch]
-            if (notes > 25) {
+            if (notes > 20) {
                 if (prog in 29..31) hasDistortionGuitar = true
+                if (prog in 24..25) hasAcousticGuitar = true
                 if (prog in 0..5 || prog in 40..51) hasPianoOrStrings = true
                 if (prog in 38..39 || prog in 80..103) hasSynth = true
+                if (prog in 36..39) hasSlapOrSynthBass = true
+                if (prog in 56..63) hasBrassSection = true
             }
         }
 
         val detectedStyle = when {
-            // 1. Acoustic / Unplugged: Very low drum notes or no drums at all
-            totalNotes > 50 && (drumNotes < 20 || (drumNotes.toFloat() / totalNotes) < 0.07f) -> SongMixStyle.ACOUSTIC
+            // 1. Acoustic / Unplugged: low drum notes or no drums at all, with acoustic guitar or piano
+            totalNotes > 50 && (drumNotes < 20 || (drumNotes.toFloat() / totalNotes) < 0.07f || (hasAcousticGuitar && drumNotes < 50 && !hasDistortionGuitar)) -> SongMixStyle.ACOUSTIC
 
             // 2. Rock / Heavy Overdrive: Distortion / Overdriven guitar or Fast Tempo with heavy drums
-            hasDistortionGuitar || (finalBpm >= 132 && drumNotes > 100) -> SongMixStyle.ROCK_UPBEAT
+            hasDistortionGuitar || (finalBpm >= 132 && drumNotes > 90) -> SongMixStyle.ROCK_UPBEAT
 
-            // 3. Dance / Disco: Fast 118-138 BPM with synths or very heavy drum density
-            finalBpm in 118..138 && (hasSynth || drumNotes > totalNotes * 0.28f) -> SongMixStyle.DANCE_DISCO
+            // 3. Dance / Disco: Fast 116-138 BPM with synths or 4-on-the-floor heavy drum density
+            finalBpm in 116..138 && (hasSynth || drumNotes > totalNotes * 0.26f) -> SongMixStyle.DANCE_DISCO
 
-            // 4. Ballad / Slow Love Songs: BPM <= 88, or BPM <= 98 with heavy piano/strings and no distortion
-            finalBpm in 1..88 || (finalBpm in 89..98 && hasPianoOrStrings && !hasDistortionGuitar) -> SongMixStyle.BALLAD
+            // 4. R&B / Smooth Groove: Mid tempo (82-108 BPM) with electric piano or slap/synth bass
+            finalBpm in 82..108 && (hasSlapOrSynthBass || (hasPianoOrStrings && !hasDistortionGuitar && drumNotes > 30)) -> SongMixStyle.RNB_SOUL
 
-            // 5. Default: Balanced standard pop
+            // 5. Ballad / Slow Love Songs: BPM <= 88, or BPM <= 96 with heavy piano/strings and no distortion
+            finalBpm in 1..88 || (finalBpm in 89..96 && hasPianoOrStrings && !hasDistortionGuitar) -> SongMixStyle.BALLAD
+
+            // 6. Party / Fast Tempo Fiesta: BPM >= 126 with high brass/synth
+            finalBpm >= 126 && (hasBrassSection || hasSynth) -> SongMixStyle.PARTY_FIESTA
+
+            // 7. Default: Balanced standard OPM studio pop
             else -> SongMixStyle.STANDARD_POP
         }
 
@@ -563,5 +614,17 @@ object MidiMelodyScaler {
         soundFontName: String = ""
     ): ByteArray {
         return midiBytes
+    }
+    fun resolveEqForMixStyle(style: SongMixStyle): FloatArray {
+        return when (style) {
+            SongMixStyle.ROCK_UPBEAT -> floatArrayOf(2.5f, 3.6f, 2.0f, -0.8f, -0.6f, 0.8f, 2.0f, 2.6f, 2.2f, 1.8f)
+            SongMixStyle.BALLAD -> floatArrayOf(1.5f, 2.0f, 1.2f, 0.2f, 0.8f, 1.2f, 1.5f, 2.0f, 2.4f, 2.0f)
+            SongMixStyle.ACOUSTIC -> floatArrayOf(1.0f, 1.6f, 0.8f, 0.2f, 0.8f, 1.4f, 1.8f, 2.2f, 2.4f, 2.0f)
+            SongMixStyle.DANCE_DISCO -> floatArrayOf(2.6f, 3.4f, 2.0f, 0.0f, -0.8f, 0.4f, 1.4f, 2.0f, 2.4f, 2.2f)
+            SongMixStyle.LATIN_CHACHA -> floatArrayOf(1.8f, 2.4f, 1.6f, 0.0f, -0.4f, 0.8f, 1.8f, 2.4f, 2.2f, 1.8f)
+            SongMixStyle.RNB_SOUL -> floatArrayOf(2.2f, 3.0f, 1.8f, 0.4f, 0.2f, 0.8f, 1.4f, 1.8f, 2.0f, 1.8f)
+            SongMixStyle.PARTY_FIESTA -> floatArrayOf(2.4f, 3.2f, 2.0f, 0.2f, -0.6f, 0.6f, 1.6f, 2.2f, 2.2f, 2.0f)
+            SongMixStyle.STANDARD_POP -> floatArrayOf(1.8f, 2.5f, 1.5f, 0.2f, -0.8f, 0.4f, 1.2f, 1.8f, 2.0f, 1.8f)
+        }
     }
 }

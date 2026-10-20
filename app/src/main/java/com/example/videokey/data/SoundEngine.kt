@@ -73,6 +73,13 @@ class SoundEngine(
             genreTag = "DANCE"
         ),
         SoundFontPreset(
+            id = "videokey_chacha",
+            displayName = "🎺 VideoKey Cha-Cha & Ballroom",
+            fileName = "Dream SAM2634 (ver. 2.1).sf2",
+            description = "Crisp Latin percussion, lively brass section, at classic ballroom videoke groove",
+            genreTag = "BALLROOM"
+        ),
+        SoundFontPreset(
             id = "videokey_party",
             displayName = "🥁 VideoKey Party & Mega Beat",
             fileName = "mega.sf2",
@@ -482,6 +489,11 @@ class SoundEngine(
                     ?: findSoundFontFile("mega.sf2")
                     ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
             }
+            lowerActive.contains("chacha") || lowerActive.contains("cha-cha") || lowerActive.contains("ballroom") || lowerActive.contains("latin") -> {
+                findSoundFontFile("Dream SAM2634 (ver. 2.1).sf2")
+                    ?: findSoundFontFile("mega.sf2")
+                    ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
+            }
             lowerActive.contains("party") -> {
                 findSoundFontFile("mega.sf2")
                     ?: findSoundFontFile("VideoKey_Studio_Minus1.sf2")
@@ -598,7 +610,13 @@ class SoundEngine(
             BASSMIDI.BASS_MIDI_FontSetVolume(primaryFontHandle, profile.fontGain)
         }
 
-        // 1. 10-Band 32-bit Float Studio Mastering Equalizer
+        // 1. 10-Band 32-bit Float Studio Mastering Equalizer (Dynamic per Genre)
+        val mixStyle = currentAnalysis?.detectedMixStyle ?: MidiMelodyScaler.SongMixStyle.STANDARD_POP
+        val targetEqGains = if (isAutoMixerEnabled) {
+            MidiMelodyScaler.resolveEqForMixStyle(mixStyle)
+        } else {
+            profile.eqGainsDb
+        }
         for (i in 0 until 10) {
             if (eqFxHandles[i] == 0) {
                 eqFxHandles[i] = BASS.BASS_ChannelSetFX(streamHandle, BASS_FX.BASS_FX_BFX_PEAKEQ, 10)
@@ -610,7 +628,7 @@ class SoundEngine(
                     fBandwidth = 1.0f
                     fQ = 0.0f
                     fCenter = EQ_FREQUENCIES[i]
-                    fGain = profile.eqGainsDb.getOrElse(i) { 0.0f }
+                    fGain = targetEqGains.getOrElse(i) { 0.0f }
                     lChannel = BASS_FX.BASS_BFX_CHANALL
                 }
                 BASS.BASS_FXSetParameters(fx, eq)
@@ -825,8 +843,11 @@ class SoundEngine(
         }
     }
 
+    private var currentSongRef: Song? = null
+
     fun playMidi(
         filePath: String,
+        song: Song? = null,
         deleteAfterOpen: Boolean = false,
         resumePositionMs: Long = 0L,
         onCompletion: (() -> Unit)? = null
@@ -851,6 +872,15 @@ class SoundEngine(
                 liveDrumChannels[ch] = (ch == 9) || (currentAnalysis?.drumChannels?.contains(ch) == true)
                 baseChannelVolumes[ch] = 100
             }
+            currentSongRef = song
+
+            // Auto SoundFont Refinement: refine matched SoundFont with fresh MIDI analysis
+            if (activeSoundFont.id == "auto_genre") {
+                val matched = resolveGenreForSong(song, currentAnalysis)
+                activeSoundFontName = matched.displayName
+                Log.d(TAG, "Auto SoundFont refined with MIDI analysis: ${matched.displayName} for ${song?.title ?: file.name}")
+            }
+
             if (isAutoMixerEnabled) {
                 val autoStyle = currentAnalysis?.detectedMixStyle ?: MidiMelodyScaler.SongMixStyle.STANDARD_POP
                 melodyPercent = autoStyle.melody
@@ -1297,59 +1327,108 @@ class SoundEngine(
     }
 
     fun resolveGenreForSong(song: Song?, analysis: MidiMelodyScaler.MidiAnalysis? = null): SoundFontPreset {
-        if (song == null) return availableSoundFonts.find { it.id == "videokey_pop" } ?: availableSoundFonts[1]
+        val cat = song?.category?.uppercase() ?: ""
+        val title = song?.title?.uppercase() ?: ""
+        val artist = song?.artist?.uppercase() ?: ""
+        val fullText = "$title $artist $cat"
 
-        val cat = song.category.uppercase()
-        val title = song.title.uppercase()
-        val artist = song.artist.uppercase()
-        val fullText = "$title $artist"
+        // 1. Cha-Cha / Latin / Ballroom check
+        val isChaCha = cat.contains("CHACHA") || cat.contains("CHA-CHA") || cat.contains("CHA CHA") ||
+                cat.contains("BALLROOM") || cat.contains("LATIN") || cat.contains("SALSA") ||
+                cat.contains("MAMBO") || cat.contains("TANGO") || cat.contains("WALTZ") ||
+                cat.contains("RHUMBA") || cat.contains("RUMBA") || cat.contains("BOSSA") ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.LATIN_CHACHA ||
+                fullText.contains("CHACHA") || fullText.contains("CHA CHA") || fullText.contains("CHA-CHA") ||
+                fullText.contains("MAMBO") || fullText.contains("TANGO") || fullText.contains("WALTZ") ||
+                fullText.contains("RHUMBA") || fullText.contains("CUMBIA")
 
-        // 1. Rock check
-        val isRock = cat.contains("ROCK") ||
+        if (isChaCha) {
+            return availableSoundFonts.find { it.id == "videokey_chacha" }
+                ?: availableSoundFonts.find { it.id == "videokey_disco" }
+                ?: availableSoundFonts.first()
+        }
+
+        // 2. Rock & Live Band check
+        val isRock = cat.contains("ROCK") || cat.contains("METAL") || cat.contains("PUNK") || cat.contains("ALTERNATIVE") ||
                 analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.ROCK_UPBEAT ||
                 fullText.contains("AEGIS") || fullText.contains("KAMIKAZEE") || fullText.contains("PAROKYA") ||
                 fullText.contains("ERASERHEADS") || fullText.contains("RIVERMAYA") || fullText.contains("SLAPSHOCK") ||
                 fullText.contains("QUEEN") || fullText.contains("BON JOVI") || fullText.contains("SCORPIONS") ||
-                fullText.contains("METALLICA") || fullText.contains("GUNS N")
+                fullText.contains("METALLICA") || fullText.contains("GUNS N") || fullText.contains("AC/DC") ||
+                fullText.contains("AEROSMITH") || fullText.contains("JOURNEY") || fullText.contains("SURVIVOR") ||
+                fullText.contains("EUROPE") || fullText.contains("DEF LEPPARD") || fullText.contains("EAGLES") ||
+                fullText.contains("CREED") || fullText.contains("NICKELBACK") || fullText.contains("GREEN DAY") ||
+                fullText.contains("BLINK-182") || fullText.contains("LINKIN PARK") || fullText.contains("EVANESCENCE") ||
+                fullText.contains("SIAKOL") || fullText.contains("TEETH") || fullText.contains("SPONGE COLA") ||
+                fullText.contains("CUESHE") || fullText.contains("CALLALILY") || fullText.contains("6CYCLEMIND") ||
+                fullText.contains("MAYONNAISE") || fullText.contains("HALE") || fullText.contains("ORANGE AND LEMONS") ||
+                fullText.contains("URBANDUB") || fullText.contains("FRANCO") || fullText.contains("CHICOSCI") ||
+                fullText.contains("JUAN DE LA CRUZ") || fullText.contains("SAMPAGUITA") || fullText.contains("MIKE HANOPOL")
 
         if (isRock) {
             return availableSoundFonts.find { it.id == "videokey_rock" } ?: availableSoundFonts.first()
         }
 
-        // 2. Acoustic / Ballad / Love Songs check
-        val isBallad = cat.contains("BALLAD") || cat.contains("ACOUSTIC") || cat.contains("SLOW") || cat.contains("LOVE") ||
-                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.ACOUSTIC ||
-                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.BALLAD ||
-                (analysis != null && analysis.detectedBpm in 1..88) ||
-                fullText.contains("REGINE") || fullText.contains("SHARON") || fullText.contains("GARY V") ||
-                fullText.contains("AIR SUPPLY") || fullText.contains("WESTLIFE") || fullText.contains("CARPENTERS") ||
-                fullText.contains("BALLAD") || fullText.contains("ACOUSTIC")
-
-        if (isBallad) {
-            return availableSoundFonts.find { it.id == "videokey_acoustic" } ?: availableSoundFonts.first()
-        }
-
-        // 3. Disco / Dance / 80s/90s Synth check
-        val isDisco = cat.contains("DISCO") || cat.contains("DANCE") || cat.contains("RETRO") || cat.contains("ELECTRONIC") ||
+        // 3. Disco / 80s / Retro / Dance check
+        val isDisco = cat.contains("DISCO") || cat.contains("DANCE") || cat.contains("RETRO") ||
+                cat.contains("ELECTRONIC") || cat.contains("SYNTH") || cat.contains("80S") || cat.contains("90S") ||
                 analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.DANCE_DISCO ||
-                (analysis != null && analysis.detectedBpm >= 124) ||
+                (analysis != null && analysis.detectedBpm in 118..138 && !isRock) ||
                 fullText.contains("VST") || fullText.contains("HAGIBIS") || fullText.contains("BOYFRIENDS") ||
-                fullText.contains("ABBA") || fullText.contains("BEE GEES") || fullText.contains("BONEY M") ||
-                fullText.contains("CHACHA") || fullText.contains("CHA CHA")
+                fullText.contains("HOTDOG") || fullText.contains("CINDERELLA") || fullText.contains("ABBA") ||
+                fullText.contains("BEE GEES") || fullText.contains("BONEY M") || fullText.contains("EARTH WIND") ||
+                fullText.contains("VILLAGE PEOPLE") || fullText.contains("RICK ASTLEY") || fullText.contains("MODERN TALKING") ||
+                fullText.contains("MICHAEL JACKSON") || fullText.contains("MADONNA") || fullText.contains("PET SHOP")
 
         if (isDisco) {
             return availableSoundFonts.find { it.id == "videokey_disco" } ?: availableSoundFonts.first()
         }
 
-        // 4. Party / Hip-Hop / Novelty
+        // 4. Acoustic / Unplugged & Ballad / Love Songs check
+        val isAcousticOrBallad = cat.contains("BALLAD") || cat.contains("ACOUSTIC") || cat.contains("SLOW") ||
+                cat.contains("LOVE") || cat.contains("ROMANTIC") || cat.contains("SENTIMENTAL") ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.ACOUSTIC ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.BALLAD ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.RNB_SOUL ||
+                (analysis != null && analysis.detectedBpm in 1..88) ||
+                fullText.contains("REGINE") || fullText.contains("SHARON") || fullText.contains("GARY V") ||
+                fullText.contains("MARTIN NIEVERA") || fullText.contains("OGIE ALCASID") || fullText.contains("JAYA") ||
+                fullText.contains("LANI MISALUCHA") || fullText.contains("SARAH GERONIMO") || fullText.contains("CHRISTIAN BAUTISTA") ||
+                fullText.contains("ERIK SANTOS") || fullText.contains("JED MADELA") || fullText.contains("MORISSETTE") ||
+                fullText.contains("ANGELINE QUINTO") || fullText.contains("KZ TANDINGAN") || fullText.contains("KYLA") ||
+                fullText.contains("JAY R") || fullText.contains("NINA") || fullText.contains("FREESTYLE") ||
+                fullText.contains("SIDE A") || fullText.contains("SOUTH BORDER") || fullText.contains("TRUE FAITH") ||
+                fullText.contains("MYMP") || fullText.contains("MOIRA") || fullText.contains("ARTHUR NERY") ||
+                fullText.contains("TJ MONTERDE") || fullText.contains("ADIE") || fullText.contains("ZACK TABUDLO") ||
+                fullText.contains("BEN&BEN") || fullText.contains("DECEMBER AVENUE") || fullText.contains("IV OF SPADES") ||
+                fullText.contains("AIR SUPPLY") || fullText.contains("WESTLIFE") || fullText.contains("CARPENTERS") ||
+                fullText.contains("CELINE DION") || fullText.contains("WHITNEY HOUSTON") || fullText.contains("MARIAH CAREY") ||
+                fullText.contains("MICHAEL BOLTON") || fullText.contains("PEABO BRYSON") || fullText.contains("KENNY ROGERS") ||
+                fullText.contains("BRYAN ADAMS") || fullText.contains("ELTON JOHN") || fullText.contains("LIONEL RICHIE") ||
+                fullText.contains("DAN HILL") || fullText.contains("BREAD") || fullText.contains("CHICAGO") ||
+                fullText.contains("BALLAD") || fullText.contains("ACOUSTIC") || fullText.contains("UNPLUGGED")
+
+        if (isAcousticOrBallad) {
+            return availableSoundFonts.find { it.id == "videokey_acoustic" }
+                ?: availableSoundFonts.find { it.id == "yamaha_korg_ketron" }
+                ?: availableSoundFonts.first()
+        }
+
+        // 5. Party / Fiesta / Novelty check
         val isParty = cat.contains("PARTY") || cat.contains("NOVELTY") || cat.contains("RAP") ||
-                fullText.contains("GRIN DEPT") || fullText.contains("ANDREW E") || fullText.contains("YOYOY")
+                cat.contains("HIPHOP") || cat.contains("HIP-HOP") || cat.contains("FIESTA") ||
+                analysis?.detectedMixStyle == MidiMelodyScaler.SongMixStyle.PARTY_FIESTA ||
+                fullText.contains("GRIN DEPT") || fullText.contains("ANDREW E") || fullText.contains("YOYOY") ||
+                fullText.contains("MAX SURBAN") || fullText.contains("BLAKDYAK") || fullText.contains("BAYANI AGBAYANI") ||
+                fullText.contains("SEXBOMB") || fullText.contains("MASCULADOS") || fullText.contains("VHONG NAVARRO") ||
+                fullText.contains("GLOC-9") || fullText.contains("FLOW G") || fullText.contains("SKUSTA CLEE") ||
+                fullText.contains("EX BATTALION") || fullText.contains("SHANTI DOPE")
 
         if (isParty) {
             return availableSoundFonts.find { it.id == "videokey_party" } ?: availableSoundFonts.first()
         }
 
-        // 5. Default OPM & Pop Studio
+        // 6. Default: Balanced OPM & Pop Studio
         return availableSoundFonts.find { it.id == "videokey_pop" } ?: availableSoundFonts.first()
     }
 

@@ -252,6 +252,10 @@ class VideokeRemoteServer(
                 "reset_mixer" -> {
                     viewModel.resetInstrumentMixer()
                 }
+                "toggle_auto_mixer" -> {
+                    val enabled = params["enabled"]?.toBooleanStrictOrNull()
+                    if (enabled != null) viewModel.toggleAutoMixer(enabled) else viewModel.toggleAutoMixer(!viewModel.uiState.value.isAutoMixerEnabled)
+                }
                 "toggle_auto_volume" -> {
                     val enabled = params["enabled"]?.toBooleanStrictOrNull()
                     if (enabled != null) viewModel.setAutoVolumeEnabled(enabled) else viewModel.toggleAutoVolume()
@@ -365,6 +369,9 @@ class VideokeRemoteServer(
             put("micEchoPercent", state.micEchoPercent)
             put("isAutoVolumeEnabled", state.isAutoVolumeEnabled)
             put("isAutoMelodyNormalizeEnabled", state.isAutoMelodyNormalizeEnabled)
+            put("isAutoMixerEnabled", state.isAutoMixerEnabled)
+            put("activeMixStyleName", "${state.activeMixStyle.emoji} ${state.activeMixStyle.labelTagalog}")
+            put("autoMatchedSoundFont", state.autoMatchedSoundFontForCurrentSong ?: "")
             put("isMicScoringEnabled", state.isMicScoringEnabled)
             put("isScoringSoundEnabled", state.isScoringSoundEnabled)
             put("isKeypadVoiceEnabled", state.isKeypadVoiceEnabled)
@@ -1035,6 +1042,17 @@ class VideokeRemoteServer(
         <!-- SECTION 1: INSTRUMENT & AUDIO MIXER -->
         <div class="settings-section">
           <div class="section-title">🎛️ INSTRUMENT & AUDIO MIXER</div>
+
+          <div id="autoMixerBanner" style="display: flex; align-items: center; justify-content: space-between; background: rgba(59, 130, 246, 0.15); border: 1px solid #3B82F6; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px;">
+            <div>
+              <div style="font-size: 11px; font-weight: 800; color: #60A5FA;">✨ AUTO-MIX & MASTERING GENRE:</div>
+              <div id="activeMixStyleLabel" style="font-size: 13px; font-weight: 700; color: #F1F5F9;">Balanseng Live Band</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggleAutoMixer" onchange="sendToggle('toggle_auto_mixer', this.checked)">
+              <span class="slider-track"></span>
+            </label>
+          </div>
           
           <div class="setting-item-row" style="background: rgba(16, 185, 129, 0.12); border: 1px solid #10B981; border-radius: 8px; padding: 8px; margin-bottom: 8px;">
             <div>
@@ -1526,6 +1544,8 @@ class VideokeRemoteServer(
       // Settings Switches
       if (document.getElementById('toggleAutoVolume')) document.getElementById('toggleAutoVolume').checked = !!state.isAutoVolumeEnabled;
       if (document.getElementById('toggleAutoMelodyNormalize')) document.getElementById('toggleAutoMelodyNormalize').checked = !!state.isAutoMelodyNormalizeEnabled;
+      if (document.getElementById('toggleAutoMixer')) document.getElementById('toggleAutoMixer').checked = !!state.isAutoMixerEnabled;
+      if (document.getElementById('activeMixStyleLabel') && state.activeMixStyleName) document.getElementById('activeMixStyleLabel').innerText = state.activeMixStyleName;
       if (document.getElementById('toggleMicScoring')) document.getElementById('toggleMicScoring').checked = !!state.isMicScoringEnabled;
       if (document.getElementById('toggleScoringSound')) document.getElementById('toggleScoringSound').checked = !!state.isScoringSoundEnabled;
       if (document.getElementById('toggleKeypadVoice')) document.getElementById('toggleKeypadVoice').checked = !!state.isKeypadVoiceEnabled;

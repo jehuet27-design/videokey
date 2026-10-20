@@ -329,6 +329,7 @@ data class VideoKeyUiState(
         "🎸 VideoKey Rock & Band Studio",
         "🎹 VideoKey Acoustic & Ballad Studio",
         "🪩 VideoKey Disco & 80s/90s Synth",
+        "🎺 VideoKey Cha-Cha & Ballroom",
         "🥁 VideoKey Party & Mega Beat",
         "Yamaha x Korg x Ketron Studio",
         "Dream SAM2634 v2.1",
@@ -912,8 +913,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                         karaokeRecorder.updatePlaybackState(0L, _uiState.value.keyTranspose, parsed?.accompNotes.orEmpty())
                     }
                     songStartTimeMs = System.currentTimeMillis()
-                    soundEngine.playMidi(midiFile.absolutePath, deleteAfterOpen = isTempFile) {
+                    soundEngine.playMidi(midiFile.absolutePath, song = song, deleteAfterOpen = isTempFile) {
                         onSongCompleted()
+                    }
+                    val currentSf = soundEngine.getActiveSoundFont()
+                    if (isAutoMode) {
+                        _uiState.update { it.copy(autoMatchedSoundFontForCurrentSong = currentSf.displayName) }
                     }
                     val autoStyle = soundEngine.getDetectedMixStyle()
                     if (_uiState.value.isAutoMixerEnabled) {
