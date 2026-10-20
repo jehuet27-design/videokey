@@ -24,12 +24,31 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        fun isAndroidTv(context: android.content.Context): Boolean {
+            val uiModeManager = context.getSystemService(android.content.Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+            if (uiModeManager?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION) {
+                return true
+            }
+            val pm = context.packageManager
+            return pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK) ||
+                   pm.hasSystemFeature("android.hardware.type.television") ||
+                   !pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN)
+        }
+    }
+
     private val viewModel: VideoKeyViewModel by viewModels()
 
     private var remoteServer: com.example.videokey.remote.VideokeRemoteServer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Auto-detect Android TV / Google TV / Android TV Box
+        if (isAndroidTv(this)) {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            viewModel.initAndroidTvMode()
+        }
 
         // Start Built-in Wi-Fi Videoke Remote Server on port 8080
         remoteServer = com.example.videokey.remote.VideokeRemoteServer(viewModel)
@@ -61,6 +80,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (isAndroidTv(this)) {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            viewModel.initAndroidTvMode()
+        }
         viewModel.onAppResume()
         viewModel.checkAndAutoDetectFiles(triggerAutoDownloadIfMissing = true)
     }

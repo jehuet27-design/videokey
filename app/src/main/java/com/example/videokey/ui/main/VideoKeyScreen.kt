@@ -107,7 +107,7 @@ fun VideoKeyScreen(
             state.isSongbookOpen -> viewModel.closeSongbook()
             state.isReserveQueueOpen -> viewModel.closeReserveQueueOverlay()
             state.isFavoritesOpen -> viewModel.closeFavoritesOverlay()
-            state.isTvMode -> viewModel.exitLandscapeMode(activity)
+            state.isTvMode && !viewModel.isRunningOnTvDevice -> viewModel.exitLandscapeMode(activity)
             state.selectedBottomNavTab != 0 -> viewModel.selectBottomNavTab(0)
             else -> showExitConfirmDialog = true
         }
@@ -1447,14 +1447,7 @@ fun VideokeTvScreen(
 ) {
     val isTagalog = state.appLanguage == com.example.videokey.ui.main.AppLanguage.TAGALOG
     val isTvMode = state.isTvMode
-    val effectiveLyricConfig = remember(state.isTvMode, state.lyricConfig) {
-        if (state.isTvMode) {
-            state.lyricConfig.copy(
-                fontFamily = LyricFontFamily.ROUNDED_CLEAN,
-                fontScale = state.lyricConfig.fontScale * 1.30f
-            )
-        } else state.lyricConfig
-    }
+    val effectiveLyricConfig = state.lyricConfig
     val shouldShowHeader = remember(state.isTvMode, state.isPlaying, state.reserveQueue.size) {
         if (state.isTvMode) (state.isPlaying || state.reserveQueue.isNotEmpty()) else true
     }

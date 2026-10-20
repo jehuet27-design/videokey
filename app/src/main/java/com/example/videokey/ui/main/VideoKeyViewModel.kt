@@ -152,16 +152,16 @@ data class LyricCustomization(
     val wipeColor: LyricWipeColor = LyricWipeColor.DARK_BLUE,
     val inactiveColor: Long = 0xFFFFFFFF, // Pure White with Outline
     val outlineColor: LyricOutlineColor = LyricOutlineColor.NAVY,
-    val shadowStyle: LyricShadowStyle = LyricShadowStyle.HEAVY_OUTLINE,
+    val shadowStyle: LyricShadowStyle = LyricShadowStyle.CLEAN,
     val outlineThickness: Float = 3.0f,
     val fontSizePortraitSp: Float = 36.0f,
     val fontSizeLandscapeSp: Float = 54.0f,
-    val lineSpacingDp: Float = 20.0f,
+    val lineSpacingDp: Float = 8.0f,
     val hasDropShadow: Boolean = true,
     val isAllCaps: Boolean = false,
     val isItalic: Boolean = false,
-    val fontScale: Float = 1.30f,
-    val lineCount: LyricLineCount = LyricLineCount.FOUR_LINES,
+    val fontScale: Float = 0.85f,
+    val lineCount: LyricLineCount = LyricLineCount.TWO_LINES,
     val position: LyricScreenPosition = LyricScreenPosition.BOTTOM,
     val countdownMode: LyricCountdownMode = LyricCountdownMode.CLASSIC_DOTS,
     val timingOffsetMs: Int = 0,
@@ -503,26 +503,26 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         val savedContinuousChange = prefs.getBoolean("continuous_video_change_per_song", false)
 
-        val hasAppliedV2Defaults = prefs.getBoolean("lyric_v2_applied", false)
-        if (!hasAppliedV2Defaults) {
+        val hasAppliedTvDefaults = prefs.getBoolean("lyric_tv_defaults_applied_v3", false)
+        if (!hasAppliedTvDefaults) {
             prefs.edit()
                 .putString("lyric_outline_color", LyricOutlineColor.NAVY.name)
                 .putString("lyric_font_family", LyricFontFamily.GEOMETRIC_POP.name)
-                .putString("lyric_shadow_style", LyricShadowStyle.HEAVY_OUTLINE.name)
+                .putString("lyric_shadow_style", LyricShadowStyle.CLEAN.name)
                 .putString("lyric_wipe_color", LyricWipeColor.DARK_BLUE.name)
                 .putFloat("lyric_outline_thickness", 3.0f)
                 .putFloat("lyric_font_size_portrait", 36.0f)
                 .putFloat("lyric_font_size_landscape", 54.0f)
-                .putFloat("lyric_line_spacing", 20.0f)
+                .putFloat("lyric_line_spacing", 8.0f)
                 .putBoolean("lyric_has_drop_shadow", true)
                 .putBoolean("lyric_all_caps", false)
                 .putBoolean("lyric_is_italic", false)
-                .putFloat("lyric_font_scale", 1.30f)
-                .putString("lyric_line_count", LyricLineCount.FOUR_LINES.name)
+                .putFloat("lyric_font_scale", 0.85f)
+                .putString("lyric_line_count", LyricLineCount.TWO_LINES.name)
                 .putString("lyric_position", LyricScreenPosition.BOTTOM.name)
                 .putString("lyric_countdown_mode", LyricCountdownMode.CLASSIC_DOTS.name)
                 .putInt("lyric_timing_offset", 0)
-                .putBoolean("lyric_v2_applied", true)
+                .putBoolean("lyric_tv_defaults_applied_v3", true)
                 .apply()
         }
 
@@ -540,11 +540,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             LyricFontFamily.GEOMETRIC_POP
         }
 
-        val savedShadowStyleName = prefs.getString("lyric_shadow_style", LyricShadowStyle.HEAVY_OUTLINE.name) ?: LyricShadowStyle.HEAVY_OUTLINE.name
+        val savedShadowStyleName = prefs.getString("lyric_shadow_style", LyricShadowStyle.CLEAN.name) ?: LyricShadowStyle.CLEAN.name
         val initialShadowStyle = try {
             LyricShadowStyle.valueOf(savedShadowStyleName)
         } catch (_: Exception) {
-            LyricShadowStyle.HEAVY_OUTLINE
+            LyricShadowStyle.CLEAN
         }
 
         val savedWipeColorName = prefs.getString("lyric_wipe_color", LyricWipeColor.DARK_BLUE.name) ?: LyricWipeColor.DARK_BLUE.name
@@ -554,11 +554,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             LyricWipeColor.DARK_BLUE
         }
 
-        val savedLineCountName = prefs.getString("lyric_line_count", LyricLineCount.FOUR_LINES.name) ?: LyricLineCount.FOUR_LINES.name
+        val savedLineCountName = prefs.getString("lyric_line_count", LyricLineCount.TWO_LINES.name) ?: LyricLineCount.TWO_LINES.name
         val initialLineCount = try {
             LyricLineCount.valueOf(savedLineCountName)
         } catch (_: Exception) {
-            LyricLineCount.FOUR_LINES
+            LyricLineCount.TWO_LINES
         }
 
         val savedPositionName = prefs.getString("lyric_position", LyricScreenPosition.BOTTOM.name) ?: LyricScreenPosition.BOTTOM.name
@@ -615,11 +615,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     outlineThickness = prefs.getFloat("lyric_outline_thickness", 3.0f),
                     fontSizePortraitSp = prefs.getFloat("lyric_font_size_portrait", 36.0f),
                     fontSizeLandscapeSp = prefs.getFloat("lyric_font_size_landscape", 54.0f),
-                    lineSpacingDp = prefs.getFloat("lyric_line_spacing", 20.0f),
+                    lineSpacingDp = prefs.getFloat("lyric_line_spacing", 8.0f),
                     hasDropShadow = prefs.getBoolean("lyric_has_drop_shadow", true),
                     isAllCaps = prefs.getBoolean("lyric_all_caps", false),
                     isItalic = prefs.getBoolean("lyric_is_italic", false),
-                    fontScale = prefs.getFloat("lyric_font_scale", 1.30f),
+                    fontScale = prefs.getFloat("lyric_font_scale", 0.85f),
                     lineCount = initialLineCount,
                     position = initialPosition,
                     countdownMode = initialCountdownMode,
@@ -1990,22 +1990,72 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(showScoreModal = false) }
     }
 
+    var isRunningOnTvDevice: Boolean = false
+        private set
+
+    fun initAndroidTvMode() {
+        isRunningOnTvDevice = true
+        _uiState.update { it.copy(isTvMode = true) }
+        val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v3", false)
+        if (!hasCustomized) {
+            applyTvDefaultLyricSettings()
+        }
+    }
+
+    fun applyTvDefaultLyricSettings() {
+        val tvConfig = LyricCustomization(
+            fontFamily = LyricFontFamily.GEOMETRIC_POP,
+            wipeColor = LyricWipeColor.DARK_BLUE,
+            inactiveColor = 0xFFFFFFFF,
+            outlineColor = LyricOutlineColor.NAVY,
+            shadowStyle = LyricShadowStyle.CLEAN,
+            outlineThickness = 3.0f,
+            fontSizePortraitSp = 36.0f,
+            fontSizeLandscapeSp = 54.0f,
+            lineSpacingDp = 8.0f,
+            hasDropShadow = true,
+            isAllCaps = false,
+            isItalic = false,
+            fontScale = 0.85f,
+            lineCount = LyricLineCount.TWO_LINES,
+            position = LyricScreenPosition.BOTTOM,
+            countdownMode = LyricCountdownMode.CLASSIC_DOTS,
+            timingOffsetMs = 0
+        )
+        saveFullLyricConfig(tvConfig)
+        _uiState.update { it.copy(lyricConfig = tvConfig) }
+    }
+
     fun toggleTvMode(activity: android.app.Activity? = null) {
         val nextTv = !_uiState.value.isTvMode
         _uiState.update { it.copy(isTvMode = nextTv) }
         if (nextTv) {
             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v3", false)
+            if (!hasCustomized) {
+                applyTvDefaultLyricSettings()
+            }
         } else {
-            activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            if (!isRunningOnTvDevice) {
+                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
         }
     }
 
     fun enterTvLandscapeMode(activity: android.app.Activity? = null) {
         _uiState.update { it.copy(isTvMode = true) }
         activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        val hasCustomized = prefs.getBoolean("has_customized_tv_lyrics_v3", false)
+        if (!hasCustomized) {
+            applyTvDefaultLyricSettings()
+        }
     }
 
     fun exitLandscapeMode(activity: android.app.Activity? = null) {
+        if (isRunningOnTvDevice) {
+            // Android TV is physically landscape only. Do not force portrait.
+            return
+        }
         _uiState.update { it.copy(isTvMode = false) }
         activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
@@ -2818,16 +2868,49 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun saveFullLyricConfig(config: LyricCustomization) {
+        prefs.edit()
+            .putString("lyric_outline_color", config.outlineColor.name)
+            .putString("lyric_font_family", config.fontFamily.name)
+            .putString("lyric_shadow_style", config.shadowStyle.name)
+            .putString("lyric_wipe_color", config.wipeColor.name)
+            .putFloat("lyric_outline_thickness", config.outlineThickness)
+            .putFloat("lyric_font_size_portrait", config.fontSizePortraitSp)
+            .putFloat("lyric_font_size_landscape", config.fontSizeLandscapeSp)
+            .putFloat("lyric_line_spacing", config.lineSpacingDp)
+            .putBoolean("lyric_has_drop_shadow", config.hasDropShadow)
+            .putBoolean("lyric_all_caps", config.isAllCaps)
+            .putBoolean("lyric_is_italic", config.isItalic)
+            .putFloat("lyric_font_scale", config.fontScale)
+            .putString("lyric_line_count", config.lineCount.name)
+            .putString("lyric_position", config.position.name)
+            .putString("lyric_countdown_mode", config.countdownMode.name)
+            .putInt("lyric_timing_offset", config.timingOffsetMs)
+            .putBoolean("has_customized_tv_lyrics_v3", true)
+            .apply()
+    }
+
     fun applyLyricPreset(presetName: String) {
         val current = _uiState.value.lyricConfig
         val baseConfig = when (presetName) {
             "live_tv" -> LyricCustomization(
-                fontFamily = LyricFontFamily.SAN_SERIF,
-                wipeColor = LyricWipeColor.OCEAN_BLUE,
-                shadowStyle = LyricShadowStyle.HEAVY_OUTLINE,
-                isAllCaps = true,
+                fontFamily = LyricFontFamily.GEOMETRIC_POP,
+                wipeColor = LyricWipeColor.DARK_BLUE,
+                inactiveColor = 0xFFFFFFFF,
+                outlineColor = LyricOutlineColor.NAVY,
+                shadowStyle = LyricShadowStyle.CLEAN,
+                outlineThickness = 3.0f,
+                fontSizePortraitSp = 36.0f,
+                fontSizeLandscapeSp = 54.0f,
+                lineSpacingDp = 8.0f,
+                hasDropShadow = true,
+                isAllCaps = false,
                 isItalic = false,
-                fontScale = 1.05f
+                fontScale = 0.85f,
+                lineCount = LyricLineCount.TWO_LINES,
+                position = LyricScreenPosition.BOTTOM,
+                countdownMode = LyricCountdownMode.CLASSIC_DOTS,
+                timingOffsetMs = 0
             )
             "platinum" -> LyricCustomization(
                 fontFamily = LyricFontFamily.SAN_SERIF,
@@ -2871,10 +2954,15 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             )
             else -> LyricCustomization()
         }
-        val newConfig = baseConfig.copy(
-            lineCount = current.lineCount,
-            position = current.position
-        )
+        val newConfig = if (presetName == "live_tv") {
+            baseConfig
+        } else {
+            baseConfig.copy(
+                lineCount = current.lineCount,
+                position = current.position
+            )
+        }
+        saveFullLyricConfig(newConfig)
         _uiState.update { it.copy(lyricConfig = newConfig) }
     }
 
