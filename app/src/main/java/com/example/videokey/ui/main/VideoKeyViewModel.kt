@@ -936,6 +936,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     } else {
                         _uiState.update { it.copy(activeMixStyle = autoStyle) }
                     }
+                    if (!soundEngine.hasLoadedSoundFont()) {
+                        val isTl = _uiState.value.appLanguage == AppLanguage.TAGALOG
+                        val msg = if (isTl) "⚠️ Naka-fallback sa basic synth. I-download ang SoundFont sa Download Center para sa live videoke sound!"
+                                  else "⚠️ Using basic system synth. Download the SoundFont Bank in Download Center for studio sound!"
+                        _uiState.update { it.copy(alertMessage = msg) }
+                    }
                     startRealtimeLyricLoop()
                 } else {
                     Log.w("VideoKeyViewModel", "MIDI file not found for ${song.title} (${song.code})")

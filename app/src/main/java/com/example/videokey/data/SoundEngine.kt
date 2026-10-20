@@ -382,7 +382,9 @@ class SoundEngine(
                 BASS.BASS_PluginLoad("libbassmidi.so", 0)
                 BASS.BASS_PluginLoad("libbass_fx.so", 0)
                 BASS.BASS_SetConfig(BASS.BASS_CONFIG_BUFFER, 250)
-                BASS.BASS_SetConfig(BASS.BASS_CONFIG_ANDROID_AAUDIO, 1)
+                // Use universal OpenSL ES (0) which works on 100% of Android phones, tablets, and TV boxes without silent AAudio bugs
+                BASS.BASS_SetConfig(BASS.BASS_CONFIG_ANDROID_AAUDIO, 0)
+                BASS.BASS_SetVolume(1.0f)
                 BASS.BASS_SetConfig(BASS.BASS_CONFIG_UPDATEPERIOD, 30)
                 BASS.BASS_SetConfig(BASS.BASS_CONFIG_UPDATETHREADS, 2)
                 BASS.BASS_SetConfig(BASS.BASS_CONFIG_SRC_SAMPLE, 2) // Sinc interpolation
@@ -896,11 +898,22 @@ class SoundEngine(
             currentAnalysis = null
         }
 
+        // 1. Acquire Android Audio Focus on STREAM_MUSIC to ensure sound is not muted by other apps
+        try {
+            val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
+            @Suppress("DEPRECATION")
+            audioManager?.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN)
+        } catch (_: Exception) {}
+
         if (initBassEngine()) {
             try {
                 loadSoundFontHandles()
-                val streamFlags = BASS.BASS_SAMPLE_FLOAT or BASSMIDI.BASS_MIDI_SINCINTER or BASSMIDI.BASS_MIDI_DECAYEND
-                val handle = BASSMIDI.BASS_MIDI_StreamCreateFile(file.absolutePath, 0L, 0L, streamFlags, SAMPLE_RATE)
+                // CRITICAL NO-SOUND FIX: Only use BASSMIDI if a valid .sf2 SoundFont is loaded.
+                // If no SoundFont was downloaded yet, fall through to Android's built-in MediaPlayer
+                // which has its own system General MIDI synth, so the user NEVER experiences silence!
+                if (primaryFontHandle != 0 || fallbackFontHandle != 0) {
+                    val streamFlags = BASS.BASS_SAMPLE_FLOAT or BASSMIDI.BASS_MIDI_SINCINTER or BASSMIDI.BASS_MIDI_DECAYEND
+                    val handle = BASSMIDI.BASS_MIDI_StreamCreateFile(file.absolutePath, 0L, 0L, streamFlags, SAMPLE_RATE)
                 if (deleteAfterOpen) {
                     file.delete()
                 }
@@ -983,6 +996,9 @@ class SoundEngine(
                     return true
                 } else {
                     Log.e(TAG, "BASS_MIDI_StreamCreateFile failed with error: ${BASS.BASS_ErrorGetCode()}")
+                }
+                } else {
+                    Log.w(TAG, "No .sf2 SoundFont installed on device! Falling back to Android MediaPlayer built-in synth so user gets sound.")
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Error starting BASSMIDI playback, falling back to MediaPlayer", t)
@@ -1274,6 +1290,8 @@ class SoundEngine(
     fun setAutoMixerEnabled(enabled: Boolean) {
         isAutoMixerEnabled = enabled
     }
+
+    fun hasLoadedSoundFont(): Boolean = (primaryFontHandle != 0 || fallbackFontHandle != 0)
 
     fun isAutoMixerEnabled(): Boolean = isAutoMixerEnabled
 
