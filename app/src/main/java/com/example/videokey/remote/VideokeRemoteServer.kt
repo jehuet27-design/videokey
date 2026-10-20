@@ -166,6 +166,9 @@ class VideokeRemoteServer(
         withContextScopeMain {
             when (action) {
                 "play" -> viewModel.onPlay()
+                "pause" -> viewModel.pausePlayback()
+                "resume" -> viewModel.resumePlayback()
+                "toggle_pause" -> viewModel.togglePlaybackPause()
                 "next" -> viewModel.onNext()
                 "stop" -> viewModel.onStop()
                 "reserve" -> viewModel.onReserve()
@@ -332,6 +335,7 @@ class VideokeRemoteServer(
         val state = viewModel.uiState.value
         val json = JSONObject().apply {
             put("isPlaying", state.isPlaying)
+            put("isPlaybackPaused", state.isPlaybackPaused)
             put("enteredCode", state.enteredCode)
             put("keyTranspose", state.keyTranspose)
             put("tempoPercent", state.tempoPercent)
@@ -611,8 +615,8 @@ class VideokeRemoteServer(
     /* Control Row Buttons */
     .control-row {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
     }
     button.ctrl-btn {
       height: 48px;
@@ -634,6 +638,7 @@ class VideokeRemoteServer(
     .btn-play { background: linear-gradient(135deg, #10B981, #059669); }
     .btn-next { background: linear-gradient(135deg, #0284C7, #0369A1); }
     .btn-stop { background: linear-gradient(135deg, #EF4444, #B91C1C); }
+    .btn-pause { background: linear-gradient(135deg, #F59E0B, #B45309); }
     
     /* Pitch & Tempo Sliders/Pills */
     .tuning-row {
@@ -918,6 +923,10 @@ class VideokeRemoteServer(
           <span>▶</span>
           <span>PLAY</span>
         </button>
+        <button id="btnPauseResume" class="ctrl-btn btn-pause" onclick="sendAction('toggle_pause')">
+          <span id="btnPauseIcon">⏸</span>
+          <span id="btnPauseText">PAUSE</span>
+        </button>
         <button class="ctrl-btn btn-next" onclick="sendAction('next')">
           <span>⏭</span>
           <span>NEXT</span>
@@ -926,6 +935,19 @@ class VideokeRemoteServer(
           <span>⏹</span>
           <span>STOP</span>
         </button>
+      </div>
+
+      <!-- Quick Theme Bar on Remote Tab -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 6px 10px; background: #0F172A; border-radius: 8px; border: 1px solid #1E293B;">
+        <span style="font-size: 11px; font-weight: 800; color: #94A3B8;">🎨 THEME:</span>
+        <div style="display: flex; gap: 4px; overflow-x: auto;">
+          <button class="pill-btn" id="qtheme_CYBER_NEON" style="padding: 4px 8px; font-size: 10px;" onclick="sendTheme('CYBER_NEON')">Neon</button>
+          <button class="pill-btn" id="qtheme_SLATE_DARK" style="padding: 4px 8px; font-size: 10px;" onclick="sendTheme('SLATE_DARK')">Slate</button>
+          <button class="pill-btn" id="qtheme_EMERALD_STAGE" style="padding: 4px 8px; font-size: 10px;" onclick="sendTheme('EMERALD_STAGE')">Emerald</button>
+          <button class="pill-btn" id="qtheme_WARM_AMBER" style="padding: 4px 8px; font-size: 10px;" onclick="sendTheme('WARM_AMBER')">Gold</button>
+          <button class="pill-btn" id="qtheme_ROYAL_INDIGO" style="padding: 4px 8px; font-size: 10px;" onclick="sendTheme('ROYAL_INDIGO')">Indigo</button>
+          <button class="pill-btn" id="qtheme_CHARCOAL_MINIMAL" style="padding: 4px 8px; font-size: 10px;" onclick="sendTheme('CHARCOAL_MINIMAL')">Minimal</button>
+        </div>
       </div>
 
       <!-- Key, Tempo & Melody Tuning -->
@@ -976,6 +998,20 @@ class VideokeRemoteServer(
     <div id="tabContentSettings" class="tab-content">
       <div class="settings-container">
         
+        <!-- SECTION 0: TEMA NG APPS (THEMES) -->
+        <div class="settings-section">
+          <div class="section-title">🎨 TEMA NG APPS (THEMES)</div>
+          <div style="font-size: 11px; color: #94A3B8; margin-bottom: 6px;">Piliin ang visual theme at kulay ng screen:</div>
+          <div class="pills-grid" id="themePillsList">
+            <button class="pill-btn" id="themeBtn_CYBER_NEON" onclick="sendTheme('CYBER_NEON')">Cyber Neon KTV</button>
+            <button class="pill-btn" id="themeBtn_SLATE_DARK" onclick="sendTheme('SLATE_DARK')">Classic Slate</button>
+            <button class="pill-btn" id="themeBtn_EMERALD_STAGE" onclick="sendTheme('EMERALD_STAGE')">Emerald Stage</button>
+            <button class="pill-btn" id="themeBtn_WARM_AMBER" onclick="sendTheme('WARM_AMBER')">Warm Gold</button>
+            <button class="pill-btn" id="themeBtn_ROYAL_INDIGO" onclick="sendTheme('ROYAL_INDIGO')">Royal Studio</button>
+            <button class="pill-btn" id="themeBtn_CHARCOAL_MINIMAL" onclick="sendTheme('CHARCOAL_MINIMAL')">Minimal Charcoal</button>
+          </div>
+        </div>
+
         <!-- SECTION 1: INSTRUMENT & AUDIO MIXER -->
         <div class="settings-section">
           <div class="section-title">🎛️ INSTRUMENT & AUDIO MIXER</div>
@@ -1235,6 +1271,20 @@ class VideokeRemoteServer(
       }
     }
 
+    async function sendTheme(theme) {
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=app_theme&theme=' + encodeURIComponent(theme)
+        });
+        const state = await res.json();
+        updateUI(state);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     async function sendSoundFont(name) {
       try {
         const res = await fetch('/api/action', {
@@ -1378,6 +1428,32 @@ class VideokeRemoteServer(
 
     function updateUI(state) {
       if (!state) return;
+
+      // Update Pause / Resume Button
+      const pauseBtn = document.getElementById('btnPauseResume');
+      const pauseIcon = document.getElementById('btnPauseIcon');
+      const pauseText = document.getElementById('btnPauseText');
+      if (pauseBtn && pauseIcon && pauseText) {
+        if (state.isPlaybackPaused) {
+          pauseIcon.innerText = '▶';
+          pauseText.innerText = 'RESUME';
+          pauseBtn.style.background = 'linear-gradient(135deg, #10B981, #059669)';
+        } else {
+          pauseIcon.innerText = '⏸';
+          pauseText.innerText = 'PAUSE';
+          pauseBtn.style.background = 'linear-gradient(135deg, #F59E0B, #B45309)';
+        }
+      }
+
+      // Update Active Theme Highlights
+      const allThemes = ['CYBER_NEON', 'SLATE_DARK', 'EMERALD_STAGE', 'WARM_AMBER', 'ROYAL_INDIGO', 'CHARCOAL_MINIMAL'];
+      allThemes.forEach(t => {
+        const tb = document.getElementById('themeBtn_' + t);
+        if (tb) tb.classList.toggle('active', state.appTheme === t);
+        const qb = document.getElementById('qtheme_' + t);
+        if (qb) qb.classList.toggle('active', state.appTheme === t);
+      });
+
       document.getElementById('codeDigits').innerText = (state.enteredCode || '').padStart(6, '0');
       document.getElementById('keyVal').innerText = (state.keyTranspose > 0 ? '+' : '') + (state.keyTranspose || 0);
       document.getElementById('tempoVal').innerText = (state.tempoPercent || 100) + '%';
@@ -1408,7 +1484,14 @@ class VideokeRemoteServer(
         `).join('');
       }
 
-      if (state.isPlaying && state.currentSong) {
+      if (state.isPlaying && state.isPlaybackPaused) {
+        document.getElementById('statusBadge').innerText = '⏸ NAKA-PAUSE';
+        document.getElementById('statusBadge').style.background = '#F59E0B';
+        if (state.currentSong) {
+          document.getElementById('playingTitle').innerText = state.currentSong.title;
+          document.getElementById('playingArtist').innerText = state.currentSong.artist;
+        }
+      } else if (state.isPlaying && state.currentSong) {
         document.getElementById('statusBadge').innerText = '▶ NOW PLAYING';
         document.getElementById('statusBadge').style.background = '#00FF88';
         document.getElementById('playingTitle').innerText = state.currentSong.title;

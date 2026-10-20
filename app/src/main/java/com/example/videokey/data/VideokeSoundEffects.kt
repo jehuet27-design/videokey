@@ -17,8 +17,8 @@ import kotlin.math.sin
 
 /**
  * Authentic Videoke Sound Effects Synthesizer:
- * Generates celebratory brass fanfare chords and crowd cheering/applause
- * when a singer finishes a song and receives their score.
+ * Generates celebratory brass fanfare chords, crowd cheering/applause,
+ * or comedic sad-trombone fail sounds dynamically tailored to the achieved score.
  */
 object VideokeSoundEffects {
 
@@ -32,50 +32,183 @@ object VideokeSoundEffects {
         activeJob = scope.launch {
             try {
                 val sampleRate = 22050
-                val durationSec = if (score >= 90) 2.5 else 2.0
+                val durationSec = when {
+                    score >= 95 -> 2.8
+                    score >= 85 -> 2.3
+                    score >= 75 -> 2.0
+                    else -> 2.5 // Low score sad trombone
+                }
                 val numSamples = (sampleRate * durationSec).toInt()
                 val samples = ShortArray(numSamples)
                 val rng = Random()
 
-                for (i in 0 until numSamples) {
-                    val t = i.toDouble() / sampleRate
-                    var sample = 0.0
+                when {
+                    score >= 95 -> {
+                        // TIER 1: Grand Superstar / Perfect Score Fanfare (95 - 100)
+                        for (i in 0 until numSamples) {
+                            val t = i.toDouble() / sampleRate
+                            var sample = 0.0
 
-                    // Brass Fanfare Chords
-                    if (t < 0.22) {
-                        val env = min(1.0, t / 0.02) * max(0.0, 1.0 - (t - 0.18) / 0.04)
-                        sample += env * (brassNote(t, 392.0) * 0.4 + brassNote(t, 523.25) * 0.5)
-                    } else if (t < 0.44) {
-                        val localT = t - 0.22
-                        val env = min(1.0, localT / 0.02) * max(0.0, 1.0 - (localT - 0.18) / 0.04)
-                        sample += env * (brassNote(t, 523.25) * 0.4 + brassNote(t, 659.25) * 0.5)
-                    } else {
-                        val localT = t - 0.44
-                        val env = min(1.0, localT / 0.02) * exp(-localT * 1.5)
-                        sample += env * (
-                                brassNote(t, 261.63) * 0.3 +
-                                brassNote(t, 523.25) * 0.35 +
-                                brassNote(t, 659.25) * 0.35 +
-                                brassNote(t, 783.99) * 0.3 +
-                                brassNote(t, 1046.50) * 0.25
-                        )
+                            if (t < 0.18) {
+                                val env = min(1.0, t / 0.015) * max(0.0, 1.0 - (t - 0.15) / 0.03)
+                                sample += env * (brassNote(t, 392.0) * 0.4 + brassNote(t, 523.25) * 0.5)
+                            } else if (t < 0.36) {
+                                val localT = t - 0.18
+                                val env = min(1.0, localT / 0.015) * max(0.0, 1.0 - (localT - 0.15) / 0.03)
+                                sample += env * (brassNote(t, 523.25) * 0.4 + brassNote(t, 659.25) * 0.5)
+                            } else if (t < 0.54) {
+                                val localT = t - 0.36
+                                val env = min(1.0, localT / 0.015) * max(0.0, 1.0 - (localT - 0.15) / 0.03)
+                                sample += env * (brassNote(t, 659.25) * 0.4 + brassNote(t, 783.99) * 0.55)
+                            } else {
+                                val localT = t - 0.54
+                                val env = min(1.0, localT / 0.02) * exp(-localT * 1.2)
+                                sample += env * (
+                                    brassNote(t, 261.63) * 0.25 +
+                                    brassNote(t, 523.25) * 0.35 +
+                                    brassNote(t, 659.25) * 0.35 +
+                                    brassNote(t, 783.99) * 0.35 +
+                                    brassNote(t, 1046.50) * 0.40
+                                )
+                            }
+
+                            // Roaring applause & cheering crowd
+                            if (t > 0.45) {
+                                val cheerEnv = min(1.0, (t - 0.45) / 0.3) * max(0.0, (durationSec - t) / 1.5)
+                                var clapBurst = (rng.nextDouble() - 0.5) * 0.28
+                                if (rng.nextDouble() < 0.12) clapBurst *= 2.4
+                                sample += clapBurst * cheerEnv
+                            }
+
+                            // Cymbal crash
+                            if (t in 0.54..2.0) {
+                                val crashEnv = exp(-(t - 0.54) * 3.0)
+                                sample += (rng.nextDouble() - 0.5) * 0.30 * crashEnv
+                            }
+
+                            samples[i] = max(-32767.0, min(32767.0, sample * 25000.0)).toInt().toShort()
+                        }
                     }
 
-                    // Cheering crowd applause noise
-                    if (t > 0.35) {
-                        val cheerEnv = min(1.0, (t - 0.35) / 0.3) * max(0.0, (durationSec - t) / 1.5)
-                        var clapBurst = (rng.nextDouble() - 0.5) * 0.24
-                        if (rng.nextDouble() < 0.08) clapBurst *= 2.2
-                        sample += clapBurst * cheerEnv
+                    score >= 85 -> {
+                        // TIER 2: Great Victory Fanfare (85 - 94)
+                        for (i in 0 until numSamples) {
+                            val t = i.toDouble() / sampleRate
+                            var sample = 0.0
+
+                            if (t < 0.20) {
+                                val env = min(1.0, t / 0.02) * max(0.0, 1.0 - (t - 0.16) / 0.04)
+                                sample += env * (brassNote(t, 392.0) * 0.45 + brassNote(t, 587.33) * 0.45)
+                            } else if (t < 0.40) {
+                                val localT = t - 0.20
+                                val env = min(1.0, localT / 0.02) * max(0.0, 1.0 - (localT - 0.16) / 0.04)
+                                sample += env * (brassNote(t, 493.88) * 0.45 + brassNote(t, 783.99) * 0.45)
+                            } else {
+                                val localT = t - 0.40
+                                val env = min(1.0, localT / 0.02) * exp(-localT * 1.5)
+                                sample += env * (
+                                    brassNote(t, 523.25) * 0.35 +
+                                    brassNote(t, 659.25) * 0.35 +
+                                    brassNote(t, 783.99) * 0.35
+                                )
+                            }
+
+                            // Cheerful applause
+                            if (t > 0.35) {
+                                val cheerEnv = min(1.0, (t - 0.35) / 0.3) * max(0.0, (durationSec - t) / 1.4)
+                                var clapBurst = (rng.nextDouble() - 0.5) * 0.22
+                                if (rng.nextDouble() < 0.08) clapBurst *= 2.0
+                                sample += clapBurst * cheerEnv
+                            }
+
+                            // Cymbal accent
+                            if (t in 0.40..1.6) {
+                                val crashEnv = exp(-(t - 0.40) * 4.0)
+                                sample += (rng.nextDouble() - 0.5) * 0.22 * crashEnv
+                            }
+
+                            samples[i] = max(-32767.0, min(32767.0, sample * 24000.0)).toInt().toShort()
+                        }
                     }
 
-                    // Drum roll / cymbal crash
-                    if (t in 0.44..1.8) {
-                        val crashEnv = exp(-(t - 0.44) * 3.5)
-                        sample += (rng.nextDouble() - 0.5) * 0.25 * crashEnv
+                    score >= 75 -> {
+                        // TIER 3: Average / Encouraging Chime & Mild Clapping (75 - 84)
+                        for (i in 0 until numSamples) {
+                            val t = i.toDouble() / sampleRate
+                            var sample = 0.0
+
+                            if (t < 0.22) {
+                                val env = min(1.0, t / 0.02) * max(0.0, 1.0 - (t - 0.18) / 0.04)
+                                sample += env * (brassNote(t, 329.63) * 0.4 + brassNote(t, 392.00) * 0.4)
+                            } else if (t < 0.44) {
+                                val localT = t - 0.22
+                                val env = min(1.0, localT / 0.02) * max(0.0, 1.0 - (localT - 0.18) / 0.04)
+                                sample += env * (brassNote(t, 440.00) * 0.4 + brassNote(t, 523.25) * 0.4)
+                            } else {
+                                val localT = t - 0.44
+                                val env = min(1.0, localT / 0.02) * exp(-localT * 1.8)
+                                sample += env * (
+                                    brassNote(t, 392.00) * 0.35 +
+                                    brassNote(t, 493.88) * 0.35 +
+                                    brassNote(t, 587.33) * 0.30
+                                )
+                            }
+
+                            // Mild polite clapping
+                            if (t > 0.40) {
+                                val cheerEnv = min(1.0, (t - 0.40) / 0.3) * max(0.0, (durationSec - t) / 1.3)
+                                val clapBurst = (rng.nextDouble() - 0.5) * 0.16
+                                sample += clapBurst * cheerEnv
+                            }
+
+                            samples[i] = max(-32767.0, min(32767.0, sample * 22000.0)).toInt().toShort()
+                        }
                     }
 
-                    samples[i] = max(-32767.0, min(32767.0, sample * 24000.0)).toInt().toShort()
+                    else -> {
+                        // TIER 4: Low Score / Comedic Fail ("Wah-wah-wah-waaaah" Sad Trombone) (< 75)
+                        for (i in 0 until numSamples) {
+                            val t = i.toDouble() / sampleRate
+                            var sample = 0.0
+
+                            // Note 1: Eb4 (311.13 Hz) 0.00s - 0.35s
+                            if (t in 0.00..0.35) {
+                                val env = min(1.0, t / 0.03) * max(0.0, 1.0 - (t - 0.28) / 0.07)
+                                sample += env * brassNote(t, 311.13) * 0.75
+                            }
+                            // Note 2: D4 (293.66 Hz) 0.38s - 0.73s
+                            else if (t in 0.38..0.73) {
+                                val localT = t - 0.38
+                                val env = min(1.0, localT / 0.03) * max(0.0, 1.0 - (localT - 0.28) / 0.07)
+                                sample += env * brassNote(t, 293.66) * 0.75
+                            }
+                            // Note 3: C#4 (277.18 Hz) 0.76s - 1.11s
+                            else if (t in 0.76..1.11) {
+                                val localT = t - 0.76
+                                val env = min(1.0, localT / 0.03) * max(0.0, 1.0 - (localT - 0.28) / 0.07)
+                                sample += env * brassNote(t, 277.18) * 0.75
+                            }
+                            // Note 4: C4 (261.63 Hz) sliding down to B3 with comic vibrato (1.15s - 2.40s)
+                            else if (t in 1.15..2.40) {
+                                val localT = t - 1.15
+                                val env = min(1.0, localT / 0.04) * exp(-localT * 1.3)
+                                val pitchDrop = 18.0 * min(1.0, localT / 0.9)
+                                val vibrato = if (localT > 0.2) sin(localT * 26.0) * 3.5 else 0.0
+                                val freq = 261.63 - pitchDrop + vibrato
+                                sample += env * brassNote(t, freq) * 0.85
+
+                                // Comedic boing spring effect at 1.4s
+                                if (t in 1.40..1.90) {
+                                    val bT = t - 1.40
+                                    val boingFreq = 160.0 + sin(bT * 40.0) * 80.0 * exp(-bT * 5.0)
+                                    val boingEnv = exp(-bT * 6.0)
+                                    sample += boingEnv * sin(2.0 * PI * boingFreq * t) * 0.35
+                                }
+                            }
+
+                            samples[i] = max(-32767.0, min(32767.0, sample * 24000.0)).toInt().toShort()
+                        }
+                    }
                 }
 
                 val bufferSize = AudioTrack.getMinBufferSize(

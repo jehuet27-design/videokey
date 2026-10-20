@@ -3052,6 +3052,8 @@ fun VideokeTvScreen(
 
                 isPlaying = state.isPlaying,
 
+                isPlaybackPaused = state.isPlaybackPaused,
+
                 bgVisualMode = state.bgVisualMode,
 
                 onBackgroundCompleted = {
@@ -3142,6 +3144,8 @@ fun VideokeTvScreen(
 
                             val badgeLabel = when {
 
+                                state.isPlaying && state.isPlaybackPaused -> if (isTagalog) "⏸️ NAKA-PAUSE:" else "⏸️ PAUSED:"
+
                                 !state.isPlaying && hasReserve -> if (isTagalog) "SUSUNOD:" else "NEXT:"
 
                                 !state.isPlaying -> "VIDEOKEY:"
@@ -3155,6 +3159,8 @@ fun VideokeTvScreen(
 
 
                             val badgeColor = when {
+
+                                badgeLabel.contains("NAKA-PAUSE") || badgeLabel.contains("PAUSED") -> Color(0xFFF59E0B)
 
                                 badgeLabel.contains("TUMUTUGTOG") || badgeLabel.contains("PLAYING") -> Color(0xFF00FF88)
 
@@ -12846,6 +12852,8 @@ fun VideokeBackgroundLayer(
 
     isPlaying: Boolean = false,
 
+    isPlaybackPaused: Boolean = false,
+
     bgVisualMode: BackgroundVisualMode = BackgroundVisualMode.VIDEOS,
 
     onBackgroundCompleted: () -> Unit = {},
@@ -12874,6 +12882,8 @@ fun VideokeBackgroundLayer(
 
                     isVideoSong = true,
 
+                    isPlaybackPaused = isPlaybackPaused,
+
                     onVideoCompleted = currentOnCompleted
 
                 )
@@ -12897,6 +12907,8 @@ fun VideokeBackgroundLayer(
                     isMuted = true,
 
                     isVideoSong = false,
+
+                    isPlaybackPaused = isPlaybackPaused,
 
                     onVideoCompleted = currentOnCompleted
 
@@ -12998,6 +13010,8 @@ fun KaraokeVideoPlayer(
 
     isVideoSong: Boolean = false,
 
+    isPlaybackPaused: Boolean = false,
+
     onVideoCompleted: () -> Unit = {},
 
     modifier: Modifier = Modifier
@@ -13023,6 +13037,23 @@ fun KaraokeVideoPlayer(
 
 
     // Dynamically update audio volume whenever isMuted changes
+
+    // Pause and Resume control
+    LaunchedEffect(isPlaybackPaused, isPlayerPrepared) {
+        mediaPlayerRef?.let { mp ->
+            try {
+                if (isPlaybackPaused) {
+                    if (isPlayerPrepared && mp.isPlaying) mp.pause()
+                } else {
+                    if (isPlayerPrepared && !mp.isPlaying && videoPath.isNotBlank() && !isPlaybackPaused) {
+                        mp.start()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("VideoPlayer", "Pause state update warning", e)
+            }
+        }
+    }
 
     LaunchedEffect(isMuted, isPlayerPrepared) {
 

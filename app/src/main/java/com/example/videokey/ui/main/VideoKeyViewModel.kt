@@ -391,6 +391,7 @@ data class VideoKeyUiState(
     val scoreMode: ScoreMode = ScoreMode.MICROPHONE,
     val scoringDifficulty: ScoringDifficulty = ScoringDifficulty.MEDIUM,
     val fanfareSoundLevel: FanfareSoundLevel = FanfareSoundLevel.HIGH,
+    val isPlaybackPaused: Boolean = false,
     val bgVisualMode: BackgroundVisualMode = BackgroundVisualMode.VIDEOS,
     val continuousVideoChangePerSong: Boolean = false,
     val isFpsDroppedTo30: Boolean = false
@@ -765,6 +766,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 currentSong = song,
                 lastPlayedSong = song,
                 isPlaying = true,
+                isPlaybackPaused = false,
                 isVideoSong = isVideo,
                 isTvMode = it.isTvMode,
                 selectedBottomNavTab = 1,
@@ -968,7 +970,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             while (true) {
                 val loopDelay = if (isDroppedTo30) 33L else 16L
                 delay(loopDelay)
-                if (!_uiState.value.isPlaying) continue
+                if (!_uiState.value.isPlaying || _uiState.value.isPlaybackPaused) continue
 
                 val nowNs = System.nanoTime()
                 val deltaMs = (nowNs - lastLoopTimeNs) / 1_000_000L
@@ -1661,6 +1663,21 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun selectBottomNavTab(tab: Int) {
+        val prevTab = _uiState.value.selectedBottomNavTab
+        if (prevTab == 1 && tab != 1) {
+            // Auto-pause when navigating away from Sing player screen
+            if (_uiState.value.isPlaying && !_uiState.value.isPlaybackPaused) {
+                wasAutoPausedByScreenChange = true
+                pausePlayback()
+            }
+        } else if (prevTab != 1 && tab == 1) {
+            // Auto-resume when navigating back to Sing player screen
+            if (wasAutoPausedByScreenChange && _uiState.value.isPlaying) {
+                wasAutoPausedByScreenChange = false
+                resumePlayback()
+            }
+        }
+
         _uiState.update { state ->
             if (tab == 0 && state.songbookQuery.isBlank()) {
                 val cat = state.selectedCategoryFilter
@@ -1778,6 +1795,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     isPlaying = false,
+                    isPlaybackPaused = false,
                     isVideoSong = false,
                     isPlayingYouTubeStream = false,
                     activeYouTubeStreamVideoId = null,
@@ -2107,18 +2125,41 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
     }
 
     @Volatile private var wasPlayingBeforePause = false
+    @Volatile private var wasAutoPausedByScreenChange = false
 
     fun onAppPause() {
-        if (_uiState.value.isPlaying && soundEngine.isPlaying()) {
+        if (_uiState.value.isPlaying && !_uiState.value.isPlaybackPaused) {
             wasPlayingBeforePause = true
-            soundEngine.pause()
+            pausePlayback()
         }
     }
 
     fun onAppResume() {
         if (wasPlayingBeforePause && _uiState.value.isPlaying) {
             wasPlayingBeforePause = false
+            resumePlayback()
+        }
+    }
+
+    fun pausePlayback() {
+        if (_uiState.value.isPlaying && !_uiState.value.isPlaybackPaused) {
+            soundEngine.pause()
+            _uiState.update { it.copy(isPlaybackPaused = true) }
+        }
+    }
+
+    fun resumePlayback() {
+        if (_uiState.value.isPlaying && _uiState.value.isPlaybackPaused) {
             soundEngine.resume()
+            _uiState.update { it.copy(isPlaybackPaused = false) }
+        }
+    }
+
+    fun togglePlaybackPause() {
+        if (_uiState.value.isPlaybackPaused) {
+            resumePlayback()
+        } else {
+            pausePlayback()
         }
     }
 
