@@ -64,6 +64,10 @@ import androidx.compose.ui.geometry.Offset
 
 import androidx.compose.ui.graphics.Shadow
 
+import androidx.compose.ui.graphics.drawscope.Stroke
+
+import androidx.compose.ui.graphics.StrokeJoin
+
 import androidx.compose.ui.text.SpanStyle
 
 import androidx.compose.ui.text.TextStyle
@@ -2804,33 +2808,85 @@ fun OutlinedHeaderText(
 
     fontFamily: FontFamily = FontFamily.Default,
 
+    fontWeight: FontWeight = FontWeight.Bold,
+
+    outlineColor: Color = Color.Black.copy(alpha = 0.90f),
+
+    outlineWidth: Float = if (isLandscape) 2.2f else 1.8f,
+
     maxLines: Int = 1,
 
     modifier: Modifier = Modifier
 
 ) {
 
-    Text(
+    Box(modifier = modifier) {
 
-        text = text,
+        // Outline layer (behind) - thin/medium crisp stroke, NO shadow
 
-        color = color,
+        Text(
 
-        fontWeight = FontWeight.Bold,
+            text = text,
 
-        fontFamily = fontFamily,
+            color = outlineColor,
 
-        fontSize = fontSize,
+            fontWeight = fontWeight,
 
-        maxLines = maxLines,
+            fontFamily = fontFamily,
 
-        softWrap = false,
+            fontSize = fontSize,
 
-        overflow = TextOverflow.Ellipsis,
+            maxLines = maxLines,
 
-        modifier = modifier
+            softWrap = false,
 
-    )
+            overflow = TextOverflow.Ellipsis,
+
+            style = TextStyle(
+
+                drawStyle = Stroke(
+
+                    width = outlineWidth,
+
+                    join = StrokeJoin.Round
+
+                ),
+
+                shadow = null
+
+            )
+
+        )
+
+        // Foreground text (front) - bold, themed color, NO shadow
+
+        Text(
+
+            text = text,
+
+            color = color,
+
+            fontWeight = fontWeight,
+
+            fontFamily = fontFamily,
+
+            fontSize = fontSize,
+
+            maxLines = maxLines,
+
+            softWrap = false,
+
+            overflow = TextOverflow.Ellipsis,
+
+            style = TextStyle(
+
+                shadow = null
+
+            )
+
+        )
+
+    }
 
 }
 
@@ -3044,7 +3100,9 @@ fun VideokeTvScreen(
 
         val videoSongPath = if (state.isVideoSong) state.currentSong.filePath else null
 
-        key(currentBg?.id, currentBg?.path, videoSongPath, state.isPlaying) {
+        // NOTE: Do NOT key on state.isPlaying here. Re-keying tears down the TextureView AndroidView
+        // in the same frame playback starts, which crashes Compose (LayoutNode.onChildRemoved NPE) in TV mode.
+        key(currentBg?.id, currentBg?.path, videoSongPath) {
 
             VideokeBackgroundLayer(
 
@@ -3164,21 +3222,29 @@ fun VideokeTvScreen(
 
 
 
+                            val themePrimary = Color(state.appTheme.primaryColor)
+
+                            val themeSecondary = Color(state.appTheme.secondaryColor)
+
+                            val themeTextColor = Color(state.appTheme.textColor)
+
+
+
                             val badgeColor = when {
 
                                 badgeLabel.contains("NAKA-PAUSE") || badgeLabel.contains("PAUSED") -> Color(0xFFF59E0B)
 
-                                badgeLabel.contains("TUMUTUGTOG") || badgeLabel.contains("PLAYING") -> Color(0xFF00FF88)
+                                badgeLabel.contains("TUMUTUGTOG") || badgeLabel.contains("PLAYING") -> themePrimary
 
-                                badgeLabel.contains("SUSUNOD") || badgeLabel.contains("NEXT") -> Color(0xFF38BDF8)
+                                badgeLabel.contains("SUSUNOD") || badgeLabel.contains("NEXT") -> themeSecondary
 
-                                else -> Color(0xFFFFD54F)
+                                else -> themePrimary
 
                             }
 
 
 
-                            // Pure Text Badge
+                            // Pure Text Badge: bold, themed, outlined without shadow
 
                             OutlinedHeaderText(
 
@@ -3186,11 +3252,13 @@ fun VideokeTvScreen(
 
                                 color = badgeColor,
 
-                                fontSize = if (isTvMode) 15.sp else if (isLandscape) 13.sp else 11.5.sp,
+                                fontSize = if (isTvMode) 16.sp else if (isLandscape) 13.5.sp else 12.sp,
 
                                 isLandscape = isLandscape,
 
-                                fontFamily = FontFamily.Monospace
+                                fontFamily = FontFamily.Monospace,
+
+                                fontWeight = FontWeight.Black
 
                             )
 
@@ -3228,11 +3296,13 @@ fun VideokeTvScreen(
 
                                 text = headerMarquee,
 
-                                color = Color.White,
+                                color = if (isTvMode) themeTextColor else Color.White,
 
-                                fontSize = if (isTvMode) 15.sp else if (isLandscape) 13.sp else 12.sp,
+                                fontSize = if (isTvMode) 16.sp else if (isLandscape) 13.5.sp else 12.sp,
 
                                 isLandscape = isLandscape,
+
+                                fontWeight = FontWeight.Bold,
 
                                 modifier = Modifier
 
@@ -3572,17 +3642,21 @@ fun VideokeTvScreen(
 
                         val reserveCodes = state.reserveQueue.joinToString(separator = "   ") { it.code }
 
+                        val reserveThemeColor = Color(state.appTheme.secondaryColor)
+
                         OutlinedHeaderText(
 
                             text = "R: ",
 
-                            color = Color(0xFFFFD54F),
+                            color = reserveThemeColor,
 
-                            fontSize = if (isTvMode) 14.sp else if (isLandscape) 12.sp else 11.sp,
+                            fontSize = if (isTvMode) 14.5.sp else if (isLandscape) 12.5.sp else 11.sp,
 
                             isLandscape = isLandscape,
 
                             fontFamily = CleanFont,
+
+                            fontWeight = FontWeight.Black,
 
                             modifier = Modifier.clickable { onToggleReserveQueue() }
 
@@ -3592,13 +3666,15 @@ fun VideokeTvScreen(
 
                             text = reserveCodes,
 
-                            color = Color(0xFFFFD54F),
+                            color = reserveThemeColor,
 
-                            fontSize = if (isTvMode) 14.sp else if (isLandscape) 12.sp else 11.sp,
+                            fontSize = if (isTvMode) 14.5.sp else if (isLandscape) 12.5.sp else 11.sp,
 
                             isLandscape = isLandscape,
 
                             fontFamily = CleanFont,
+
+                            fontWeight = FontWeight.Bold,
 
                             modifier = Modifier
 
