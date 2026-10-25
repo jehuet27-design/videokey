@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -309,7 +310,7 @@ fun VipMp3PlayerDialog(
                                 modifier = Modifier.weight(1f).fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                items(filteredMp3s, key = { it.filePath }) { song ->
+                                itemsIndexed(filteredMp3s, key = { index, song -> "${song.filePath}_${song.code}_$index" }) { _, song ->
                                     val isSelected = state.activeMp3Song?.filePath == song.filePath
                                     Mp3SongItemCard(
                                         song = song,
@@ -496,7 +497,7 @@ fun VipMp3PlayerDialog(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(filteredMp3s, key = { it.filePath }) { song ->
+                        itemsIndexed(filteredMp3s, key = { index, song -> "${song.filePath}_${song.code}_$index" }) { _, song ->
                             val isSelected = state.activeMp3Song?.filePath == song.filePath
                             Mp3SongItemCard(
                                 song = song,

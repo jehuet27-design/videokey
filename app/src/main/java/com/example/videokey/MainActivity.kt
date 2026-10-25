@@ -432,12 +432,27 @@ class MainActivity : ComponentActivity() {
 
                 }
 
-                android.view.KeyEvent.KEYCODE_MEDIA_PLAY, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-
-                    viewModel.onPlay()
-
+                android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                    if (viewModel.uiState.value.isPlaying && viewModel.uiState.value.isPlaybackPaused) {
+                        viewModel.resumePlayback()
+                    } else {
+                        viewModel.onPlay()
+                    }
                     return true
+                }
 
+                android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                    viewModel.pausePlayback()
+                    return true
+                }
+
+                android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, android.view.KeyEvent.KEYCODE_P -> {
+                    if (viewModel.uiState.value.isPlaying) {
+                        viewModel.togglePlaybackPause()
+                    } else {
+                        viewModel.onPlay()
+                    }
+                    return true
                 }
 
                 android.view.KeyEvent.KEYCODE_MEDIA_NEXT, android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, android.view.KeyEvent.KEYCODE_MEDIA_STEP_FORWARD -> {

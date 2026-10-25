@@ -5122,7 +5122,7 @@ fun SongIntroTitleSplash(
 
 
 
-    val baseTitleSize = if (isTvMode) 58.sp else if (isLandscape) 44.sp else 34.sp
+    val baseTitleSize = if (isTvMode) 68.sp else if (isLandscape) 44.sp else 34.sp
 
 
 
@@ -5142,7 +5142,7 @@ fun SongIntroTitleSplash(
 
 
 
-    val baseArtistSize = if (isTvMode) 26.sp else if (isLandscape) 22.sp else 18.sp
+    val baseArtistSize = if (isTvMode) 32.sp else if (isLandscape) 22.sp else 18.sp
 
 
 
@@ -5271,117 +5271,9 @@ fun SongIntroTitleSplash(
 
 
         Box(
-
-
-
             modifier = Modifier
-
-
-
-                .shadow(12.dp, RoundedCornerShape(20.dp))
-
-
-
-                .clip(RoundedCornerShape(20.dp))
-
-
-
-                .background(
-
-
-
-                    Brush.verticalGradient(
-
-
-
-                        listOf(
-
-
-
-                            Color(0x700A0F1D),
-
-
-
-                            Color(0x85131E33),
-
-
-
-                            Color(0x70070B14)
-
-
-
-                        )
-
-
-
-                    )
-
-
-
-                )
-
-
-
-                .border(
-
-
-
-                    2.dp,
-
-
-
-                    Brush.horizontalGradient(
-
-
-
-                        listOf(
-
-
-
-                            Color(0xFFFFD54F).copy(alpha = glowAlpha),
-
-
-
-                            Color(0xFF00E5FF).copy(alpha = glowAlpha),
-
-
-
-                            Color(0xFFFFD54F).copy(alpha = glowAlpha)
-
-
-
-                        )
-
-
-
-                    ),
-
-
-
-                    RoundedCornerShape(22.dp)
-
-
-
-                )
-
-
-
-                .padding(
-
-
-
-                    horizontal = if (isLandscape) 32.dp else 18.dp,
-
-
-
-                    vertical = if (isLandscape) 22.dp else 16.dp
-
-
-
-                ),
-
-
-
+                .wrapContentSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
 
 
@@ -8701,7 +8593,7 @@ fun VideokeTvScreen(
 
 
 
-                    contentAlignment = if (isTvMode || isLandscape) Alignment.TopCenter else Alignment.Center
+                    contentAlignment = Alignment.Center
 
 
 
@@ -8729,7 +8621,7 @@ fun VideokeTvScreen(
 
 
 
-                        modifier = if (isTvMode || isLandscape) Modifier.padding(top = 28.dp) else Modifier
+                        modifier = Modifier
 
 
 
@@ -9401,11 +9293,11 @@ fun VideokeTvScreen(
 
 
 
-                                            val estLineWidthDp = lineChars * baseSizeSp * effectiveLyricConfig.fontScale * 0.58f + 16f
+                                            val estLineWidthDp = lineChars * baseSizeSp * effectiveLyricConfig.fontScale * 0.70f + 16f
 
 
 
-                                            val lineScale = if (estLineWidthDp > safeWidthDp) (safeWidthDp / estLineWidthDp).coerceIn(0.60f, 1.0f) else 1.0f
+                                            val lineScale = if (estLineWidthDp > safeWidthDp) (safeWidthDp / estLineWidthDp).coerceIn(0.50f, 1.0f) else 1.0f
 
 
 
@@ -16152,61 +16044,8 @@ fun KaraokeLyricLine(
 
     val wipeClamped = wipePercent.coerceIn(0f, 1f)
 
-
-
-    // Locked to strictly 60 FPS (16ms per frame) for butter-smooth transition without latency or jitter
-
-
-
-    val smoothWipe by androidx.compose.animation.core.animateFloatAsState(
-
-
-
-        targetValue = wipeClamped,
-
-
-
-        animationSpec = if (wipeClamped <= 0.001f) {
-
-
-
-            androidx.compose.animation.core.snap()
-
-
-
-        } else {
-
-
-
-            val targetFpsDuration = if (lyricConfig.isFpsDroppedTo30) 33 else 16 // Auto-drop 60 FPS -> 30 FPS
-
-
-
-            androidx.compose.animation.core.tween(
-
-
-
-                durationMillis = targetFpsDuration,
-
-
-
-                easing = androidx.compose.animation.core.LinearEasing
-
-
-
-            )
-
-
-
-        },
-
-
-
-        label = "smoothWipeAutoFps"
-
-
-
-    )
+    // Direct true 60 FPS wipe without lag, trailing delay, or animation restart jitter:
+    val smoothWipe = wipeClamped
 
 
 
@@ -16840,27 +16679,70 @@ fun KaraokeLyricLine(
 
 
 
-    Box(
-
-
-
+    androidx.compose.foundation.layout.BoxWithConstraints(
         modifier = modifier
-
-
-
             .fillMaxWidth()
-
-
-
-            .padding(horizontal = 14.dp),
-
-
-
+            .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center
-
-
-
     ) {
+        val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val availableWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { (maxWidth - 10.dp).toPx() }
+
+        val measuredWidthPx = remember(displayText, sharedLyricStyle, availableWidthPx) {
+            try {
+                textMeasurer.measure(
+                    text = androidx.compose.ui.text.AnnotatedString(displayText),
+                    style = sharedLyricStyle,
+                    maxLines = 1,
+                    softWrap = false
+                ).size.width.toFloat()
+            } catch (_: Exception) {
+                0f
+            }
+        }
+
+        val autoFitRatio = remember(measuredWidthPx, availableWidthPx) {
+            if (measuredWidthPx > availableWidthPx && availableWidthPx > 0f) {
+                (availableWidthPx / measuredWidthPx).coerceIn(0.45f, 1.0f)
+            } else {
+                1.0f
+            }
+        }
+
+        val activeFontSize = if (autoFitRatio < 0.99f) (scaledFontSize.value * autoFitRatio).sp else scaledFontSize
+        val activeOutlinePx = if (autoFitRatio < 0.99f) outlineWidthPx * autoFitRatio else outlineWidthPx
+
+        val activeSharedStyle = if (autoFitRatio < 0.99f) {
+            sharedLyricStyle.copy(fontSize = activeFontSize)
+        } else {
+            sharedLyricStyle
+        }
+
+        val effectiveOutlineStyle = remember(activeSharedStyle, outlineBrush, unhighlightedOutlineColor, activeOutlinePx) {
+            if (outlineBrush != null) {
+                activeSharedStyle.copy(
+                    brush = outlineBrush,
+                    drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = activeOutlinePx,
+                        join = androidx.compose.ui.graphics.StrokeJoin.Round
+                    )
+                )
+            } else {
+                activeSharedStyle.copy(
+                    color = unhighlightedOutlineColor,
+                    drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = activeOutlinePx,
+                        join = androidx.compose.ui.graphics.StrokeJoin.Round
+                    )
+                )
+            }
+        }
+
+        val effectiveFillStyle = remember(activeSharedStyle) {
+            activeSharedStyle.copy(
+                drawStyle = androidx.compose.ui.graphics.drawscope.Fill
+            )
+        }
 
 
 
@@ -16932,19 +16814,10 @@ fun KaraokeLyricLine(
 
 
 
-                    style = sharedLyricStyle.copy(
-
-
-
+                    style = activeSharedStyle.copy(
                         color = Color.Black.copy(alpha = 0.92f),
-
-
-
                         drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-
-
-
-                            width = outlineWidthPx * 1.3f,
+                            width = activeOutlinePx * 1.3f,
 
 
 
@@ -16996,7 +16869,7 @@ fun KaraokeLyricLine(
 
 
 
-                    style = outlineStyle
+                    style = effectiveOutlineStyle
 
 
 
@@ -17036,7 +16909,7 @@ fun KaraokeLyricLine(
 
 
 
-                style = fillStyle
+                style = effectiveFillStyle
 
 
 

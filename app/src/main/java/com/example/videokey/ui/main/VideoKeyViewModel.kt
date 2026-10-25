@@ -2206,105 +2206,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
 
-            var lastLoopTimeNs = System.nanoTime()
-
-            var slowLoopStreak = 0
-
-            var fastLoopStreak = 0
-
-            var isDroppedTo30 = false
-
-
-
             while (true) {
-
-                val loopDelay = if (isDroppedTo30) 33L else 16L
-
-                delay(loopDelay)
-
+                // Rock-solid 60 FPS playback loop (strictly 16ms per frame, zero throttle)
+                delay(16L)
                 if (!_uiState.value.isPlaying || _uiState.value.isPlaybackPaused) continue
-
-
-
-                val nowNs = System.nanoTime()
-
-                val deltaMs = (nowNs - lastLoopTimeNs) / 1_000_000L
-
-                lastLoopTimeNs = nowNs
-
-
-
-                if (!isDroppedTo30) {
-
-                    if (deltaMs > 24L) {
-
-                        slowLoopStreak++
-
-                        if (slowLoopStreak >= 4) {
-
-                            isDroppedTo30 = true
-
-                            slowLoopStreak = 0
-
-                            fastLoopStreak = 0
-
-                            _uiState.update { 
-
-                                it.copy(
-
-                                    isFpsDroppedTo30 = true,
-
-                                    lyricConfig = it.lyricConfig.copy(isFpsDroppedTo30 = true)
-
-                                ) 
-
-                            }
-
-                        }
-
-                    } else {
-
-                        slowLoopStreak = maxOf(0, slowLoopStreak - 1)
-
-                    }
-
-                } else {
-
-                    if (deltaMs <= 38L) {
-
-                        fastLoopStreak++
-
-                        if (fastLoopStreak >= 120) {
-
-                            isDroppedTo30 = false
-
-                            fastLoopStreak = 0
-
-                            slowLoopStreak = 0
-
-                            _uiState.update { 
-
-                                it.copy(
-
-                                    isFpsDroppedTo30 = false,
-
-                                    lyricConfig = it.lyricConfig.copy(isFpsDroppedTo30 = false)
-
-                                ) 
-
-                            }
-
-                        }
-
-                    } else {
-
-                        fastLoopStreak = 0
-
-                    }
-
-                }
-
-
 
                 val isAudioPlaying = soundEngine.isPlaying()
 
@@ -2624,7 +2529,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                             val instrumentalGap = upcoming.startMs - prevLineEndMs
 
-                            val isCountdownEligible = (upcomingIndex == 0 && upcoming.startMs >= 1200L) || (instrumentalGap >= 3000L)
+                            val isCountdownEligible = (upcomingIndex == 0 && upcoming.startMs >= 7000L) || (instrumentalGap >= 7000L)
 
 
 
@@ -7728,7 +7633,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             }
 
-            _uiState.update { it.copy(mp3PlayerSongList = list) }
+            val distinctMp3s = list.distinctBy { it.filePath.lowercase() }
+            _uiState.update { it.copy(mp3PlayerSongList = distinctMp3s) }
 
         }
 
