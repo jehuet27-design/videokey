@@ -2208,6 +2208,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             var lastAudioSystemClockMs = 0L
 
+            var maxWipeForCurrentLine = 0f
+
+            var currentWipeLineIndex = -1
+
             while (true) {
                 // Rock-solid 60 FPS playback loop (strictly 16ms per frame, zero throttle)
                 delay(16L)
@@ -2396,7 +2400,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                         val nextStart = lines.getOrNull(i + 1)?.startMs ?: (cur.endMs + 500L)
 
-                        val holdEnd = minOf(cur.endMs + 280L, (nextStart - 40L).coerceAtLeast(cur.endMs))
+                        val holdEnd = if (nextStart > cur.endMs && (nextStart - cur.endMs) <= 300L) {
+                            nextStart
+                        } else {
+                            minOf(cur.endMs + 280L, (nextStart - 40L).coerceAtLeast(cur.endMs))
+                        }
 
                         if (posMs in cur.startMs..holdEnd) {
 
@@ -2420,7 +2428,16 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                         val currentLine = lines[activeIndex]
 
-                        val wipe = computeMelodyWipe(currentLine, posMs)
+                        if (activeIndex != currentWipeLineIndex) {
+                            currentWipeLineIndex = activeIndex
+                            maxWipeForCurrentLine = 0f
+                        }
+                        val rawWipe = computeMelodyWipe(currentLine, posMs)
+                        if (rawWipe > maxWipeForCurrentLine) {
+                            maxWipeForCurrentLine = rawWipe
+                        }
+                        // Strictly monotonic: wipe can NEVER move backwards during an active line!
+                        val wipe = maxWipeForCurrentLine
 
 
 
@@ -2767,118 +2784,50 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
     private fun computeMelodyWipe(line: KaraokeLine, posMs: Long): Float {
-
         val syllables = line.syllables
-
         if (syllables.isEmpty()) return 0f
-
         if (posMs < syllables.first().timestampMs) return 0f
-
         val lastSyl = syllables.last()
-
         val lineEnd = lastSyl.timestampMs + lastSyl.durationMs
-
         if (posMs >= lineEnd) return 1f
 
-
-
         val totalChars = syllables.sumOf { it.text.length }.coerceAtLeast(1)
-
         var charsPassed = 0
 
         for (i in syllables.indices) {
-
             val syl = syllables[i]
-
             val sylLen = syl.text.length
-
             val sylStart = syl.timestampMs
-
-            val sylEnd = sylStart + syl.durationMs
-
+            val rawSylEnd = sylStart + syl.durationMs
             val nextSylStart = syllables.getOrNull(i + 1)?.timestampMs
 
-
-
-            if (posMs < sylStart) {
-
-                break
-
-            } else if (posMs in sylStart..sylEnd) {
-
-                val dur = syl.durationMs.coerceAtLeast(1L)
-
-                val nonSpaceLen = syl.text.trimEnd().length.coerceAtLeast(1)
-
-                val frac = ((posMs - sylStart).toFloat() / dur.toFloat()).coerceIn(0f, 1f)
-
-                val activeChars = charsPassed + (frac * nonSpaceLen)
-
-                return (activeChars / totalChars.toFloat()).coerceIn(0f, 1f)
-
-            } else if (nextSylStart != null && posMs < nextSylStart) {
-
-                // Position is in the inter-syllable / inter-word gap
-
-                val gap = nextSylStart - sylEnd
-
-                val nonSpaceLen = syl.text.trimEnd().length.coerceAtLeast(1)
-
-                val spaceLen = (sylLen - nonSpaceLen).coerceAtLeast(0)
-
-
-
-                if (spaceLen > 0 && gap in 1L..600L) {
-
-                    // Smoothly bridge the space across the inter-word gap
-
-                    val spaceFrac = ((posMs - sylEnd).toFloat() / gap.toFloat()).coerceIn(0f, 1f)
-
-                    val activeChars = charsPassed + nonSpaceLen + (spaceFrac * spaceLen)
-
-                    return (activeChars / totalChars.toFloat()).coerceIn(0f, 1f)
-
-                } else if (gap in 1L..400L) {
-
-                    // Small inter-syllable gap within word: bridge smoothly into next syllable
-
-                    val effDur = (nextSylStart - sylStart).coerceAtLeast(1L)
-
-                    val frac = ((posMs - sylStart).toFloat() / effDur.toFloat()).coerceIn(0f, 1f)
-
-                    val activeChars = charsPassed + (frac * sylLen)
-
-                    return (activeChars / totalChars.toFloat()).coerceIn(0f, 1f)
-
+            // Continuous handoff: in fast songs or contiguous syllables (gap <= 300ms or overlapping),
+            // the syllable wipes smoothly from sylStart to nextSylStart without any gap or drop.
+            // For longer pauses / rests (gap > 300ms), it wipes during rawSylEnd and holds steady at 100%.
+            val handoffEnd = if (nextSylStart != null && nextSylStart > sylStart) {
+                if (nextSylStart <= rawSylEnd || (nextSylStart - rawSylEnd) <= 300L) {
+                    nextSylStart
                 } else {
-
-                    charsPassed += sylLen
-
+                    rawSylEnd
                 }
-
             } else {
-
-                charsPassed += sylLen
-
+                rawSylEnd
             }
 
+            if (posMs < sylStart) {
+                break
+            } else if (posMs in sylStart..handoffEnd) {
+                val dur = (handoffEnd - sylStart).coerceAtLeast(1L)
+                val frac = ((posMs - sylStart).toFloat() / dur.toFloat()).coerceIn(0f, 1f)
+                val activeChars = charsPassed + (frac * sylLen)
+                return (activeChars / totalChars.toFloat()).coerceIn(0f, 1f)
+            } else {
+                charsPassed += sylLen
+            }
         }
 
         return (charsPassed.toFloat() / totalChars.toFloat()).coerceIn(0f, 1f)
-
     }
-
-
-
-    /**
-
-     * Authentic Videoke 4-Line Continuous Rolling Queue:
-
-     * As soon as a line finishes being highlighted (sung), that exact slot immediately rotates
-
-     * to the next upcoming lyric line that is not yet on screen.
-
-     */
 
     private fun computeRollingLyrics4(lines: List<KaraokeLine>, currIdx: Int): List<String> {
 
