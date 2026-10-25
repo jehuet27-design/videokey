@@ -1,7 +1,7 @@
 {
-  "versionCode": 6,
-  "versionName": "2.6",
-  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.6/VideoKey-v2.6.apk",
-  "forceUpdate": false,
-  "releaseNotes": "🎉 VIDEOKEY V2.6 UPDATE:\n• Normal lyric font size scale (100%) sa TV mode para mas malinaw at madaling basahin sa telebisyon\n• Default username: JUAN profile\n• Malinis na TV mode display (tinanggal ang portrait button sa top header)\n• Itinaas ang R reserved ticker malapit sa Next text"
+  "versionCode": 8,
+  "versionName": "2.7",
+  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.7/VideoKey-v2.7.apk",
+  "forceUpdate": true,
+  "releaseNotes": "🎉 VIDEOKEY V2.7 UPDATE:\n• ₱110 VIP Access via GCash\n• Button Texture exclusive sa VIP (naka-lock sa non-VIP)\n• Tuloy-tuloy na pag-browse sa 54,000+ na mga kanta\n• Malinis na TV Mode at nakatagong remote QR barcode toggle\n• Inayos ang number code box (hindi nahahati ang numero)\n• Default SoundFonts (DreamSAM para sa free, Automatic para sa VIP)\n• Iwas-white screen at mas matatag na TV box performance"
 }

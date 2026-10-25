@@ -170,6 +170,79 @@ class KeypadVoiceManager(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
+    /**
+     * Speaks dynamic vocal commentary for karaoke scores depending on the achieved score tier.
+     * Uses different vocal pitches, tempos, and authentic videoke phrases.
+     */
+    fun speakScoreFeedback(score: Int, isTagalog: Boolean = true) {
+        val engine = tts ?: return
+        if (!isTtsInitialized) return
+
+        try {
+            val (message, pitch, rate) = when {
+                score >= 95 -> {
+                    val msgs = if (isTagalog) listOf(
+                        "Grabe! Superstar! Ang galing mo kumanta! Perpekto!",
+                        "Wow, napakahusay! Pang world class ang iyong boses!",
+                        "Walang kupas! Bagong kampeon ng videoke!"
+                    ) else listOf(
+                        "Incredible! You are a superstar! Perfect performance!",
+                        "World class singing! Outstanding score!",
+                        "Bravo! You nailed every single note!"
+                    )
+                    Triple(msgs.random(), 1.25f, 1.05f)
+                }
+                score >= 88 -> {
+                    val msgs = if (isTagalog) listOf(
+                        "Mahusay! Napakaganda ng boses mo! Halos perpekto!",
+                        "Galing naman! Pwede nang sumali sa Tawag ng Tanghalan!",
+                        "Aba, may ibubuga! Napakagandang rendisyon!"
+                    ) else listOf(
+                        "Great job! Beautiful singing! That was fantastic!",
+                        "Wonderful voice! You did very well!",
+                        "Awesome performance! Great energy!"
+                    )
+                    Triple(msgs.random(), 1.10f, 1.0f)
+                }
+                score >= 75 -> {
+                    val msgs = if (isTagalog) listOf(
+                        "Magaling! Kaunting ensayo pa, bibirit na nang todo!",
+                        "Pwede na! Tuloy-tuloy lang ang pagkanta!",
+                        "Maganda ang simula! Kaunting tono na lang at pasok na!"
+                    ) else listOf(
+                        "Good singing! Keep it up and practice more!",
+                        "Nice try! You're getting better and better!",
+                        "Solid effort! Keep singing with confidence!"
+                    )
+                    Triple(msgs.random(), 1.0f, 1.0f)
+                }
+                else -> {
+                    val msgs = if (isTagalog) listOf(
+                        "Aray ko po! Praktis pa more sa banyo! Bawi na lang!",
+                        "Naku po! Medyo lumipad ang tono! Bawi sa susunod na kanta!",
+                        "Tubig muna bago kumanta! May pag-asa pa yan!"
+                    ) else listOf(
+                        "Oh no! Practice more in the shower! Better luck next song!",
+                        "A bit off key, but don't give up! Try again!",
+                        "Drink some warm water and sing it once more!"
+                    )
+                    Triple(msgs.random(), 0.90f, 0.98f)
+                }
+            }
+
+            engine.setPitch(pitch)
+            engine.setSpeechRate(rate)
+
+            val params = Bundle().apply {
+                putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC)
+                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+            }
+            engine.speak(message, TextToSpeech.QUEUE_ADD, params, "score_feedback_$score")
+        } catch (e: Exception) {
+            Log.e("KeypadVoiceManager", "Error speaking score feedback", e)
+        }
+    }
+
     fun shutdown() {
         try {
             soundPool.release()

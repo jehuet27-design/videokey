@@ -38,24 +38,24 @@ object MidiMelodyScaler {
             labelEnglish = "Ballad & Love Song",
             emoji = "🎹",
             melody = 50,
-            drums = 82,
-            bass = 95,
-            guitarPiano = 115,
-            stringsBrass = 120,
-            reverb = 60,
-            descriptionTagalog = "Lutang ang concert grand piano & strings, banayad ang drums, may concert hall reverb.",
-            descriptionEnglish = "Lush grand piano & orchestral strings upfront, soft acoustic drums, spacious concert reverb."
+            drums = 94,
+            bass = 108,
+            guitarPiano = 114,
+            stringsBrass = 118,
+            reverb = 55,
+            descriptionTagalog = "Lutang ang concert grand piano & strings, banayad at buo ang drums, may concert hall reverb.",
+            descriptionEnglish = "Lush grand piano & orchestral strings upfront, warm acoustic drums, spacious concert reverb."
         ),
         ROCK_UPBEAT(
             labelTagalog = "Rock / Live Band",
             labelEnglish = "Rock & Live Band",
             emoji = "🎸",
-            melody = 54,
-            drums = 122,
-            bass = 116,
-            guitarPiano = 105,
-            stringsBrass = 90,
-            reverb = 32,
+            melody = 50,
+            drums = 126,
+            bass = 122,
+            guitarPiano = 112,
+            stringsBrass = 92,
+            reverb = 34,
             descriptionTagalog = "Punchy rock drums, malutong na electric guitar, at mabigat na bass line.",
             descriptionEnglish = "Punchy kick & snare, driven bass guitar, biting electric rhythm guitars."
         ),
@@ -63,11 +63,11 @@ object MidiMelodyScaler {
             labelTagalog = "Acoustic / Unplugged",
             labelEnglish = "Acoustic & Unplugged",
             emoji = "🎶",
-            melody = 50,
-            drums = 70,
-            bass = 88,
-            guitarPiano = 125,
-            stringsBrass = 85,
+            melody = 48,
+            drums = 80,
+            bass = 100,
+            guitarPiano = 126,
+            stringsBrass = 88,
             reverb = 44,
             descriptionTagalog = "Malinaw at lutang na acoustic guitar strumming & piano, natural na room ambience.",
             descriptionEnglish = "Warm acoustic guitar and piano upfront, delicate percussion, warm natural room."
@@ -76,11 +76,11 @@ object MidiMelodyScaler {
             labelTagalog = "Disco / Retro Dance",
             labelEnglish = "Disco & Retro Dance",
             emoji = "🪩",
-            melody = 58,
-            drums = 122,
-            bass = 120,
-            guitarPiano = 96,
-            stringsBrass = 112,
+            melody = 52,
+            drums = 126,
+            bass = 126,
+            guitarPiano = 104,
+            stringsBrass = 116,
             reverb = 38,
             descriptionTagalog = "Mabigat na 4-on-the-floor beat, funky groove bass, at sparkling brass stabs.",
             descriptionEnglish = "High-energy dance groove, boosted kick & bass, dynamic brass & synths."
@@ -89,12 +89,12 @@ object MidiMelodyScaler {
             labelTagalog = "Cha-Cha / Ballroom",
             labelEnglish = "Cha-Cha & Latin Ballroom",
             emoji = "🎺",
-            melody = 55,
-            drums = 118,
-            bass = 106,
-            guitarPiano = 100,
-            stringsBrass = 118,
-            reverb = 44,
+            melody = 50,
+            drums = 122,
+            bass = 114,
+            guitarPiano = 106,
+            stringsBrass = 120,
+            reverb = 42,
             descriptionTagalog = "Malulutong na Latin percussion (congas/timbales), masiglang brass, at buoyant bass.",
             descriptionEnglish = "Crisp Latin percussion, bright horn stabs, dynamic ballroom dance rhythm."
         ),
@@ -102,12 +102,12 @@ object MidiMelodyScaler {
             labelTagalog = "R&B / Smooth Groove",
             labelEnglish = "R&B & Smooth Groove",
             emoji = "🎷",
-            melody = 52,
-            drums = 110,
-            bass = 116,
-            guitarPiano = 108,
-            stringsBrass = 104,
-            reverb = 48,
+            melody = 48,
+            drums = 116,
+            bass = 124,
+            guitarPiano = 112,
+            stringsBrass = 106,
+            reverb = 46,
             descriptionTagalog = "Malalim na low-end bass groove, malambing na electric piano, at silky reverb.",
             descriptionEnglish = "Thick kick pocket, warm Rhodes electric piano, deep rounded bass groove."
         ),
@@ -115,11 +115,11 @@ object MidiMelodyScaler {
             labelTagalog = "Party / Fiesta Beat",
             labelEnglish = "Party & Fiesta Beat",
             emoji = "🎉",
-            melody = 58,
-            drums = 124,
-            bass = 116,
-            guitarPiano = 102,
-            stringsBrass = 114,
+            melody = 52,
+            drums = 126,
+            bass = 122,
+            guitarPiano = 108,
+            stringsBrass = 118,
             reverb = 40,
             descriptionTagalog = "Mataas na enerhiya, malakas na tambol, at masayang videoke party vibe.",
             descriptionEnglish = "High-energy party beat, lively brass section, maximum festive presence."
@@ -128,12 +128,12 @@ object MidiMelodyScaler {
             labelTagalog = "OPM & Studio Pop",
             labelEnglish = "OPM & Studio Pop",
             emoji = "🇵🇭",
-            melody = 55,
-            drums = 104,
-            bass = 104,
-            guitarPiano = 104,
-            stringsBrass = 104,
-            reverb = 50,
+            melody = 50,
+            drums = 114,
+            bass = 115,
+            guitarPiano = 110,
+            stringsBrass = 110,
+            reverb = 48,
             descriptionTagalog = "Balanseng studio minus-one sound para sa OPM at billboard pop hits.",
             descriptionEnglish = "Even, CD-mastered balance across all instruments for classic OPM & pop."
         )
@@ -179,56 +179,56 @@ object MidiMelodyScaler {
             lower.contains("rock") || lower.contains("band") -> SoundFontProfile(
                 name = soundFontName,
                 fontGain = 0.84f,
-                eqGainsDb = floatArrayOf(2.5f, 3.2f, 1.8f, 0.4f, -0.6f, 0.8f, 1.8f, 2.4f, 2.2f, 1.8f),
+                eqGainsDb = floatArrayOf(2.5f, 4.5f, 3.2f, -0.4f, -1.2f, 1.0f, 2.2f, 2.8f, 2.6f, 2.0f),
                 reverbLevel = 0.38f
             )
             lower.contains("acoustic") || lower.contains("ballad") -> SoundFontProfile(
                 name = soundFontName,
-                fontGain = 0.80f,
-                eqGainsDb = floatArrayOf(1.2f, 1.8f, 1.0f, 0.2f, 0.8f, 1.2f, 1.5f, 1.8f, 2.0f, 1.6f),
+                fontGain = 0.82f,
+                eqGainsDb = floatArrayOf(1.8f, 3.2f, 2.4f, 0.0f, -0.6f, 0.8f, 1.6f, 2.2f, 2.5f, 2.2f),
                 reverbLevel = 0.50f
             )
             lower.contains("disco") || lower.contains("dance") || lower.contains("synth") -> SoundFontProfile(
                 name = soundFontName,
-                fontGain = 0.82f,
-                eqGainsDb = floatArrayOf(2.0f, 2.6f, 1.6f, 0.0f, -0.8f, 0.4f, 1.2f, 1.8f, 2.2f, 2.0f),
+                fontGain = 0.84f,
+                eqGainsDb = floatArrayOf(3.0f, 4.8f, 3.4f, -0.2f, -1.2f, 0.8f, 1.8f, 2.5f, 2.8f, 2.4f),
                 reverbLevel = 0.42f
             )
             lower.contains("party") -> SoundFontProfile(
                 name = soundFontName,
-                fontGain = 0.82f,
-                eqGainsDb = floatArrayOf(2.2f, 3.2f, 1.8f, 0.2f, -0.6f, 0.5f, 1.4f, 1.8f, 2.0f, 1.8f),
+                fontGain = 0.84f,
+                eqGainsDb = floatArrayOf(2.8f, 4.5f, 3.2f, -0.2f, -1.0f, 0.8f, 1.8f, 2.5f, 2.6f, 2.2f),
                 reverbLevel = 0.40f
             )
             lower.contains("yamaha") || lower.contains("korg") || lower.contains("ketron") -> SoundFontProfile(
                 name = soundFontName,
-                fontGain = 0.78f,
-                eqGainsDb = floatArrayOf(1.5f, 2.2f, 1.2f, 0.0f, -0.8f, 0.2f, 0.8f, 1.4f, 1.8f, 1.5f),
+                fontGain = 0.82f,
+                eqGainsDb = floatArrayOf(2.2f, 3.8f, 2.8f, -0.2f, -0.8f, 0.6f, 1.4f, 2.2f, 2.4f, 2.0f),
                 reverbLevel = 0.45f
             )
             lower.contains("dream") || lower.contains("sam") || lower.contains("2634") -> SoundFontProfile(
                 name = soundFontName,
-                fontGain = 0.78f,
-                eqGainsDb = floatArrayOf(1.6f, 2.2f, 1.4f, 0.0f, -0.8f, 0.2f, 0.9f, 1.4f, 1.6f, 1.4f),
-                reverbLevel = 0.45f
+                fontGain = 0.82f,
+                eqGainsDb = floatArrayOf(2.2f, 4.2f, 3.0f, -0.2f, -1.0f, 0.8f, 1.5f, 2.4f, 2.6f, 2.2f),
+                reverbLevel = 0.46f
             )
             lower.contains("mega") -> SoundFontProfile(
                 name = soundFontName,
-                fontGain = 0.76f,
-                eqGainsDb = floatArrayOf(1.4f, 2.0f, 1.2f, 0.0f, -0.6f, 0.4f, 1.1f, 1.5f, 1.6f, 1.4f),
-                reverbLevel = 0.40f
+                fontGain = 0.82f,
+                eqGainsDb = floatArrayOf(2.0f, 3.8f, 2.6f, -0.2f, -0.8f, 0.6f, 1.4f, 2.2f, 2.4f, 2.0f),
+                reverbLevel = 0.42f
             )
             lower.contains("minus") || lower.contains("studio") || lower.contains("videokey") || lower.contains("pop") || lower.contains("opm") -> SoundFontProfile(
                 name = soundFontName,
-                fontGain = 0.80f,
-                eqGainsDb = floatArrayOf(1.8f, 2.5f, 1.5f, 0.2f, -1.0f, 0.3f, 1.0f, 1.5f, 1.8f, 1.6f),
-                reverbLevel = 0.42f
+                fontGain = 0.82f,
+                eqGainsDb = floatArrayOf(2.2f, 4.0f, 3.0f, -0.2f, -1.0f, 0.8f, 1.6f, 2.4f, 2.5f, 2.2f),
+                reverbLevel = 0.45f
             )
             else -> SoundFontProfile(
                 name = soundFontName,
-                fontGain = 0.80f,
-                eqGainsDb = floatArrayOf(1.8f, 2.5f, 1.5f, 0.2f, -1.0f, 0.3f, 1.0f, 1.5f, 1.8f, 1.6f),
-                reverbLevel = 0.42f
+                fontGain = 0.82f,
+                eqGainsDb = floatArrayOf(2.2f, 4.0f, 3.0f, -0.2f, -1.0f, 0.8f, 1.6f, 2.4f, 2.5f, 2.2f),
+                reverbLevel = 0.45f
             )
         }
     }
@@ -643,14 +643,14 @@ object MidiMelodyScaler {
     }
     fun resolveEqForMixStyle(style: SongMixStyle): FloatArray {
         return when (style) {
-            SongMixStyle.ROCK_UPBEAT -> floatArrayOf(2.5f, 3.6f, 2.0f, -0.8f, -0.6f, 0.8f, 2.0f, 2.6f, 2.2f, 1.8f)
-            SongMixStyle.BALLAD -> floatArrayOf(1.5f, 2.0f, 1.2f, 0.2f, 0.8f, 1.2f, 1.5f, 2.0f, 2.4f, 2.0f)
-            SongMixStyle.ACOUSTIC -> floatArrayOf(1.0f, 1.6f, 0.8f, 0.2f, 0.8f, 1.4f, 1.8f, 2.2f, 2.4f, 2.0f)
-            SongMixStyle.DANCE_DISCO -> floatArrayOf(2.6f, 3.4f, 2.0f, 0.0f, -0.8f, 0.4f, 1.4f, 2.0f, 2.4f, 2.2f)
-            SongMixStyle.LATIN_CHACHA -> floatArrayOf(1.8f, 2.4f, 1.6f, 0.0f, -0.4f, 0.8f, 1.8f, 2.4f, 2.2f, 1.8f)
-            SongMixStyle.RNB_SOUL -> floatArrayOf(2.2f, 3.0f, 1.8f, 0.4f, 0.2f, 0.8f, 1.4f, 1.8f, 2.0f, 1.8f)
-            SongMixStyle.PARTY_FIESTA -> floatArrayOf(2.4f, 3.2f, 2.0f, 0.2f, -0.6f, 0.6f, 1.6f, 2.2f, 2.2f, 2.0f)
-            SongMixStyle.STANDARD_POP -> floatArrayOf(1.8f, 2.5f, 1.5f, 0.2f, -0.8f, 0.4f, 1.2f, 1.8f, 2.0f, 1.8f)
+            SongMixStyle.ROCK_UPBEAT -> floatArrayOf(2.5f, 4.6f, 3.2f, -0.6f, -1.2f, 1.0f, 2.2f, 2.8f, 2.6f, 2.0f)
+            SongMixStyle.BALLAD -> floatArrayOf(1.8f, 3.2f, 2.4f, 0.0f, -0.6f, 0.8f, 1.6f, 2.2f, 2.5f, 2.2f)
+            SongMixStyle.ACOUSTIC -> floatArrayOf(1.5f, 2.8f, 2.0f, 0.0f, -0.6f, 1.0f, 1.8f, 2.4f, 2.6f, 2.2f)
+            SongMixStyle.DANCE_DISCO -> floatArrayOf(3.0f, 4.8f, 3.4f, -0.2f, -1.2f, 0.8f, 1.8f, 2.5f, 2.8f, 2.4f)
+            SongMixStyle.LATIN_CHACHA -> floatArrayOf(2.2f, 3.8f, 2.8f, -0.2f, -0.8f, 1.0f, 2.0f, 2.6f, 2.5f, 2.0f)
+            SongMixStyle.RNB_SOUL -> floatArrayOf(2.6f, 4.2f, 3.0f, 0.0f, -0.8f, 0.8f, 1.6f, 2.2f, 2.4f, 2.0f)
+            SongMixStyle.PARTY_FIESTA -> floatArrayOf(2.8f, 4.5f, 3.2f, -0.2f, -1.0f, 0.8f, 1.8f, 2.5f, 2.6f, 2.2f)
+            SongMixStyle.STANDARD_POP -> floatArrayOf(2.2f, 4.0f, 3.0f, -0.2f, -1.0f, 0.8f, 1.6f, 2.4f, 2.5f, 2.2f)
         }
     }
 }

@@ -23,3 +23,5 @@ backgrounds_device/
 *key_generator*
 admin/
 
+
+*.class

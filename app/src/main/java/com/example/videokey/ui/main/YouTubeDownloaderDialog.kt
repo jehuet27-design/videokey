@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +36,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import com.example.videokey.data.Song
 import com.example.videokey.data.YouTubeVideoItem
 import java.io.File
@@ -43,6 +45,7 @@ import java.util.Locale
 @Composable
 fun YouTubeDownloaderDialog(
     state: VideoKeyUiState,
+    isLandscape: Boolean = false,
     onSearch: (String) -> Unit,
     onPlayDirect: (YouTubeVideoItem) -> Unit,
     onDownloadSong: (YouTubeVideoItem) -> Unit,
@@ -52,6 +55,8 @@ fun YouTubeDownloaderDialog(
     onActivateVip: (String) -> Boolean = { false },
     onClearVipError: () -> Unit = {},
     onOpenAdminKeyGenerator: () -> Unit = {},
+    onPayViaGcash: () -> Unit = {},
+    onCheckVipStatus: () -> Unit = {},
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -76,8 +81,8 @@ fun YouTubeDownloaderDialog(
             color = Color(theme.surfaceColor).copy(alpha = 0.98f),
             border = androidx.compose.foundation.BorderStroke(2.dp, Color(theme.primaryColor)),
             modifier = modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.90f)
+                .fillMaxWidth(if (isLandscape) 0.84f else 0.94f)
+                .fillMaxHeight(if (isLandscape) 0.85f else 0.88f)
                 .padding(4.dp)
         ) {
             Column(
@@ -95,7 +100,7 @@ fun YouTubeDownloaderDialog(
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Surface(
                             shape = RoundedCornerShape(6.dp),
@@ -110,13 +115,12 @@ fun YouTubeDownloaderDialog(
                             )
                         }
                         Text(
-                            text = if (isTagalog) "YT DOWNLOADER" else "YT DOWNLOADER",
+                            text = "YT DOWNLOADER",
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.SansSerif,
                             color = Color(theme.primaryColor),
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            fontSize = 13.5.sp,
+                            maxLines = 1
                         )
                         if (state.isVipActivated) {
                             Surface(
@@ -124,7 +128,7 @@ fun YouTubeDownloaderDialog(
                                 color = Color(0xFFEAB308)
                             ) {
                                 Text(
-                                    text = if (isTagalog) "⭐ VIP AKTIBO" else "⭐ VIP ACTIVATED",
+                                    text = "⭐ VIP",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Black,
                                     color = Color(0xFF0F172A),
@@ -153,7 +157,11 @@ fun YouTubeDownloaderDialog(
                         isTagalog = isTagalog,
                         onActivate = onActivateVip,
                         onClearError = onClearVipError,
-                        onOpenAdminKeyGenerator = onOpenAdminKeyGenerator
+                        onOpenAdminKeyGenerator = onOpenAdminKeyGenerator,
+                        onPayViaGcash = onPayViaGcash,
+                        onCheckVipStatus = onCheckVipStatus,
+                        isCheckingVip = state.isCheckingVipStatus,
+                        isInitiatingPayment = state.isInitiatingGcashPayment
                     )
                 } else {
                     // 2. Segmented Navigation Tabs (Search vs Downloaded MP4s)
@@ -214,22 +222,46 @@ fun YouTubeDownloaderDialog(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it.replace("\n", "").replace("\r", "") },
                             placeholder = {
                                 Text(
-                                    text = if (isTagalog) "Maghanap o mag-paste ng YouTube link..." else "Search or paste YouTube URL...",
+                                    text = if (isTagalog) "Maghanap o mag-paste ng link..." else "Search or paste YouTube URL...",
                                     fontSize = 11.5.sp,
-                                    color = Color(theme.textMutedColor).copy(alpha = 0.7f)
+                                    color = Color(theme.textMutedColor).copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             },
                             trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
-                                        Text("✕", color = Color(theme.primaryColor), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    modifier = Modifier.padding(end = 4.dp)
+                                ) {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(26.dp)) {
+                                            Text("✕", color = Color(theme.primaryColor), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val clipText = clipboardManager.getText()?.text?.trim() ?: ""
+                                            if (clipText.isNotBlank()) {
+                                                val clean = clipText.replace("\n", "").replace("\r", "").trim()
+                                                searchQuery = clean
+                                                Toast.makeText(context, if (isTagalog) "Na-paste ang link!" else "Link pasted!", Toast.LENGTH_SHORT).show()
+                                                onSearch(clean)
+                                            } else {
+                                                Toast.makeText(context, if (isTagalog) "Walang laman ang clipboard" else "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Text("📋", fontSize = 14.sp)
                                     }
                                 }
                             },
@@ -241,78 +273,58 @@ fun YouTubeDownloaderDialog(
                                 unfocusedTextColor = Color.White,
                                 cursorColor = Color(theme.primaryColor)
                             ),
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .defaultMinSize(minHeight = 50.dp),
                             shape = RoundedCornerShape(10.dp)
                         )
-
-                        // Dedicated 📋 PASTE button for 1-tap clipboard paste!
-                        Button(
-                            onClick = {
-                                val clipText = clipboardManager.getText()?.text?.trim() ?: ""
-                                if (clipText.isNotBlank()) {
-                                    val clean = clipText.replace("\n", "").replace("\r", "").trim()
-                                    searchQuery = clean
-                                    Toast.makeText(context, if (isTagalog) "Na-paste ang link!" else "Link pasted!", Toast.LENGTH_SHORT).show()
-                                    onSearch(clean)
-                                } else {
-                                    Toast.makeText(context, if (isTagalog) "Walang laman ang clipboard" else "Clipboard is empty", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(theme.buttonBgColor)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(52.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp)
-                        ) {
-                            Text(
-                                text = "📋",
-                                fontSize = 16.sp
-                            )
-                        }
 
                         Button(
                             onClick = { onSearch(searchQuery.trim()) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(theme.primaryColor)),
                             shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(52.dp)
+                            modifier = Modifier.defaultMinSize(minHeight = 50.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                         ) {
                             val txtColor = getContrastingTextColor(theme.primaryColor)
                             Text(
                                 text = if (isTagalog) "🔍 HANAP" else "🔍 SEARCH",
                                 fontWeight = FontWeight.Black,
-                                fontSize = 11.5.sp,
-                                color = txtColor
+                                fontSize = 12.sp,
+                                color = txtColor,
+                                maxLines = 1
                             )
                         }
                     }
 
-                    // Quick Search Suggestions
+                    // Quick Search Suggestions (Smooth horizontal scrollable row, zero text truncation!)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val presets = listOf("OPM Karaoke", "Rock Karaoke", "Ballad Karaoke", "Nature Background")
+                        val presets = listOf("🇵🇭 OPM Karaoke", "🎸 Rock Karaoke", "🎹 Ballad Karaoke", "✨ Acoustic Hits", "🌿 Nature Backgrounds")
                         presets.forEach { preset ->
+                            val cleanTag = preset.substringAfter(" ")
                             Surface(
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 color = Color(theme.buttonBgColor),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        searchQuery = preset
-                                        onSearch(preset)
-                                    }
+                                modifier = Modifier.clickable {
+                                    searchQuery = cleanTag
+                                    onSearch(cleanTag)
+                                }
                             ) {
                                 Text(
                                     text = preset,
-                                    fontSize = 9.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(theme.textColor),
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 2.dp)
+                                    modifier = Modifier.padding(vertical = 6.dp, horizontal = 12.dp)
                                 )
                             }
                         }
@@ -591,31 +603,33 @@ private fun YouTubeResultCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(Color(theme.buttonBgColor))
-            .border(1.dp, Color(theme.buttonBorderColor), RoundedCornerShape(12.dp))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .border(1.dp, Color(theme.buttonBorderColor), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Top Row: Thumbnail + Title & Uploader Info
+        // Top Row: Sleek 16:9 Video Aspect Thumbnail + Title & Uploader Info
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF1E293B)),
+                    .width(52.dp)
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF0F172A))
+                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "🎬", fontSize = 16.sp)
+                    Text(text = "▶", fontSize = 10.sp, color = Color(0xFFEF4444), fontWeight = FontWeight.Black)
                     Text(
                         text = item.durationFormatted,
-                        fontSize = 8.5.sp,
-                        color = Color(theme.primaryColor),
+                        fontSize = 8.sp,
+                        color = Color.White,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
@@ -625,17 +639,16 @@ private fun YouTubeResultCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.title,
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.SansSerif,
                     color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${item.uploader} • ${item.durationFormatted}",
-                    fontSize = 9.5.sp,
+                    fontSize = 9.sp,
                     fontFamily = FontFamily.SansSerif,
                     color = Color(theme.textMutedColor),
                     maxLines = 1,
@@ -644,30 +657,31 @@ private fun YouTubeResultCard(
             }
         }
 
-        // Bottom Row: Refined, Spacious, High-Contrast Download Action Buttons (Download Only)
+        // Bottom Row: Compact Sleek Action Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Button 1: ⬇ 1080p MP4 (Download to Songbook)
+            // Button 1: ⬇ MP4 Download
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = Color(theme.primaryColor),
                 modifier = Modifier
                     .weight(1f)
+                    .height(30.dp)
                     .clickable { onDownloadSong() }
             ) {
                 val txtColor = getContrastingTextColor(theme.primaryColor)
                 Row(
-                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Text("⬇ ", fontSize = 12.sp, color = txtColor, fontWeight = FontWeight.Black)
+                    Text("⬇ ", fontSize = 11.sp, color = txtColor, fontWeight = FontWeight.Black)
                     Text(
                         text = if (isTagalog) "I-download MP4" else "Download MP4",
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
                         color = txtColor,
                         maxLines = 1
@@ -675,24 +689,25 @@ private fun YouTubeResultCard(
                 }
             }
 
-            // Button 2: 🎬 Background (Download stage visual)
+            // Button 2: 🎬 Background Download
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(6.dp),
                 color = Color(0xFF1E293B),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.buttonBorderColor)),
                 modifier = Modifier
                     .weight(1f)
+                    .height(30.dp)
                     .clickable { onDownloadBackground() }
             ) {
                 Row(
-                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Text("🎬 ", fontSize = 12.sp)
+                    Text("🎬 ", fontSize = 11.sp)
                     Text(
                         text = if (isTagalog) "I-save Background" else "Save Background",
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(theme.textColor),
                         maxLines = 1
@@ -856,102 +871,209 @@ private fun VipActivationCard(
     isTagalog: Boolean,
     onActivate: (String) -> Boolean,
     onClearError: () -> Unit,
-    onOpenAdminKeyGenerator: () -> Unit = {}
+    onOpenAdminKeyGenerator: () -> Unit = {},
+    onPayViaGcash: () -> Unit = {},
+    onCheckVipStatus: () -> Unit = {},
+    isCheckingVip: Boolean = false,
+    isInitiatingPayment: Boolean = false
 ) {
     var enteredKey by remember { mutableStateOf("") }
-    val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
-
-    var vipTapCount by remember { mutableStateOf(0) }
-    var lastVipTapTime by remember { mutableStateOf(0L) }
-    val onVipCrownTapped = {
-        val now = System.currentTimeMillis()
-        if (now - lastVipTapTime > 2000L) {
-            vipTapCount = 1
-        } else {
-            vipTapCount++
-        }
-        lastVipTapTime = now
-        if (vipTapCount >= 10) {
-            vipTapCount = 0
-            onOpenAdminKeyGenerator()
-        }
-    }
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // VIP Banner / Lock Icon (Tapping 10 times opens secret Admin Key Generator)
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFEAB308).copy(alpha = 0.15f))
-                .border(2.dp, Color(0xFFEAB308), CircleShape)
-                .clickable { onVipCrownTapped() },
-            contentAlignment = Alignment.Center
+        // 1. Compact Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
         ) {
-            Text(text = "👑", fontSize = 28.sp)
+            Text(text = "👑", fontSize = 28.sp, modifier = Modifier.padding(end = 8.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = if (isTagalog) "VIP FEATURE ACTIVATION" else "VIP FEATURE ACTIVATION",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 17.sp,
+                    color = Color(0xFFEAB308)
+                )
+                Text(
+                    text = if (isTagalog) "Awtomatikong SoundFont, Bass & Treble, at YouTube Downloader"
+                           else "Smart Auto SoundFonts, Bass & Treble, and YouTube Downloader",
+                    fontSize = 11.sp,
+                    color = Color(theme.textMutedColor),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.clickable { onVipCrownTapped() }
-        ) {
-            Text(
-                text = if (isTagalog) "VIP FEATURE ACTIVATION" else "VIP FEATURE ACTIVATION",
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.SansSerif,
-                fontSize = 16.sp,
-                color = Color(0xFFEAB308)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (isTagalog)
-                    "I-unlock ang VIP Access: Awtomatikong SoundFont Synthesizer & Walang limitasyong YouTube Karaoke Downloader para sa iyong device!"
-                else
-                    "Unlock VIP Access: Smart Auto SoundFont Synthesizer & Unlimited YouTube Karaoke Downloader for your device!",
-                fontSize = 11.5.sp,
-                color = Color(theme.textMutedColor),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-        }
-
-        // Card 1: Unique Device ID Box with Copy Button
+        // 2. PRIMARY: Automated PayMongo GCash Payment Card (₱110) - Placed Upfront!
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF0F172A))
-                .border(1.5.dp, Color(0xFF334155), RoundedCornerShape(14.dp))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Brush.horizontalGradient(listOf(Color(0xFF005CE6), Color(0xFF00378A))))
+                .border(1.5.dp, Color(0xFF38BDF8), RoundedCornerShape(16.dp))
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                text = if (isTagalog) "📱 IYONG DEVICE ID (Ipadala sa GCash/Maya):" else "📱 YOUR DEVICE ID (Send via GCash/Maya):",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(theme.primaryColor)
-            )
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = deviceId.ifBlank { "VK-DEVICE-XXXX" },
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace,
-                    color = Color.White
-                )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "💳", fontSize = 24.sp)
+                    Column {
+                        Text(
+                            text = if (isTagalog) "AUTOMATED GCASH PAYMENT" else "AUTOMATED GCASH PAYMENT",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 13.5.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (isTagalog) "₱110.00 • Awtomatikong Mag-a-activate" else "₱110.00 • Instant Auto-Activation",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFDE047)
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color.White.copy(alpha = 0.25f),
+                    modifier = Modifier.padding(start = 6.dp)
+                ) {
+                    Text(
+                        text = "GCASH/MAYA",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = if (isTagalog)
+                    "Pagkapindot ng button sa ibaba, bubukas ang opisyal na PayMongo GCash checkout. Pagkabayad, kusang mag-a-activate ang VIP para sa Device ID na ito!"
+                else
+                    "Clicking below opens the official PayMongo GCash checkout. Once paid, VIP will automatically activate on this Device ID!",
+                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.95f),
+                lineHeight = 15.sp
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Button 1: Pay via GCash (₱110)
+                Button(
+                    onClick = onPayViaGcash,
+                    enabled = !isInitiatingPayment,
+                    modifier = Modifier
+                        .weight(1.3f)
+                        .defaultMinSize(minHeight = 50.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00E676),
+                        contentColor = Color(0xFF0F172A),
+                        disabledContainerColor = Color(0xFF1E293B)
+                    )
+                ) {
+                    if (isInitiatingPayment) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color(0xFF0F172A),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (isTagalog) "⚡ MAGBAYAD SA GCASH" else "⚡ PAY VIA GCASH",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 11.5.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                // Button 2: Check VIP Status
+                Button(
+                    onClick = onCheckVipStatus,
+                    enabled = !isCheckingVip,
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 50.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1E293B),
+                        contentColor = Color(0xFF38BDF8),
+                        disabledContainerColor = Color(0xFF0F172A)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8))
+                ) {
+                    if (isCheckingVip) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color(0xFF38BDF8),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (isTagalog) "🔄 I-CHECK STATUS" else "🔄 CHECK STATUS",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. Device ID Box with Copy Button
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF0F172A))
+                .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = if (isTagalog) "📱 IYONG DEVICE ID:" else "📱 YOUR DEVICE ID:",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF94A3B8)
+                    )
+                    Text(
+                        text = deviceId.ifBlank { "VK-DEVICE-XXXX" },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.White
+                    )
+                }
 
                 Button(
                     onClick = {
@@ -965,11 +1087,11 @@ private fun VipActivationCard(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.primaryColor)),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = if (isTagalog) "📋 KOPYAHIN" else "📋 COPY ID",
-                        fontSize = 11.sp,
+                        fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(theme.primaryColor)
                     )
@@ -977,338 +1099,133 @@ private fun VipActivationCard(
             }
         }
 
-        // Card 2: 1-Time Lifetime Activation Instructions & Payment Details
+        // 4. VIP Privileges & Benefits Summary
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF161B2E))
-                .border(1.5.dp, Color(0xFFEAB308).copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1E1B4B).copy(alpha = 0.6f))
+                .border(1.dp, Color(0xFFEAB308).copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(text = "💰", fontSize = 16.sp)
-                    Text(
-                        text = if (isTagalog) "1-TIME FEE: ₱99 LAMANG" else "1-TIME FEE: ₱99 ONLY",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFFEAB308)
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFF00E676).copy(alpha = 0.15f))
-                        .border(1.dp, Color(0xFF00E676).copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = if (isTagalog) "WALANG MONTHLY" else "NO MONTHLY",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF00E676)
-                    )
-                }
-            }
-
-            // Dedicated Account Number and Name Box with 1-Tap Copy
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF0F172A))
-                    .border(1.dp, Color(0xFF334155), RoundedCornerShape(10.dp))
-                    .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = if (isTagalog) "📲 GCash / Maya Payment Details:" else "📲 GCash / Maya Payment Details:",
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF38BDF8)
-                    )
-                    Text(
-                        text = "Amount: ₱99.00",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFFEAB308)
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = "09203732202",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color(0xFFFACC15)
-                        )
-                        Text(
-                            text = "Name: J***** H.",
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                    }
-
-                    Button(
-                        onClick = {
-                            clipboardManager.setText(AnnotatedString("09203732202"))
-                            Toast.makeText(
-                                context,
-                                if (isTagalog) "Nakopya ang account number!" else "Account number copied!",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = if (isTagalog) "📋 KOPYAHIN" else "📋 COPY",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF38BDF8)
-                        )
-                    }
-                }
-            }
-
-            // Dedicated Facebook / Messenger Contact Box with 1-Tap Open & Copy
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF0F172A))
-                    .border(1.dp, Color(0xFF1877F2).copy(alpha = 0.7f), RoundedCornerShape(10.dp))
-                    .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(text = "🌐", fontSize = 12.sp)
-                        Text(
-                            text = if (isTagalog) "Facebook Contact & Support:" else "Facebook Contact & Support:",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF38BDF8)
-                        )
-                    }
-                    Text(
-                        text = if (isTagalog) "I-send dito ang Device ID" else "Send Device ID here",
-                        fontSize = 9.5.sp,
-                        color = Color(0xFF00FF88),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                        Text(
-                            text = "https://www.facebook.com/jehuet27",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            color = Color(0xFF60A5FA),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "Jerome Huet",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Button(
-                            onClick = {
-                                clipboardManager.setText(AnnotatedString("https://www.facebook.com/jehuet27"))
-                                Toast.makeText(
-                                    context,
-                                    if (isTagalog) "Nakopya ang Facebook link!" else "Facebook link copied!",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text(
-                                text = "📋",
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        Button(
-                            onClick = {
-                                try {
-                                    val fbIntent = Intent(
-                                        Intent.ACTION_VIEW,
-                                        Uri.parse("https://www.facebook.com/jehuet27")
-                                    ).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    context.startActivity(fbIntent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Cannot open link", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1877F2)),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text(
-                                text = if (isTagalog) "💬 I-CHAT" else "💬 CHAT",
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            }
-
             Text(
-                text = if (isTagalog)
-                    "1. Magbayad ng ₱99 (One-Time Lifetime Access) sa GCash o Maya sa itaas.\n2. Pindutin ang '💬 I-CHAT' sa itaas para mag-message sa Facebook (facebook.com/jehuet27) at i-send ang iyong Device ID kasama ang resibo upang matanggap agad ang iyong 8-digit Activation Key."
-                else
-                    "1. Send ₱99 (One-Time Lifetime Access) to GCash or Maya details above.\n2. Tap '💬 CHAT' above to message on Facebook (facebook.com/jehuet27) and send your Device ID with payment proof to receive your instant 8-digit Activation Key.",
+                text = if (isTagalog) "👑 MGA VIP EXCLUSIVE FEATURES:" else "👑 VIP EXCLUSIVE FEATURES:",
                 fontSize = 11.sp,
-                color = Color(theme.textColor),
-                lineHeight = 16.sp
+                fontWeight = FontWeight.Black,
+                color = Color(0xFFFDE047)
             )
+            val benefits = if (isTagalog) listOf(
+                "🎬 Walang limitasyong YouTube Karaoke MP4 Downloader",
+                "🎛️ Hiwalay na Instrument Mixer & VIP SoundFont Presets",
+                "🎚️ Pro Bass Boost, Treble & Smart Auto-Mixer",
+                "🎵 Eksklusibong VIP MP3 Player para sa mga lokal na kanta",
+                "🎨 Custom Background Pictures, Textures & Wipe Highlights"
+            ) else listOf(
+                "🎬 Unlimited YouTube Karaoke MP4 Downloader",
+                "🎛️ Instrument Separation & VIP SoundFont Presets",
+                "🎚️ Pro Bass Boost, Treble & Smart Auto-Mixer",
+                "🎵 Exclusive VIP MP3 Player for local audio files",
+                "🎨 Custom Background Pictures, Textures & Wipe Highlights"
+            )
+            benefits.forEach { b ->
+                Text(
+                    text = "• $b",
+                    fontSize = 10.sp,
+                    color = Color.White.copy(alpha = 0.9f),
+                    lineHeight = 14.sp
+                )
+            }
         }
 
-        // Card 3: Activation Key Input Field & Submit
+        // 5. License Key Input Box (or type RESET/DEACTIVATE)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(Color(0xFF0F172A))
-                .border(1.5.dp, Color(0xFF334155), RoundedCornerShape(14.dp))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = if (isTagalog) "🔑 ILAGAY ANG 8-DIGIT ACTIVATION KEY:" else "🔑 ENTER 8-DIGIT ACTIVATION KEY:",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White
+                text = if (isTagalog) "🔑 MAYROON KA BANG VIP KEY?" else "🔑 ALREADY HAVE A VIP KEY?",
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(theme.primaryColor)
             )
 
-            OutlinedTextField(
-                value = enteredKey,
-                onValueChange = {
-                    enteredKey = it.uppercase().take(14)
-                    onClearError()
-                },
-                placeholder = {
-                    Text(
-                        text = "XXXX-XXXX",
-                        fontSize = 13.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color(theme.textMutedColor).copy(alpha = 0.6f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = enteredKey,
+                    onValueChange = {
+                        enteredKey = it
+                        onClearError()
+                    },
+                    modifier = Modifier.weight(1f),
+                    placeholder = {
+                        Text(
+                            text = "Hal. VIP-XXXX-XXXX",
+                            fontSize = 11.sp,
+                            color = Color(theme.textMutedColor)
+                        )
+                    },
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(theme.primaryColor),
+                        unfocusedBorderColor = Color(0xFF334155),
+                        focusedContainerColor = Color(0xFF1E293B),
+                        unfocusedContainerColor = Color(0xFF1E293B)
+                    ),
+                    singleLine = true
+                )
+
+                Button(
+                    onClick = {
+                        val success = onActivate(enteredKey.trim())
+                        if (success) {
+                            Toast.makeText(
+                                context,
+                                if (isTagalog) "Mabuhay! Na-activate na ang VIP!" else "Success! VIP Activated!",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    },
+                    enabled = enteredKey.trim().length >= 4,
+                    modifier = Modifier.defaultMinSize(minHeight = 44.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFEAB308),
+                        contentColor = Color(0xFF0F172A),
+                        disabledContainerColor = Color(0xFF1E293B)
                     )
-                },
-                singleLine = true,
-                textStyle = TextStyle(
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    color = Color.White
-                ),
-                shape = RoundedCornerShape(10.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF1E293B),
-                    unfocusedContainerColor = Color(0xFF1E293B),
-                    focusedBorderColor = Color(0xFFEAB308),
-                    unfocusedBorderColor = Color(0xFF334155)
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
+                ) {
+                    Text(
+                        text = if (isTagalog) "I-ACTIVATE" else "ACTIVATE",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp
+                    )
+                }
+            }
 
             if (!error.isNullOrBlank()) {
                 Text(
                     text = "⚠️ $error",
                     color = Color(0xFFEF4444),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Button(
-                onClick = {
-                    val success = onActivate(enteredKey.trim())
-                    if (success) {
-                        Toast.makeText(
-                            context,
-                            if (isTagalog) "Mabuhay! Na-activate na ang VIP!" else "Success! VIP Activated!",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                },
-                enabled = enteredKey.trim().length >= 4,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAB308)),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-            ) {
-                Text(
-                    text = if (isTagalog) "⚡ I-ACTIVATE ANG VIP" else "⚡ ACTIVATE VIP NOW",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    color = Color(0xFF0F172A)
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
-
-        Text(
-            text = if (isTagalog)
-                "🔒 Offline Cryptographic License • Walang internet na kailangan para ma-verify."
-            else
-                "🔒 Offline Cryptographic License • No internet connection needed to verify.",
-            fontSize = 9.5.sp,
-            color = Color(theme.textMutedColor).copy(alpha = 0.8f),
-            textAlign = TextAlign.Center
-        )
     }
 }
-

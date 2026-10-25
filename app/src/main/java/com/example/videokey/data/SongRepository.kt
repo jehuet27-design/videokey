@@ -41,7 +41,7 @@ class SongRepository {
         songs.count { (it.isPacked && it.sectorOffset >= 0L) || (it.filePath.isNotEmpty() && !it.filePath.startsWith("http")) }
     }
 
-    fun search(query: String, onlyPlayable: Boolean = false, isCodePlayable: (String) -> Boolean = { false }): List<Song> {
+    fun search(query: String, onlyPlayable: Boolean = false, limit: Int = -1, isCodePlayable: (String) -> Boolean = { false }): List<Song> {
         val listSnapshot = synchronized(songs) { ArrayList(songs) }
         val stream = if (onlyPlayable) {
             listSnapshot.asSequence().filter { s ->
@@ -51,13 +51,17 @@ class SongRepository {
             listSnapshot.asSequence()
         }
 
-        if (query.isBlank()) return stream.take(100).toList()
-        val q = query.trim().lowercase()
-        return stream.filter {
-            it.code.contains(q) ||
-                    it.title.lowercase().contains(q) ||
-                    it.artist.lowercase().contains(q)
-        }.take(100).toList()
+        val filtered = if (query.isBlank()) {
+            stream
+        } else {
+            val q = query.trim().lowercase()
+            stream.filter {
+                it.code.contains(q) ||
+                        it.title.lowercase().contains(q) ||
+                        it.artist.lowercase().contains(q)
+            }
+        }
+        return if (limit > 0) filtered.take(limit).toList() else filtered.toList()
     }
 
     fun addSong(song: Song) {
@@ -94,16 +98,8 @@ class SongRepository {
         synchronized(songs) {
             songs.clear()
             songsByCode.clear()
-            val resolvedList = newSongs.map { raw ->
-                if (SongMetadataResolver.isValidArtist(raw.artist)) {
-                    raw
-                } else {
-                    val resolved = SongMetadataResolver.resolve(raw.code, raw.title, raw.artist)
-                    raw.copy(title = resolved.title, artist = resolved.artist, category = resolved.category)
-                }
-            }
-            songs.addAll(resolvedList)
-            resolvedList.forEach {
+            songs.addAll(newSongs)
+            newSongs.forEach {
                 songsByCode[it.code] = it
                 val unpadded = it.code.trimStart('0')
                 if (unpadded.isNotEmpty()) songsByCode[unpadded] = it

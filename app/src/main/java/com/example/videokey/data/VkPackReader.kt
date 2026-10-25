@@ -130,7 +130,11 @@ object VkPackReader {
                     val compLen = d.readInt()
                     val origLen = d.readInt()
                     val songCrc = d.readInt()
-                    val resolved = SongMetadataResolver.resolve(code, rawTitle, rawArtist)
+                    val resolved = if (rawTitle.isNotBlank() && SongMetadataResolver.isValidArtist(rawArtist)) {
+                        SongMetadataResolver.ResolvedSongMeta(rawTitle, rawArtist, "POP")
+                    } else {
+                        SongMetadataResolver.resolve(code, rawTitle, rawArtist)
+                    }
                     songs.add(
                         Song(
                             code = code,
@@ -159,10 +163,23 @@ object VkPackReader {
     /** Decrypts a single song from its pack into memory. Returns the original MIDI bytes. */
     fun readSongBytes(song: Song): ByteArray? {
         if (song.packId < 0 || song.packOffset < 0L) return null
-        val info = packs[song.filePath] ?: run {
+        var packFile = File(song.filePath)
+        if (!packFile.exists()) {
+            val fallback = packs.values.firstOrNull { it.file.exists() }?.file
+                ?: File("/data/user/0/com.example.videokey/files/songs/videokey_songs_57k.vkpack").takeIf { it.exists() }
+                ?: File("/data/user/0/com.example.videokey/files/songs/videokey_songs_57k.vkpack").takeIf { it.exists() }
+                ?: File("/data/user/0/com.example.videokey/files/songs/videokey_songs_54k.vkpack").takeIf { it.exists() }
+                ?: File("/data/user/0/com.example.videokey/files/songs/videokey_songs_47k.vkpack").takeIf { it.exists() }
+                ?: File("/data/user/0/com.example.videokey/files/songs/videokey_songs.vkpack").takeIf { it.exists() }
+            if (fallback != null) {
+                packFile = fallback
+            }
+        }
+        val targetPath = packFile.absolutePath
+        val info = packs[targetPath] ?: run {
             // Pack not opened yet in this process (e.g. song restored from state) – open it.
-            loadSongs(File(song.filePath))
-            packs[song.filePath]
+            loadSongs(packFile)
+            packs[targetPath]
         } ?: return null
 
         return try {
@@ -192,9 +209,8 @@ object VkPackReader {
      */
     fun extractToPrivateTemp(song: Song, bytes: ByteArray, cacheDir: File): File? {
         return try {
-            val dir = File(cacheDir, ".vkp").apply { mkdirs() }
-            dir.listFiles()?.forEach { it.delete() } // wipe leftovers from previous songs
-            val f = File(dir, java.util.UUID.randomUUID().toString().replace("-", ""))
+            val dir = File(cacheDir, ".vkp").apply { if (!exists()) mkdirs() }
+            val f = File(dir, "${song.code}.mid")
             f.writeBytes(bytes)
             f
         } catch (e: Exception) {

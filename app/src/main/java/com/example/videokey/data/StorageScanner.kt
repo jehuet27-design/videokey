@@ -22,14 +22,20 @@ class StorageScanner(private val context: Context) {
     )
 
     fun autoScanInternalStorage(): ScanResult {
-        // FAST SCAN: Exclusively scans the VideoKey folders on device storage
+        // FAST SCAN: Exclusively scans the VideoKey folders on device storage (checking private hidden storage first)
         val vkCandidates = listOfNotNull(
+            File(context.filesDir, "songs"),
+            File(context.filesDir, "VideoKey/songs"),
+            File(context.filesDir, "VideoKey"),
+            context.filesDir,
             File("/storage/emulated/0/VideoKey"),
             File("/sdcard/VideoKey"),
             File(Environment.getExternalStorageDirectory(), "VideoKey"),
-            context.getExternalFilesDir(null)?.let { File(it, "VideoKey") },
-            File(context.filesDir, "VideoKey")
+            context.getExternalFilesDir(null)?.let { File(it, "VideoKey") }
         ).distinctBy { it.absolutePath }
+
+        val prefs = context.getSharedPreferences("videokey_prefs", Context.MODE_PRIVATE)
+        val isVip = prefs.getBoolean("is_vip_activated", false)
 
         var foundIdx: File? = null
         var foundBlob: File? = null
@@ -59,8 +65,16 @@ class StorageScanner(private val context: Context) {
                 }
             }
 
-            // 2. SoundFonts in VideoKey/SoundFont or VideoKey/soundfonts
-            val sfDirs = listOf(File(vk, "SoundFont"), File(vk, "soundfonts"), vk)
+            // 2. SoundFonts in VideoKey/SoundFont, VideoKey/soundfonts, Download, or external storage
+            val extStorage = Environment.getExternalStorageDirectory()
+            val sfDirs = listOfNotNull(
+                File(vk, "SoundFont"), File(vk, "soundfonts"), vk,
+                File(extStorage, "SoundFont"), File(extStorage, "soundfonts"),
+                File(extStorage, "Download"), File(extStorage, "Download/SoundFont"),
+                File(extStorage, "Music"),
+                File(context.filesDir, "soundfonts"),
+                context.getExternalFilesDir("soundfonts")
+            ).distinctBy { it.absolutePath }
             for (dir in sfDirs) {
                 if (dir.exists() && dir.isDirectory) {
                     dir.listFiles()?.forEach { file ->
@@ -86,7 +100,8 @@ class StorageScanner(private val context: Context) {
                             continue
                         }
                         if (VkPackReader.isPackFile(file)) {
-                            for (song in VkPackReader.loadSongs(file)) {
+                            val packSongs = VkPackReader.loadSongs(file)
+                            for (song in packSongs) {
                                 if (seenCodes.add(song.code)) foundSongs.add(song)
                             }
                         } else if (nameLower.endsWith(".mid") || nameLower.endsWith(".kar") || nameLower.endsWith(".mp4") || nameLower.endsWith(".mkv")) {
@@ -140,8 +155,15 @@ class StorageScanner(private val context: Context) {
             folder.listFiles()?.filter { it.isFile && it.length() > 0L } ?: emptyList()
         }
 
-        // 0. Encrypted VideoKey packs (.vkpack) – strictly inside VideoKey directories
+        // 0. Encrypted VideoKey packs (.vkpack) – prioritize private hidden storage
+        val prefs = context.getSharedPreferences("videokey_prefs", Context.MODE_PRIVATE)
+        val isVip = prefs.getBoolean("is_vip_activated", false)
+
         val packCandidateDirs = listOfNotNull(
+            File(context.filesDir, "songs"),
+            File(context.filesDir, "VideoKey/songs"),
+            File(context.filesDir, "VideoKey"),
+            context.filesDir,
             folder,
             File(folder, "songs"),
             File("/storage/emulated/0/VideoKey"),
@@ -152,14 +174,21 @@ class StorageScanner(private val context: Context) {
             File(context.getExternalFilesDir(null), "VideoKey/songs")
         ).distinct().filter { it.exists() && it.isDirectory }
 
+        val allPacks = mutableListOf<File>()
         for (dir in packCandidateDirs) {
             val packs = dir.listFiles()?.filter { VkPackReader.isPackFile(it) } ?: emptyList()
-            for (file in packs) {
-                val packSongs = VkPackReader.loadSongs(file)
-                Log.d("StorageScanner", "Loaded ${packSongs.size} songs from pack ${file.absolutePath}")
-                for (song in packSongs) {
-                    if (seenCodes.add(song.code)) foundSongs.add(song)
-                }
+            allPacks.addAll(packs)
+        }
+        val distinctPacks = allPacks.distinctBy { it.absolutePath }
+        val selectedPack = distinctPacks.firstOrNull { it.name.contains("57k", ignoreCase = true) || it.name.contains("54k", ignoreCase = true) || it.length() > 550 * 1024 * 1024L }
+            ?: distinctPacks.maxByOrNull { it.length() }
+            ?: distinctPacks.firstOrNull()
+
+        if (selectedPack != null) {
+            val packSongs = VkPackReader.loadSongs(selectedPack)
+            Log.d("StorageScanner", "Loaded ${packSongs.size} songs from primary pack ${selectedPack.absolutePath} (57k for all users)")
+            for (song in packSongs) {
+                if (seenCodes.add(song.code)) foundSongs.add(song)
             }
         }
 

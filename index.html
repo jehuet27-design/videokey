@@ -1,513 +1,990 @@
 <!DOCTYPE html>
+
 <html lang="tl">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VideoKey Karaoke v2.6.1 - Official Download & VIP Access</title>
+
+    <title>VideoKey Karaoke v2.7 - Official Download & VIP Access</title>
+
     <link rel="icon" href="https://img.icons8.com/color/96/microphone.png" type="image/png">
+
     <style>
+
         :root {
+
             --primary: #00E5FF;
+
             --primary-glow: rgba(0, 229, 255, 0.4);
+
             --gold: #FFD54F;
+
             --gold-glow: rgba(255, 213, 79, 0.4);
+
             --green: #00FF88;
+
             --green-glow: rgba(0, 255, 136, 0.4);
+
             --bg-dark: #070B14;
+
             --card-bg: #111827;
+
             --card-border: #1F2937;
+
             --text-main: #F3F4F6;
+
             --text-muted: #9CA3AF;
+
         }
+
+
 
         * {
+
             box-sizing: border-box;
+
             margin: 0;
+
             padding: 0;
+
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
         }
+
+
 
         body {
+
             background-color: var(--bg-dark);
+
             color: var(--text-main);
+
             min-height: 100vh;
+
             display: flex;
+
             flex-direction: column;
+
             align-items: center;
+
             padding: 24px 16px 60px 16px;
+
             overflow-x: hidden;
+
             background-image: 
+
                 radial-gradient(circle at 50% 0%, rgba(0, 229, 255, 0.15) 0%, transparent 60%),
+
                 radial-gradient(circle at 80% 80%, rgba(255, 213, 79, 0.08) 0%, transparent 50%);
+
         }
+
+
 
         .container {
+
             max-width: 580px;
+
             width: 100%;
+
             display: flex;
+
             flex-direction: column;
+
             align-items: center;
+
             gap: 20px;
+
         }
+
+
 
         /* Hero Header */
+
         .header-card {
+
             background: linear-gradient(180deg, #162032 0%, #0F172A 100%);
+
             border: 2px solid var(--primary);
+
             border-radius: 24px;
+
             padding: 28px 20px;
+
             width: 100%;
+
             text-align: center;
+
             box-shadow: 0 10px 30px var(--primary-glow);
+
             position: relative;
+
             overflow: hidden;
+
         }
+
+
 
         .header-card::before {
+
             content: "";
+
             position: absolute;
+
             top: -50px;
+
             left: 50%;
+
             transform: translateX(-50%);
+
             width: 180px;
+
             height: 180px;
+
             background: var(--primary);
+
             filter: blur(80px);
+
             opacity: 0.25;
+
             pointer-events: none;
+
         }
+
+
 
         .app-icon {
+
             width: 76px;
+
             height: 76px;
+
             background: linear-gradient(135deg, #0284C7 0%, #00E5FF 100%);
+
             border-radius: 20px;
+
             display: flex;
+
             align-items: center;
+
             justify-content: center;
+
             font-size: 38px;
+
             margin: 0 auto 14px auto;
+
             box-shadow: 0 8px 24px rgba(0, 229, 255, 0.4);
+
             border: 2px solid #FFFFFF;
+
         }
+
+
 
         .badge-version {
+
             display: inline-block;
+
             background: rgba(0, 229, 255, 0.15);
+
             border: 1px solid var(--primary);
+
             color: var(--primary);
+
             font-size: 11px;
+
             font-weight: 800;
+
             padding: 4px 12px;
+
             border-radius: 20px;
+
             letter-spacing: 1px;
+
             margin-bottom: 8px;
+
             text-transform: uppercase;
+
         }
+
+
 
         h1 {
+
             font-size: 26px;
+
             font-weight: 900;
+
             letter-spacing: -0.5px;
+
             color: #FFFFFF;
+
             margin-bottom: 6px;
+
             text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+
         }
+
+
 
         h1 span {
+
             color: var(--gold);
+
         }
+
+
 
         .tagline {
+
             font-size: 13.5px;
+
             color: var(--text-muted);
+
             line-height: 1.5;
+
         }
+
+
 
         /* Features Pills Grid */
+
         .features-grid {
+
             display: grid;
+
             grid-template-columns: repeat(2, 1fr);
+
             gap: 10px;
+
             width: 100%;
+
         }
+
+
 
         .feature-pill {
+
             background: #1E293B;
+
             border: 1px solid #334155;
+
             border-radius: 14px;
+
             padding: 12px;
+
             display: flex;
+
             align-items: center;
+
             gap: 10px;
+
             font-size: 12px;
+
             font-weight: 600;
+
             color: #E2E8F0;
+
         }
+
+
 
         .feature-pill .icon {
+
             font-size: 20px;
+
         }
+
+
 
         /* Download Section */
+
         .section-card {
+
             background: var(--card-bg);
+
             border: 1px solid var(--card-border);
+
             border-radius: 20px;
+
             padding: 22px 18px;
+
             width: 100%;
+
             display: flex;
+
             flex-direction: column;
+
             gap: 14px;
+
         }
+
+
 
         .section-title {
+
             font-size: 15px;
+
             font-weight: 800;
+
             color: #FFFFFF;
+
             display: flex;
+
             align-items: center;
+
             gap: 8px;
+
         }
+
+
 
         .section-subtitle {
+
             font-size: 12px;
+
             color: var(--text-muted);
+
             margin-top: -6px;
+
             line-height: 1.4;
+
         }
+
+
 
         /* Download Buttons */
+
         .btn-download {
+
             display: flex;
+
             align-items: center;
+
             justify-content: space-between;
+
             background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
+
             border: 1.5px solid var(--primary);
+
             color: #FFFFFF;
+
             text-decoration: none;
+
             padding: 16px 18px;
+
             border-radius: 16px;
+
             font-weight: 800;
+
             transition: all 0.2s ease;
+
             box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35);
+
         }
+
+
 
         .btn-download:hover, .btn-download:active {
+
             transform: translateY(-2px);
+
             box-shadow: 0 8px 24px var(--primary-glow);
+
             filter: brightness(1.1);
+
         }
+
+
 
         .btn-download.server-2 {
+
             background: linear-gradient(135deg, #15803D 0%, #166534 100%);
+
             border-color: var(--green);
+
             box-shadow: 0 4px 16px rgba(22, 101, 52, 0.35);
+
         }
+
+
 
         .btn-download.server-2:hover, .btn-download.server-2:active {
+
             box-shadow: 0 8px 24px var(--green-glow);
+
         }
+
+
 
         .btn-info {
+
             display: flex;
+
             flex-direction: column;
+
             text-align: left;
+
             gap: 2px;
+
         }
+
+
 
         .btn-server-name {
+
             font-size: 15px;
+
             display: flex;
+
             align-items: center;
+
             gap: 6px;
+
         }
+
+
 
         .btn-server-desc {
+
             font-size: 11px;
+
             color: rgba(255, 255, 255, 0.8);
+
             font-weight: 500;
+
         }
+
+
 
         .btn-badge {
+
             background: rgba(0, 0, 0, 0.35);
+
             padding: 6px 12px;
+
             border-radius: 10px;
+
             font-size: 12px;
+
             font-weight: 800;
+
             letter-spacing: 0.5px;
+
             border: 1px solid rgba(255, 255, 255, 0.2);
+
         }
+
+
 
         /* VIP Payment Box */
+
         .vip-box {
+
             background: linear-gradient(180deg, #1E1B4B 0%, #0F172A 100%);
+
             border: 1.5px solid #818CF8;
+
             border-radius: 18px;
+
             padding: 18px;
+
             display: flex;
+
             flex-direction: column;
+
             gap: 12px;
+
         }
+
+
 
         .vip-header {
+
             display: flex;
+
             justify-content: space-between;
+
             align-items: center;
+
         }
+
+
 
         .vip-price {
+
             background: var(--gold);
+
             color: #000;
+
             font-weight: 900;
+
             font-size: 14px;
+
             padding: 4px 12px;
+
             border-radius: 20px;
+
             box-shadow: 0 2px 8px var(--gold-glow);
+
         }
+
+
 
         .account-card {
+
             background: rgba(0, 0, 0, 0.4);
+
             border: 1px dashed #6366F1;
+
             border-radius: 12px;
+
             padding: 12px 14px;
+
             display: flex;
+
             align-items: center;
+
             justify-content: space-between;
+
         }
+
+
 
         .account-details {
+
             display: flex;
+
             flex-direction: column;
+
             gap: 2px;
+
         }
+
+
 
         .account-label {
+
             font-size: 10.5px;
+
             color: #A5B4FC;
+
             font-weight: 700;
+
             text-transform: uppercase;
+
         }
+
+
 
         .account-number {
+
             font-size: 18px;
+
             font-weight: 900;
+
             font-family: monospace;
+
             color: #FFFFFF;
+
             letter-spacing: 1px;
+
         }
+
+
 
         .account-name {
+
             font-size: 11.5px;
+
             color: var(--text-muted);
+
         }
+
+
 
         .btn-copy {
+
             background: #4F46E5;
+
             color: #FFFFFF;
+
             border: none;
+
             padding: 8px 14px;
+
             border-radius: 10px;
+
             font-weight: 700;
+
             font-size: 11px;
+
             cursor: pointer;
+
             transition: all 0.2s ease;
+
         }
+
+
 
         .btn-copy:hover {
+
             background: #4338CA;
+
             transform: scale(1.05);
+
         }
+
+
 
         /* How to install steps */
+
         .step-item {
+
             display: flex;
+
             gap: 12px;
+
             align-items: flex-start;
+
             font-size: 12.5px;
+
             color: #D1D5DB;
+
             line-height: 1.45;
+
         }
+
+
 
         .step-num {
+
             background: #374151;
+
             color: var(--primary);
+
             font-weight: 900;
+
             width: 22px;
+
             height: 22px;
+
             border-radius: 50%;
+
             display: flex;
+
             align-items: center;
+
             justify-content: center;
+
             font-size: 11px;
+
             flex-shrink: 0;
+
             margin-top: 1px;
+
         }
+
+
 
         /* Footer */
+
         footer {
+
             font-size: 11px;
+
             color: #6B7280;
+
             text-align: center;
+
             margin-top: 8px;
+
         }
+
+
 
         /* Toast notification */
+
         .toast {
+
             position: fixed;
+
             bottom: 24px;
+
             background: #10B981;
+
             color: white;
+
             padding: 10px 20px;
+
             border-radius: 30px;
+
             font-weight: 700;
+
             font-size: 12.5px;
+
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+
             opacity: 0;
+
             transform: translateY(20px);
+
             transition: all 0.3s ease;
+
             pointer-events: none;
+
             z-index: 1000;
+
         }
+
+
 
         .toast.show {
+
             opacity: 1;
+
             transform: translateY(0);
+
         }
+
     </style>
+
 </head>
+
 <body>
 
+
+
 <div class="container">
+
     <!-- Header Hero -->
+
     <div class="header-card">
+
         <div class="app-icon">🎤</div>
+
         <div class="badge-version">VERSION 2.6.1 • PINAKABAGONG STABLE RELEASE</div>
+
         <h1>VIDEOKEY <span>KARAOKE</span></h1>
+
         <p class="tagline">Ang pinakamalupit at kumpletong Videoke Player sa Android! May 48,000+ songs, Studio SoundFonts, Smart Auto-Mixer, at HD Drone Video Backgrounds.</p>
+
     </div>
+
+
 
     <!-- Highlights Grid -->
+
     <div class="features-grid">
+
         <div class="feature-pill">
+
             <span class="icon">⚡</span>
+
             <span>Kidlat na Bilis (48,000+ Songs)</span>
+
         </div>
+
         <div class="feature-pill">
+
             <span class="icon">🎵</span>
+
             <span>Original Melody & Band Timbre</span>
+
         </div>
+
         <div class="feature-pill">
+
             <span class="icon">🎛️</span>
+
             <span>VIP Smart Auto-SoundFont</span>
+
         </div>
+
         <div class="feature-pill">
+
             <span class="icon">🔊</span>
+
             <span>Auto-Volume & Built-in Synth</span>
+
         </div>
+
     </div>
+
+
 
     <!-- What's New Section -->
+
     <div class="section-card" style="border: 1.5px solid rgba(0, 229, 255, 0.4); background: linear-gradient(180deg, rgba(0, 229, 255, 0.05) 0%, #111827 100%);">
+
         <div class="section-title">✨ MGA BAGO SA VERSION 2.6.1</div>
+
         <div class="section-subtitle">Pinakabagong upgrade para sa pinakamagandang karanasan sa pagkanta:</div>
+
         <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; color: #D1D5DB; line-height: 1.5;">
+
             <div>⚡ <b>Kidlat na Bilis ng Kanta:</b> Zero-lag at instant loading sa pag-load at pag-scroll ng buong songbook na may 48,000+ kanta.</div>
+
             <div>🎵 <b>Kuhang-kuha ang Tunog ng Original:</b> Inayos ang melody engine para manatiling buong-buo ang natural studio timbre ng bawat instrumento nang walang garalgal o over na lakas.</div>
+
             <div>🔊 <b>Zero-Sound Fix:</b> Awtomatikong lilipat sa Android Built-in Synthesizer kapag wala pang SoundFont, tinitiyak na laging may tunog sa lahat ng Android TV at phones.</div>
+
             <div>🎛️ <b>VIP Smart Auto-SoundFont:</b> Kusang pumipili ng tamang SoundFont depende sa kanta (Rock, Ballad, Acoustic, Disco, Cha-Cha, OPM).</div>
+
         </div>
+
     </div>
+
+
 
     <!-- Download Options Section -->
+
     <div class="section-card">
-        <div class="section-title">📥 PUMILI NG DOWNLOAD SERVER</div>
-        <div class="section-subtitle">Piliin ang pinakamabilis na link para sa iyong internet connection:</div>
 
-        <!-- Server 1: GitHub Direct -->
-        <a href="https://github.com/jehuet27-design/videokey/releases/download/v2.6.1/VideoKey-v2.6.1.apk" class="btn-download" id="server1Btn">
+        <div class="section-title">📥 DOWNLOAD VIDEOKEY APK</div>
+
+        <div class="section-subtitle">Pindutin ang button sa ibaba para sa direktang opisyal na download ng installer:</div>
+
+
+
+        <!-- Direct GitHub APK Download -->
+
+        <a href="https://github.com/jehuet27-design/videokey/releases/download/v2.7/VideoKey-v2.7.apk" class="btn-download" id="server1Btn" style="background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%); border-color: var(--primary);" download>
+
             <div class="btn-info">
-                <div class="btn-server-name">🚀 Server 1: GitHub Direct (v2.6.1)</div>
-                <div class="btn-server-desc">Direktang download • Walang Ads • Full Speed</div>
+
+                <div class="btn-server-name">🚀 I-download ang VideoKey APK (v2.7)</div>
+
+                <div class="btn-server-desc">Direktang APK Download • 100% Ligtas, Libre at Walang Ads</div>
+
             </div>
-            <div class="btn-badge">28.2 MB</div>
+
+            <div class="btn-badge">DOWNLOAD APK</div>
+
         </a>
 
-        <!-- Server 2: Google Drive Mirror -->
-        <a href="https://drive.google.com/file/d/18nDGDuigoH-RSA-aUvdD0yHfU8Ac7uWO/view?usp=sharing" class="btn-download server-2" id="server2Btn" target="_blank">
-            <div class="btn-info">
-                <div class="btn-server-name">⚡ Server 2: Google Drive Mirror</div>
-                <div class="btn-server-desc">Google Mirror Link • Maaasahan sa Lahat ng Network</div>
-            </div>
-            <div class="btn-badge">GOOGLE DRIVE</div>
-        </a>
-
-        <!-- Server 3: GitHub Releases Page -->
-        <a href="https://github.com/jehuet27-design/videokey/releases/tag/v2.6.1" class="btn-download" style="background: linear-gradient(135deg, #374151 0%, #1F2937 100%); border-color: #4B5563;" target="_blank">
-            <div class="btn-info">
-                <div class="btn-server-name">📦 GitHub Releases Page</div>
-                <div class="btn-server-desc">Tingnan ang buong release log at lahat ng APK downloads</div>
-            </div>
-            <div class="btn-badge">v2.6.1</div>
-        </a>
     </div>
+
+
 
     <!-- Quick Installation Guide -->
+
     <div class="section-card">
+
         <div class="section-title">📱 PAANO I-INSTALL SA CELLPHONE?</div>
+
         
+
         <div class="step-item">
+
             <div class="step-num">1</div>
-            <div>Pindutin ang <b>Server 1 (GitHub)</b> o <b>Server 2 (Google Drive)</b> sa itaas para mag-download.</div>
+
+            <div>Pindutin ang <b>I-download ang VideoKey APK</b> sa itaas para direktang mai-save ang installer.</div>
+
         </div>
+
         <div class="step-item">
+
             <div class="step-num">2</div>
+
             <div>Kapag may lumabas na <i>"File might be harmful"</i>, pindutin ang <b>Download anyway</b> (ligtas at malinis ang APK).</div>
+
         </div>
+
         <div class="step-item">
+
             <div class="step-num">3</div>
-            <div>Buksan ang na-download na <b>VideoKey-v2.6.1.apk</b> at pindutin ang <b>Install</b>.</div>
+
+            <div>Buksan ang na-download na <b>APK</b> at pindutin ang <b>Install</b>.</div>
+
         </div>
+
         <div class="step-item">
+
             <div class="step-num">4</div>
+
             <div>Buksan ang VideoKey at simulan na ang masayang kantahan kasama ang buong pamilya at barkada!</div>
+
         </div>
+
     </div>
 
+
+
     <!-- Footer -->
+
     <footer>
-        VideoKey Karaoke Player v2.6.1 • Developed with ❤️ for Filipino Videoke Enthusiasts<br>
+
+        VideoKey Karaoke Player v2.7 • Developed with ❤️ for Filipino Videoke Enthusiasts<br>
+
         © 2026 VideoKey Studio. All Rights Reserved.
+
     </footer>
+
 </div>
+
+
 
 <div class="toast" id="toast">✓ Nakopya ang Account Number!</div>
 
+
+
 <script>
+
     function copyAccount() {
+
         const text = "09203732202";
+
         navigator.clipboard.writeText(text).then(() => {
+
             showToast("✓ Nakopya ang 09203732202!");
+
         }).catch(() => {
+
             const input = document.createElement("input");
+
             input.value = text;
+
             document.body.appendChild(input);
+
             input.select();
+
             document.execCommand("copy");
+
             document.body.removeChild(input);
+
             showToast("✓ Nakopya ang 09203732202!");
+
         });
+
     }
+
+
 
     function showToast(msg) {
+
         const toast = document.getElementById("toast");
+
         toast.innerText = msg;
+
         toast.classList.add("show");
+
         setTimeout(() => {
+
             toast.classList.remove("show");
+
         }, 2500);
+
     }
+
 </script>
 
+
+
 </body>
+
 </html>
+

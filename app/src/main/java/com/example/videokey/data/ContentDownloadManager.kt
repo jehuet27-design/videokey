@@ -145,21 +145,48 @@ class ContentDownloadManager(private val context: Context) {
         return fallback
     }
 
+    /**
+     * App-private hidden internal storage for .vkpack songs.
+     * Inaccessible to file managers and PC USB MTP connections!
+     */
+    fun getPrivateSongStorageDir(): File {
+        val dir = File(context.filesDir, "songs")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    val coreSongs47kItem: DownloadItem
+        get() = DownloadItem(
+            id = "core_songs_47k",
+            title = "🎵 Videoke Songs Pack (47k Songs)",
+            category = ContentCategory.SONGS,
+            description = "Kumpletong koleksyon ng 47,000 OPM, Pop, Rock, at Classic videoke songs.",
+            sizeFormatted = "473 MB",
+            downloadUrl = "https://github.com/jehuet27-design/videokey/releases/download/content-packs/videokey_songs.vkpack",
+            relativeDestinationPath = "videokey_songs_47k.vkpack",
+            checkFileRelativePath = "videokey_songs_47k.vkpack"
+        )
+
+    val vipSongs57kItem: DownloadItem
+        get() = DownloadItem(
+            id = "vip_songs_57k",
+            title = "🎵 VideoKey 57,000 Songs Pack (57k Songs)",
+            category = ContentCategory.SONGS,
+            description = "Kumpletong 57,000 pinakabagong kanta kasama ang lahat ng OPM, English, at 2026 hits.",
+            sizeFormatted = "571 MB",
+            downloadUrl = "https://github.com/jehuet27-design/videokey/releases/download/content-packs/videokey_songs.vkpack",
+            relativeDestinationPath = "videokey_songs.vkpack",
+            checkFileRelativePath = "videokey_songs.vkpack"
+        )
+
+    val vipSongs54kItem: DownloadItem get() = vipSongs57kItem
+
     // Catalog of available content packs
-    fun getAvailableCatalog(): List<DownloadItem> {
+    fun getAvailableCatalog(isVip: Boolean = false): List<DownloadItem> {
+        val songItem = vipSongs57kItem
         val releaseBase = "https://github.com/jehuet27-design/videokey/releases/download/content-packs"
         return listOf(
-            // 1. Videoke Songs Pack (Removed "Philippine")
-            DownloadItem(
-                id = "core_songs",
-                title = "🎵 Videoke Songs Pack",
-                category = ContentCategory.SONGS,
-                description = "Kumpletong koleksyon ng libu-libong OPM, Pop, Rock, at Classic videoke songs.",
-                sizeFormatted = "496 MB",
-                downloadUrl = "$releaseBase/videokey_songs.vkpack",
-                relativeDestinationPath = "videokey_songs.vkpack",
-                checkFileRelativePath = "videokey_songs.vkpack"
-            ),
+            songItem,
             // 2. Complete SoundFont Bank (All-in-one single download)
             DownloadItem(
                 id = "all_soundfonts",
@@ -192,7 +219,8 @@ class ContentDownloadManager(private val context: Context) {
      */
     fun isItemInstalled(item: DownloadItem): Boolean {
         return when (item.id) {
-            "core_songs" -> hasAnySongsInstalled()
+            "core_songs", "core_songs_47k" -> hasAnySongsInstalled()
+            "vip_songs_54k", "vip_songs_57k" -> has57kSongsInstalled()
             "all_soundfonts" -> isSoundFontInstalled()
             "all_backgrounds" -> isBackgroundVideoInstalled()
             else -> {
@@ -202,6 +230,8 @@ class ContentDownloadManager(private val context: Context) {
                 if (target.exists() && target.length() > minSize) return true
                 val inSongs = File(base, "songs/${item.checkFileRelativePath}")
                 if (inSongs.exists() && inSongs.length() > minSize) return true
+                val inPrivate = File(getPrivateSongStorageDir(), File(item.checkFileRelativePath).name)
+                if (inPrivate.exists() && inPrivate.length() > minSize) return true
                 val inSoundfonts = File(base, "soundfonts/${File(item.checkFileRelativePath).name}")
                 if (inSoundfonts.exists() && inSoundfonts.length() > 1024L) return true
                 val inSoundFontCap = File(base, "SoundFont/${File(item.checkFileRelativePath).name}")
@@ -217,13 +247,49 @@ class ContentDownloadManager(private val context: Context) {
     }
 
     /**
-     * Checks if any songs exist in the base folder, songs subfolder, or SongHub directory.
+     * Checks specifically if the 54,412 songs VIP pack is installed.
+     * Criteria: >550MB size or filename contains 54k with >50MB size.
+     */
+    fun has57kSongsInstalled(): Boolean {
+        val checkDirs = listOfNotNull(
+            getPrivateSongStorageDir(),
+            File(context.filesDir, "VideoKey/songs"),
+            File(context.filesDir, "VideoKey"),
+            context.filesDir,
+            File(getBaseStorageDir(), "songs"),
+            getBaseStorageDir(),
+            File("/storage/emulated/0/VideoKey/songs"),
+            File("/sdcard/VideoKey/songs")
+        ).distinct()
+
+        for (dir in checkDirs) {
+            if (!dir.exists()) continue
+            val packs = dir.listFiles()?.filter { VkPackReader.isPackFile(it) } ?: emptyList()
+            for (file in packs) {
+                if ((file.name.contains("57k", ignoreCase = true) || file.name.contains("54k", ignoreCase = true)) && file.length() > 50 * 1024 * 1024L) {
+                    return true
+                }
+                if (file.length() > 550 * 1024 * 1024L) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    fun has54kSongsInstalled(): Boolean = has57kSongsInstalled()
+
+    /**
+     * Checks if any songs exist in private storage, base folder, songs subfolder, or SongHub directory.
      * STRICT: Only genuine .vkpack files (> 50MB) or real MIDI/KAR song files count.
      * Background video files (.mp4, .mkv) are NEVER counted as songs!
      */
     fun hasAnySongsInstalled(): Boolean {
         val base = getBaseStorageDir()
-        val checkFiles = listOf(
+        val checkFiles = listOfNotNull(
+            File(getPrivateSongStorageDir(), "videokey_songs_54k.vkpack"),
+            File(getPrivateSongStorageDir(), "videokey_songs_47k.vkpack"),
+            File(getPrivateSongStorageDir(), "videokey_songs.vkpack"),
             File(base, "videokey_songs.vkpack"),
             File(base, "songs/videokey_songs.vkpack"),
             File("/storage/emulated/0/VideoKey/videokey_songs.vkpack"),
@@ -246,7 +312,11 @@ class ContentDownloadManager(private val context: Context) {
             return true
         }
 
-        val songsDirs = listOf(
+        val songsDirs = listOfNotNull(
+            getPrivateSongStorageDir(),
+            File(context.filesDir, "songs"),
+            File(context.filesDir, "VideoKey/songs"),
+            context.filesDir,
             File(base, "songs"),
             File("/storage/emulated/0/VideoKey/songs"),
             File("/sdcard/VideoKey/songs"),
@@ -256,7 +326,7 @@ class ContentDownloadManager(private val context: Context) {
             File(base, ""),
             File("/storage/emulated/0/VideoKey"),
             File("/sdcard/VideoKey")
-        )
+        ).distinct()
         for (dir in songsDirs) {
             try {
                 if (dir.exists() && (dir.listFiles()?.any {
@@ -269,6 +339,84 @@ class ContentDownloadManager(private val context: Context) {
             } catch (_: Exception) {}
         }
         return false
+    }
+
+    /**
+     * Safely deletes old 47k song pack files to free storage when 54k pack is active.
+     */
+    fun deleteOld47kSongPack(): Boolean {
+        var deletedAny = false
+        val checkDirs = listOfNotNull(
+            getPrivateSongStorageDir(),
+            File(context.filesDir, "songs"),
+            File(context.filesDir, "VideoKey/songs"),
+            File(context.filesDir, "VideoKey"),
+            context.filesDir,
+            File(getBaseStorageDir(), "songs"),
+            getBaseStorageDir(),
+            File("/storage/emulated/0/VideoKey/songs"),
+            File("/storage/emulated/0/VideoKey"),
+            File("/sdcard/VideoKey/songs"),
+            File("/sdcard/VideoKey"),
+            File(context.getExternalFilesDir(null), "VideoKey/songs"),
+            File(context.getExternalFilesDir(null), "VideoKey")
+        ).distinct()
+
+        for (dir in checkDirs) {
+            if (!dir.exists()) continue
+            dir.listFiles()?.forEach { file ->
+                if (file.isFile && file.name.endsWith(".vkpack", ignoreCase = true)) {
+                    val isExplicit47k = file.name.contains("47k", ignoreCase = true)
+                    val isOldSmallPack = file.length() in (50 * 1024 * 1024L)..(550 * 1024 * 1024L)
+                    if (isExplicit47k || (isOldSmallPack && !file.name.contains("54k", ignoreCase = true))) {
+                        Log.i("ContentDownloadManager", "Deleting old 47k song pack: ${file.absolutePath} (${file.length()} bytes)")
+                        val deleted = file.delete()
+                        if (deleted) deletedAny = true
+                    }
+                }
+            }
+        }
+        return deletedAny
+    }
+
+    /**
+     * Automatically moves exposed .vkpack song packs from public external storage into
+     * private internal app storage (/data/user/0/com.example.videokey/files/songs)
+     * so they are 100% hidden and protected against being copied, moved, or deleted.
+     */
+    fun hideExposedSongPacks() {
+        try {
+            val privateDir = getPrivateSongStorageDir()
+            val exposedDirs = listOf(
+                File("/storage/emulated/0/VideoKey/songs"),
+                File("/storage/emulated/0/VideoKey"),
+                File("/sdcard/VideoKey/songs"),
+                File("/sdcard/VideoKey"),
+                File(context.getExternalFilesDir(null), "VideoKey/songs"),
+                File(context.getExternalFilesDir(null), "VideoKey")
+            ).filter { it.exists() }
+
+            for (dir in exposedDirs) {
+                dir.listFiles()?.forEach { file ->
+                    if (file.isFile && file.name.endsWith(".vkpack", ignoreCase = true) && file.length() > 50 * 1024 * 1024L) {
+                        val is54k = file.length() > 550 * 1024 * 1024L || file.name.contains("54k", ignoreCase = true)
+                        val targetName = if (is54k) "videokey_songs.vkpack" else file.name
+                        val targetFile = File(privateDir, targetName)
+
+                        Log.i("ContentDownloadManager", "Hiding exposed song pack ${file.absolutePath} -> ${targetFile.absolutePath}")
+                        if (!targetFile.exists() || targetFile.length() != file.length()) {
+                            file.copyTo(targetFile, overwrite = true)
+                        }
+                        if (targetFile.exists() && targetFile.length() == file.length()) {
+                            file.delete()
+                            Log.i("ContentDownloadManager", "Successfully hidden! Deleted exposed pack: ${file.absolutePath}")
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ContentDownloadManager", "Error hiding exposed song packs", e)
+        }
     }
 
     /**
@@ -416,6 +564,30 @@ class ContentDownloadManager(private val context: Context) {
                     file.delete()
                 }
             }
+
+            // 6. Auto-delete obsolete 47k song packs when 57k pack is available or present
+            deleteOld47kSongPack()
+
+            // 7. Auto-delete old VideoKey APK installer files from Downloads and cache
+            val downloadDirs = listOfNotNull(
+                File("/storage/emulated/0/Download"),
+                File("/sdcard/Download"),
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS),
+                context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS),
+                context.cacheDir
+            ).distinct()
+            for (dir in downloadDirs) {
+                if (!dir.exists() || !dir.isDirectory) continue
+                dir.listFiles()?.forEach { file ->
+                    val nameLower = file.name.lowercase()
+                    if (file.isFile && nameLower.endsWith(".apk") && (nameLower.contains("videokey") || nameLower.contains("app-debug"))) {
+                        try {
+                            file.delete()
+                            Log.d("ContentDownloadManager", "Auto-cleaned old APK: ${file.absolutePath}")
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
         } catch (e: Exception) {
             Log.e("ContentDownloadManager", "Error in cleanLegacyOrDummyFiles", e)
         }
@@ -446,6 +618,10 @@ class ContentDownloadManager(private val context: Context) {
             val baseDir = getBaseStorageDir()
             val destFile = if (item.isZip) {
                 File(context.cacheDir, "${item.id}_temp.zip")
+            } else if (item.category == ContentCategory.SONGS) {
+                File(getPrivateSongStorageDir(), File(item.relativeDestinationPath).name).apply {
+                    parentFile?.mkdirs()
+                }
             } else {
                 File(baseDir, item.relativeDestinationPath).apply {
                     parentFile?.mkdirs()
@@ -456,8 +632,9 @@ class ContentDownloadManager(private val context: Context) {
             try {
                 var existingBytes = if (partFile.exists()) partFile.length() else 0L
 
-                fun openConnection(rangeStart: Long): HttpURLConnection {
-                    var u = URL(item.downloadUrl)
+                fun openConnection(rangeStart: Long, fallbackUrl: String? = null): HttpURLConnection {
+                    val targetUrl = fallbackUrl ?: item.downloadUrl
+                    var u = URL(targetUrl)
                     var c = (u.openConnection() as HttpURLConnection).apply {
                         connectTimeout = 15000
                         readTimeout = 20000
@@ -491,6 +668,13 @@ class ContentDownloadManager(private val context: Context) {
 
                 var currentConn = openConnection(existingBytes)
                 var responseCode = currentConn.responseCode
+
+                // If VIP 54k pack URL is not yet separately uploaded to github releases, fallback gracefully to release vkpack
+                if (responseCode == 404 && item.id == "vip_songs_54k") {
+                    currentConn.disconnect()
+                    currentConn = openConnection(existingBytes, "https://github.com/jehuet27-design/videokey/releases/download/content-packs/videokey_songs.vkpack")
+                    responseCode = currentConn.responseCode
+                }
 
                 // 416 Requested Range Not Satisfiable (e.g. file already completed or altered)
                 if (responseCode == 416) {

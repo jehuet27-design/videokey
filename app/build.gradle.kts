@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.videokey"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "2.6.1"
+        versionCode = 8
+        versionName = "2.7.0"
     }
 
     buildTypes {
@@ -83,4 +83,13 @@ dependencies {
   implementation(libs.androidx.navigation3.ui)
   implementation(libs.androidx.navigation3.runtime)
   implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+  // Chrome Custom Tabs for PayMongo checkout
+  implementation("androidx.browser:browser:1.8.0")
+
+  // EncryptedSharedPreferences for Hardware-Backed Secure VIP Storage
+  implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+  // ZXing for standard, instant-scan QR Code and Barcode generation
+  implementation("com.google.zxing:core:3.5.3")
 }

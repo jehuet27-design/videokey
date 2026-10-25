@@ -158,13 +158,22 @@ fun StartupDownloadGateScreen(
                 isTagalog = isTagalog
             )
 
-            // Item 2: Core Videoke Songs Pack
+            // Item 2: Core / VIP Videoke Songs Pack
+            val isSongsDl = isDownloading && (downloadStatus as? ContentDownloadManager.DownloadStatus.Downloading)?.itemId in listOf("core_songs", "core_songs_47k", "vip_songs_54k", "vip_songs_57k")
+            val isSongsEx = isExtracting && (downloadStatus as? ContentDownloadManager.DownloadStatus.Extracting)?.itemId in listOf("core_songs", "core_songs_47k", "vip_songs_54k", "vip_songs_57k")
+            val songTitle = if (state.isVipActivated) "⭐ VIP Videoke Songs Pack (57k Songs)" else "🎵 Videoke Songs Pack (47k Songs)"
+            val songSubtitle = if (state.isVipActivated) {
+                "599 MB • Eksklusibong 57,000 pinakabagong kanta para sa VIP"
+            } else {
+                "473 MB • Koleksyon ng 47,000 OPM & Pop videoke songs"
+            }
+
             GateItemCard(
-                title = "🎵 Videoke Songs Pack",
-                subtitle = "496 MB • Kumpletong koleksyon ng libu-libong OPM & Hits",
+                title = songTitle,
+                subtitle = songSubtitle,
                 isInstalled = hasSongs,
-                isCurrentlyDownloading = isDownloading && (downloadStatus as? ContentDownloadManager.DownloadStatus.Downloading)?.itemId == "core_songs",
-                isCurrentlyExtracting = isExtracting && (downloadStatus as? ContentDownloadManager.DownloadStatus.Extracting)?.itemId == "core_songs",
+                isCurrentlyDownloading = isSongsDl,
+                isCurrentlyExtracting = isSongsEx,
                 theme = theme,
                 isTagalog = isTagalog
             )
