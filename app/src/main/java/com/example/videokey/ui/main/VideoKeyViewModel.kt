@@ -2204,20 +2204,41 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             var lastRecSecs = -1
 
+            var lastAudioPosMs = -1L
 
+            var lastAudioSystemClockMs = 0L
 
             while (true) {
                 // Rock-solid 60 FPS playback loop (strictly 16ms per frame, zero throttle)
                 delay(16L)
-                if (!_uiState.value.isPlaying || _uiState.value.isPlaybackPaused) continue
+                if (!_uiState.value.isPlaying || _uiState.value.isPlaybackPaused) {
+                    lastAudioPosMs = -1L
+                    lastAudioSystemClockMs = 0L
+                    continue
+                }
 
                 val isAudioPlaying = soundEngine.isPlaying()
 
                 val rawPosMs = soundEngine.getCurrentPositionMs()
 
+                val nowElapsed = android.os.SystemClock.elapsedRealtime()
+
+                if (rawPosMs != lastAudioPosMs || !isAudioPlaying) {
+                    lastAudioPosMs = rawPosMs
+                    lastAudioSystemClockMs = nowElapsed
+                }
+
+                // Extrapolate hardware audio clock for jitter-free, linear 60 FPS frame pacing:
+                val extrapolatedMs = if (isAudioPlaying && lastAudioSystemClockMs > 0L) {
+                    val delta = (nowElapsed - lastAudioSystemClockMs).coerceIn(0L, 80L)
+                    lastAudioPosMs + delta
+                } else {
+                    rawPosMs
+                }
+
                 val offset = _uiState.value.lyricConfig.timingOffsetMs
 
-                val posMs = (rawPosMs + offset).coerceAtLeast(0L)
+                val posMs = (extrapolatedMs + offset).coerceAtLeast(0L)
 
                 val durMs = soundEngine.getDurationMs()
 
@@ -2413,7 +2434,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
 
-                        if (lineChanged || introChanged || instChanged || wipeDelta >= 0.001f) {
+                        if (lineChanged || introChanged || instChanged || wipeDelta >= 0.0001f) {
 
                             lastEmittedWipe = wipe
 
@@ -2765,13 +2786,19 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         var charsPassed = 0
 
-        for (syl in syllables) {
+        for (i in syllables.indices) {
+
+            val syl = syllables[i]
 
             val sylLen = syl.text.length
 
             val sylStart = syl.timestampMs
 
-            val sylEnd = syl.timestampMs + syl.durationMs
+            val sylEnd = sylStart + syl.durationMs
+
+            val nextSylStart = syllables.getOrNull(i + 1)?.timestampMs
+
+
 
             if (posMs < sylStart) {
 
@@ -2781,11 +2808,53 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                 val dur = syl.durationMs.coerceAtLeast(1L)
 
+                val nonSpaceLen = syl.text.trimEnd().length.coerceAtLeast(1)
+
                 val frac = ((posMs - sylStart).toFloat() / dur.toFloat()).coerceIn(0f, 1f)
 
-                val activeChars = charsPassed + (frac * sylLen)
+                val activeChars = charsPassed + (frac * nonSpaceLen)
 
                 return (activeChars / totalChars.toFloat()).coerceIn(0f, 1f)
+
+            } else if (nextSylStart != null && posMs < nextSylStart) {
+
+                // Position is in the inter-syllable / inter-word gap
+
+                val gap = nextSylStart - sylEnd
+
+                val nonSpaceLen = syl.text.trimEnd().length.coerceAtLeast(1)
+
+                val spaceLen = (sylLen - nonSpaceLen).coerceAtLeast(0)
+
+
+
+                if (spaceLen > 0 && gap in 1L..600L) {
+
+                    // Smoothly bridge the space across the inter-word gap
+
+                    val spaceFrac = ((posMs - sylEnd).toFloat() / gap.toFloat()).coerceIn(0f, 1f)
+
+                    val activeChars = charsPassed + nonSpaceLen + (spaceFrac * spaceLen)
+
+                    return (activeChars / totalChars.toFloat()).coerceIn(0f, 1f)
+
+                } else if (gap in 1L..400L) {
+
+                    // Small inter-syllable gap within word: bridge smoothly into next syllable
+
+                    val effDur = (nextSylStart - sylStart).coerceAtLeast(1L)
+
+                    val frac = ((posMs - sylStart).toFloat() / effDur.toFloat()).coerceIn(0f, 1f)
+
+                    val activeChars = charsPassed + (frac * sylLen)
+
+                    return (activeChars / totalChars.toFloat()).coerceIn(0f, 1f)
+
+                } else {
+
+                    charsPassed += sylLen
+
+                }
 
             } else {
 

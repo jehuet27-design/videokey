@@ -96,6 +96,8 @@ import androidx.compose.ui.Modifier
 
 
 
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.draw.alpha
 
 
@@ -16003,681 +16005,96 @@ fun toKaraokeNormalCase(text: String): String {
 
 
 fun KaraokeLyricLine(
-
-
-
     text: String,
-
-
-
     isActive: Boolean,
-
-
-
     wipePercent: Float,
-
-
-
     fontSize: androidx.compose.ui.unit.TextUnit = 22.sp,
-
-
-
     lyricConfig: LyricCustomization = LyricCustomization(),
-
-
-
     countdownNumber: Int = 0,
-
-
-
     isLandscape: Boolean = false,
-
-
-
     modifier: Modifier = Modifier
-
-
-
 ) {
-
-
-
     val wipeClamped = wipePercent.coerceIn(0f, 1f)
-
-    // Direct true 60 FPS wipe without lag, trailing delay, or animation restart jitter:
-    val smoothWipe = wipeClamped
-
-
-
     val cleanText = text.trimEnd('-', ' ')
-
-
-
     val displayText = if (lyricConfig.isAllCaps) cleanText.uppercase() else toKaraokeNormalCase(cleanText)
-
-
-
     val activeColor = Color(lyricConfig.wipeColor.activeColor)
-
-
-
     val inactiveBaseColor = Color(lyricConfig.inactiveColor)
 
-
-
-
-
-
-
     // Character-level geometry tracking: maps character bounding boxes so each letter is hit one-by-one!
-
-
-
     var textLayoutResult by remember(displayText) { mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
-
-
-
     val density = androidx.compose.ui.platform.LocalDensity.current
 
     val badgeXOffsetDp = remember(textLayoutResult, displayText, lyricConfig.countdownMode, isLandscape) {
-
         val layout = textLayoutResult
-
         if (layout != null && displayText.isNotBlank()) {
-
             val firstCharIdx = displayText.indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
-
             if (firstCharIdx < layout.layoutInput.text.length) {
-
                 try {
-
                     val box = layout.getBoundingBox(firstCharIdx)
-
                     val startPadPx = with(density) { 4.dp.toPx() }
-
                     val letterCenterPx = startPadPx + box.left + (box.width / 2f)
-
                     when (lyricConfig.countdownMode) {
-
                         LyricCountdownMode.CLASSIC_DOTS -> {
-
                             val dotSizeDp = if (isLandscape) 13.dp else 10.5.dp
-
                             val firstDotCenterPx = with(density) { (6.dp + (dotSizeDp / 2f)).toPx() }
-
                             val targetXPx = (letterCenterPx - firstDotCenterPx).coerceAtLeast(0f)
-
                             with(density) { targetXPx.toDp() }
-
                         }
-
                         LyricCountdownMode.ARCADE_NUMBER -> {
-
                             val badgeSizeDp = if (isLandscape) 26.dp else 22.dp
-
                             val halfBadgePx = with(density) { (badgeSizeDp / 2f).toPx() }
-
                             val targetXPx = (letterCenterPx - halfBadgePx).coerceAtLeast(0f)
-
                             with(density) { targetXPx.toDp() }
-
                         }
-
                         LyricCountdownMode.PHOTO_BADGE -> {
-
                             val badgeSizeDp = if (isLandscape) 34.dp else 28.dp
-
                             val halfBadgePx = with(density) { (badgeSizeDp / 2f).toPx() }
-
                             val targetXPx = (letterCenterPx - halfBadgePx).coerceAtLeast(0f)
-
                             with(density) { targetXPx.toDp() }
-
                         }
-
                         else -> 0.dp
-
                     }
-
                 } catch (e: Exception) {
-
                     0.dp
-
                 }
-
             } else 0.dp
-
         } else 0.dp
-
     }
-
-
-
-
-
-
-
-    val effectiveLetterWipe = remember(smoothWipe, textLayoutResult, displayText) {
-
-
-
-        val layout = textLayoutResult
-
-
-
-        if (layout != null && displayText.isNotEmpty() && smoothWipe > 0f) {
-
-
-
-            try {
-
-
-
-                val layoutTextLen = layout.layoutInput.text.length
-
-
-
-                if (layoutTextLen > 0) {
-
-
-
-                    val totalChars = displayText.length.coerceAtMost(layoutTextLen)
-
-
-
-                    val charProgress = (smoothWipe * totalChars).coerceIn(0f, totalChars.toFloat())
-
-
-
-                    val charIdx = charProgress.toInt().coerceIn(0, layoutTextLen - 1)
-
-
-
-                    val charFrac = (charProgress - charIdx).coerceIn(0f, 1f)
-
-
-
-                    val box = layout.getBoundingBox(charIdx)
-
-
-
-                    val currentX = box.left + (box.width * charFrac)
-
-
-
-                    val totalWidth = layout.size.width.toFloat().coerceAtLeast(1f)
-
-
-
-                    (currentX / totalWidth).coerceIn(0f, 1f)
-
-
-
-                } else {
-
-
-
-                    smoothWipe
-
-
-
-                }
-
-
-
-            } catch (e: Throwable) {
-
-
-
-                smoothWipe
-
-
-
-            }
-
-
-
-        } else {
-
-
-
-            smoothWipe
-
-
-
-        }
-
-
-
-    }
-
-
-
-
-
-
 
     val (composeFontFamily, composeFontWeight, composeLetterSpacing) = remember(lyricConfig.fontFamily) {
-
-
-
         resolveLyricFontParams(lyricConfig.fontFamily)
-
-
-
     }
-
-
-
-
-
-
 
     val shadow = when (lyricConfig.shadowStyle) {
-
-
-
-        LyricShadowStyle.HEAVY_OUTLINE -> Shadow.None // real stroke is drawn as a separate layer below
-
-
-
+        LyricShadowStyle.HEAVY_OUTLINE -> Shadow.None
         LyricShadowStyle.NEON_GLOW -> Shadow(
-
-
-
             color = activeColor.copy(alpha = 0.85f),
-
-
-
             offset = Offset(0f, 0f),
-
-
-
             blurRadius = 14f
-
-
-
         )
-
-
-
         LyricShadowStyle.SUBTLE_DROP -> Shadow(
-
-
-
             color = Color.Black.copy(alpha = 0.85f),
-
-
-
             offset = Offset(2f, 2f),
-
-
-
             blurRadius = 4f
-
-
-
         )
-
-
-
         LyricShadowStyle.CLEAN -> Shadow.None
-
-
-
     }
-
-
-
-
-
-
-
-    // Inner text fill brush: wipes from Active Color (active) to Inactive Color (inactive) when wipe highlight is ON
 
     val isWipeOn = lyricConfig.isWipeHighlightEnabled
-
-
-
-    val brush = if (isWipeOn && isActive && effectiveLetterWipe > 0f) {
-
-
-
-        Brush.horizontalGradient(
-
-
-
-            0.0f to activeColor,
-
-
-
-            effectiveLetterWipe to activeColor,
-
-
-
-            (effectiveLetterWipe + 0.001f).coerceAtMost(1f) to inactiveBaseColor,
-
-
-
-            1.0f to inactiveBaseColor
-
-
-
-        )
-
-
-
-    } else null
-
-
-
-
-
-
-
     val unhighlightedOutlineColor = Color(lyricConfig.outlineColor.colorLong)
-
-
-
     val useOutline = lyricConfig.outlineColor != LyricOutlineColor.NONE
 
-
-
-
-
-
-
-    // Outer outline brush: wipes from Crisp White (highlighted portion) to chosen outline color (unhighlighted portion)
-
-
-
-    val outlineBrush = if (isWipeOn && isActive && effectiveLetterWipe > 0f && useOutline) {
-
-
-
-        val highlightedOutline = if (lyricConfig.outlineColor == LyricOutlineColor.WHITE) Color.Black else Color.White
-
-
-
-        Brush.horizontalGradient(
-
-
-
-            0.0f to highlightedOutline,
-
-
-
-            effectiveLetterWipe to highlightedOutline,
-
-
-
-            (effectiveLetterWipe + 0.001f).coerceAtMost(1f) to unhighlightedOutlineColor,
-
-
-
-            1.0f to unhighlightedOutlineColor
-
-
-
-        )
-
-
-
-    } else null
-
-
-
-
-
-
-
-    val annotatedString = buildAnnotatedString {
-
-
-
-        val sharpShadow = if (lyricConfig.shadowStyle == LyricShadowStyle.NEON_GLOW) shadow else null
-
-
-
-        if (brush != null) {
-
-
-
-            withStyle(
-
-
-
-                SpanStyle(
-
-
-
-                    brush = brush,
-
-
-
-                    letterSpacing = composeLetterSpacing,
-
-
-
-                    shadow = sharpShadow
-
-
-
-                )
-
-
-
-            ) {
-
-
-
-                append(displayText)
-
-
-
-            }
-
-
-
-        } else {
-
-
-
-            val textColor = inactiveBaseColor // Solid pure white for crisp readability and high contrast with black outline
-
-
-
-            withStyle(
-
-
-
-                SpanStyle(
-
-
-
-                    color = textColor,
-
-
-
-                    letterSpacing = composeLetterSpacing,
-
-
-
-                    shadow = sharpShadow
-
-
-
-                )
-
-
-
-            ) {
-
-
-
-                append(displayText)
-
-
-
-            }
-
-
-
-        }
-
-
-
-    }
-
-
-
-
-
-
-
-    // Unified consistent font size: guarantees 100% identical size across all lyric lines without per-line variations
-
-
-
     val scaledFontSize = (fontSize.value * lyricConfig.fontScale).sp
-
-
-
-    val outlineWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { lyricConfig.outlineThickness.dp.toPx() }
-
-
-
-
-
-
-
-    // Shared unified TextStyle to guarantee 100% identical glyph layout, metrics and spacing:
-
-
+    val outlineWidthPx = with(density) { lyricConfig.outlineThickness.dp.toPx() }
 
     val sharedLyricStyle = TextStyle(
-
-
-
         fontSize = scaledFontSize,
-
-
-
         fontWeight = composeFontWeight,
-
-
-
         fontStyle = if (lyricConfig.isItalic) FontStyle.Italic else FontStyle.Normal,
-
-
-
         fontFamily = composeFontFamily,
-
-
-
         textAlign = TextAlign.Center,
-
-
-
         letterSpacing = composeLetterSpacing
-
-
-
     )
-
-
-
-
-
-
-
-    val outlineStyle = if (outlineBrush != null) {
-
-
-
-        sharedLyricStyle.copy(
-
-
-
-            brush = outlineBrush,
-
-
-
-            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-
-
-
-                width = outlineWidthPx,
-
-
-
-                join = androidx.compose.ui.graphics.StrokeJoin.Round
-
-
-
-            )
-
-
-
-        )
-
-
-
-    } else {
-
-
-
-        sharedLyricStyle.copy(
-
-
-
-            color = unhighlightedOutlineColor,
-
-
-
-            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-
-
-
-                width = outlineWidthPx,
-
-
-
-                join = androidx.compose.ui.graphics.StrokeJoin.Round
-
-
-
-            )
-
-
-
-        )
-
-
-
-    }
-
-
-
-
-
-
-
-    val fillStyle = sharedLyricStyle.copy(
-
-
-
-        drawStyle = androidx.compose.ui.graphics.drawscope.Fill
-
-
-
-    )
-
-
-
-
-
-
 
     androidx.compose.foundation.layout.BoxWithConstraints(
         modifier = modifier
@@ -16718,296 +16135,172 @@ fun KaraokeLyricLine(
             sharedLyricStyle
         }
 
-        val effectiveOutlineStyle = remember(activeSharedStyle, outlineBrush, unhighlightedOutlineColor, activeOutlinePx) {
-            if (outlineBrush != null) {
-                activeSharedStyle.copy(
-                    brush = outlineBrush,
-                    drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = activeOutlinePx,
-                        join = androidx.compose.ui.graphics.StrokeJoin.Round
-                    )
+        val baseOutlineStyle = remember(activeSharedStyle, unhighlightedOutlineColor, activeOutlinePx) {
+            activeSharedStyle.copy(
+                color = unhighlightedOutlineColor,
+                drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                    width = activeOutlinePx,
+                    join = androidx.compose.ui.graphics.StrokeJoin.Round
                 )
-            } else {
-                activeSharedStyle.copy(
-                    color = unhighlightedOutlineColor,
-                    drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = activeOutlinePx,
-                        join = androidx.compose.ui.graphics.StrokeJoin.Round
-                    )
-                )
-            }
+            )
         }
 
-        val effectiveFillStyle = remember(activeSharedStyle) {
+        val baseFillStyle = remember(activeSharedStyle, inactiveBaseColor) {
             activeSharedStyle.copy(
+                color = inactiveBaseColor,
                 drawStyle = androidx.compose.ui.graphics.drawscope.Fill
             )
         }
 
-
-
         // Inner container centered in the line that tightly wraps the lyric text and places countdown cleanly ABOVE
-
         Box(
-
             modifier = Modifier.wrapContentSize(),
-
             contentAlignment = Alignment.TopStart
-
         ) {
-
             // Text container with reserved top space for the countdown badge
-
             Box(
-
                 modifier = Modifier
-
                     .wrapContentSize()
-
                     .padding(
-
                         start = 4.dp,
-
                         end = 4.dp,
-
                         top = if (countdownNumber in 1..4 && lyricConfig.countdownMode != LyricCountdownMode.OFF) {
-
                             if (isLandscape) 32.dp else 28.dp
-
                         } else 2.dp,
-
                         bottom = 2.dp
-
                     ),
-
                 contentAlignment = Alignment.Center
-
             ) {
-
-
-
-            // LAYER 1: Deep 3D Drop Shadow layer for supreme legibility on any bright video/photo background
-
-
-
-            if (lyricConfig.hasDropShadow || lyricConfig.shadowStyle == LyricShadowStyle.SUBTLE_DROP) {
-
-
-
-                Text(
-
-
-
-                    text = displayText,
-
-
-
-                    maxLines = 1,
-
-
-
-                    softWrap = false,
-
-
-
-                    modifier = Modifier.offset(x = 2.5.dp, y = 3.5.dp),
-
-
-
-                    style = activeSharedStyle.copy(
-                        color = Color.Black.copy(alpha = 0.92f),
-                        drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = activeOutlinePx * 1.3f,
-
-
-
-                            join = androidx.compose.ui.graphics.StrokeJoin.Round
-
-
-
+                // LAYER 1: Deep 3D Drop Shadow layer for supreme legibility on any bright video/photo background
+                if (lyricConfig.hasDropShadow || lyricConfig.shadowStyle == LyricShadowStyle.SUBTLE_DROP) {
+                    Text(
+                        text = displayText,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.offset(x = 2.5.dp, y = 3.5.dp),
+                        style = activeSharedStyle.copy(
+                            color = Color.Black.copy(alpha = 0.92f),
+                            drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                                width = activeOutlinePx * 1.3f,
+                                join = androidx.compose.ui.graphics.StrokeJoin.Round
+                            )
                         )
-
-
-
                     )
-
-
-
-                )
-
-
-
-            }
-
-
-
-
-
-
-
-            // LAYER 2: Crisp 2D stroke outline layer
-
-
-
-            if (useOutline) {
-
-
-
-                Text(
-
-
-
-                    text = displayText,
-
-
-
-                    maxLines = 1,
-
-
-
-                    softWrap = false,
-
-
-
-                    style = effectiveOutlineStyle
-
-
-
-                )
-
-
-
-            }
-
-
-
-
-
-
-
-            // LAYER 3: Active wiping gradient fill with exact character-level bounds layout
-
-
-
-            Text(
-
-
-
-                text = annotatedString,
-
-
-
-                maxLines = 1,
-
-
-
-                softWrap = false,
-
-
-
-                onTextLayout = { textLayoutResult = it },
-
-
-
-                style = effectiveFillStyle
-
-
-
-            )
-
-
-
-
-
-
-
-            }
-
-
-
-            // Countdown indicator placed cleanly ABOVE the first letter of lyrics without blocking!
-
-            if (countdownNumber in 1..4 && lyricConfig.countdownMode != LyricCountdownMode.OFF) {
-
-                Box(
-
-                    modifier = Modifier
-
-                        .zIndex(10f)
-
-                        .align(Alignment.TopStart)
-
-                        .offset(
-
-                            x = badgeXOffsetDp,
-
-                            y = 2.dp
-
-                        )
-
-                ) {
-
-                    when (lyricConfig.countdownMode) {
-
-                        LyricCountdownMode.ARCADE_NUMBER -> {
-
-                            SingleCountdownBadge(
-
-                                number = countdownNumber,
-
-                                isLandscape = isLandscape
-
-                            )
-
-                        }
-
-                        LyricCountdownMode.CLASSIC_DOTS -> {
-
-                            VideokeDotsCountdownBadge(
-
-                                number = countdownNumber,
-
-                                isLandscape = isLandscape
-
-                            )
-
-                        }
-
-                        LyricCountdownMode.PHOTO_BADGE -> {
-
-                            PhotoCountdownBadge(
-
-                                number = countdownNumber,
-
-                                photoUri = lyricConfig.customCountdownPhotoUri,
-
-                                isLandscape = isLandscape
-
-                            )
-
-                        }
-
-                        LyricCountdownMode.OFF -> {}
-
-                    }
-
                 }
 
+                // LAYER 2: Crisp 2D stroke outline layer (base / unhighlighted)
+                if (useOutline) {
+                    Text(
+                        text = displayText,
+                        maxLines = 1,
+                        softWrap = false,
+                        style = baseOutlineStyle
+                    )
+                }
+
+                // LAYER 3: Base inactive fill (single CPU layout pass, caches textLayoutResult)
+                Text(
+                    text = displayText,
+                    maxLines = 1,
+                    softWrap = false,
+                    onTextLayout = { textLayoutResult = it },
+                    style = baseFillStyle
+                )
+
+                // LAYER 4: GPU-accelerated Active Highlight Overlay (60 FPS letter-by-letter Skia clipRect)
+                if (isActive && isWipeOn && wipeClamped > 0f) {
+                    val activeOutlineColor = if (lyricConfig.outlineColor == LyricOutlineColor.WHITE) Color.Black else Color.White
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .drawWithContent {
+                                val layout = textLayoutResult
+                                val targetX = if (layout != null && displayText.isNotEmpty()) {
+                                    if (wipeClamped >= 1f) {
+                                        size.width + 20f
+                                    } else {
+                                        val totalChars = displayText.length.coerceAtMost(layout.layoutInput.text.length)
+                                        val charProgress = (wipeClamped * totalChars).coerceIn(0f, totalChars.toFloat())
+                                        val charIdx = charProgress.toInt().coerceIn(0, (totalChars - 1).coerceAtLeast(0))
+                                        val charFrac = (charProgress - charIdx).coerceIn(0f, 1f)
+                                        val box = layout.getBoundingBox(charIdx)
+                                        box.left + (box.width * charFrac)
+                                    }
+                                } else {
+                                    size.width * wipeClamped
+                                }
+                                clipRect(left = -10f, top = -10f, right = targetX, bottom = size.height + 10f) {
+                                    this@drawWithContent.drawContent()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (useOutline) {
+                            Text(
+                                text = displayText,
+                                maxLines = 1,
+                                softWrap = false,
+                                style = activeSharedStyle.copy(
+                                    color = activeOutlineColor,
+                                    drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(
+                                        width = activeOutlinePx,
+                                        join = androidx.compose.ui.graphics.StrokeJoin.Round
+                                    )
+                                )
+                            )
+                        }
+                        Text(
+                            text = displayText,
+                            maxLines = 1,
+                            softWrap = false,
+                            style = activeSharedStyle.copy(
+                                color = activeColor,
+                                shadow = if (lyricConfig.shadowStyle == LyricShadowStyle.NEON_GLOW) shadow else null,
+                                drawStyle = androidx.compose.ui.graphics.drawscope.Fill
+                            )
+                        )
+                    }
+                }
             }
 
+            // Countdown indicator placed cleanly ABOVE the first letter of lyrics without blocking!
+            if (countdownNumber in 1..4 && lyricConfig.countdownMode != LyricCountdownMode.OFF) {
+                Box(
+                    modifier = Modifier
+                        .zIndex(10f)
+                        .align(Alignment.TopStart)
+                        .offset(
+                            x = badgeXOffsetDp,
+                            y = 2.dp
+                        )
+                ) {
+                    when (lyricConfig.countdownMode) {
+                        LyricCountdownMode.ARCADE_NUMBER -> {
+                            SingleCountdownBadge(
+                                number = countdownNumber,
+                                isLandscape = isLandscape
+                            )
+                        }
+                        LyricCountdownMode.CLASSIC_DOTS -> {
+                            VideokeDotsCountdownBadge(
+                                number = countdownNumber,
+                                isLandscape = isLandscape
+                            )
+                        }
+                        LyricCountdownMode.PHOTO_BADGE -> {
+                            PhotoCountdownBadge(
+                                number = countdownNumber,
+                                photoUri = lyricConfig.customCountdownPhotoUri,
+                                isLandscape = isLandscape
+                            )
+                        }
+                        LyricCountdownMode.OFF -> {}
+                    }
+                }
+            }
         }
-
     }
-
-
-
 }
-
-
-
-
-
-
 
 /**
 
