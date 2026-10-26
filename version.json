@@ -1,7 +1,7 @@
 {
-  "versionCode": 9,
-  "versionName": "2.8",
-  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.8/VideoKey-v2.8.apk",
+  "versionCode": 10,
+  "versionName": "2.8.1",
+  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.8.1/VideoKey-v2.8.1.apk",
   "forceUpdate": true,
-  "releaseNotes": "🎉 VIDEOKEY V2.8 MAJOR UPDATE:\n• Harap at Likod na Camera Background (Front & Back Cam toggle)\n• I-tap ang screen para mag-Pause at Resume (malinis at walang sagabal na kahon)\n• 100% Lyric highlight fix sa lahat ng phones at tablets (resilient audio clock)\n• Pinatinding VIP Bass Boost at Treble Boost (dinig na dinig sa cellphone speakers)\n• Customizable 5-image countdown (4, 3, 2, 1, GO)\n• Customizable scoring fanfare sounds\n• Mas mabilis, matatag, at super smooth na videoke experience"
+  "releaseNotes": "🎉 VIDEOKEY V2.8.1 UPDATE:\n• Inayos ang stop crash / force close bug (100% stable)\n• Tinanggal ang VIP tag sa 5 Countdown Images (bukas na para sa lahat)\n• Mas malaking countdown images (kitang-kita ang mga anime/custom pictures)\n• Nilagyan ng on-screen RESUME / MAG-PLAY button kapag naka-pause\n• Front at Back camera background toggle\n• Resilient lyric highlight at pinatinding VIP Bass & Treble"
 }

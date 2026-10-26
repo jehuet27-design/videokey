@@ -4469,8 +4469,8 @@ fun CustomCountdownStepBadge(
         } else null
     }
 
-    val badgeHeight = if (isLandscape) 36.dp else 28.dp
-    val badgeWidth = if (step == 5) (if (isLandscape) 46.dp else 36.dp) else badgeHeight
+    val badgeHeight = if (isLandscape) 52.dp else 44.dp
+    val badgeWidth = if (step == 5) (if (isLandscape) 64.dp else 54.dp) else badgeHeight
     val shape = if (step == 5) RoundedCornerShape(10.dp) else CircleShape
 
     Box(
@@ -4503,17 +4503,17 @@ fun CustomCountdownStepBadge(
             )
             Surface(
                 shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.65f),
+                color = Color.Black.copy(alpha = 0.75f),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .size(if (isLandscape) 18.dp else 14.dp)
+                    .size(if (isLandscape) 20.dp else 16.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = if (step == 5) "GO" else "$step",
                         color = if (step == 5) Color(0xFFFF5252) else Color(0xFFFDE047),
                         fontWeight = FontWeight.Black,
-                        fontSize = if (isLandscape) 10.sp else 8.sp,
+                        fontSize = if (isLandscape) 11.sp else 9.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
@@ -10229,15 +10229,11 @@ fun VideokeTvScreen(
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null
-                    ) { onTogglePause() }
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
                         text = "⏸",
-                        fontSize = 64.sp,
+                        fontSize = 58.sp,
                         color = Color.White,
                         style = TextStyle(
                             shadow = androidx.compose.ui.graphics.Shadow(
@@ -10261,10 +10257,34 @@ fun VideokeTvScreen(
                             )
                         )
                     )
+                    // On-screen RESUME Button
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = Color(0xFF0284C7).copy(alpha = 0.92f),
+                        border = BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                        shadowElevation = 8.dp,
+                        modifier = Modifier
+                            .clickable { onTogglePause() }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp)
+                        ) {
+                            Text(text = "▶", fontSize = 16.sp, color = Color.White)
+                            Text(
+                                text = if (isTagalog) "RESUME (MAG-PLAY)" else "RESUME PLAYING",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    }
                     Text(
-                        text = if (isTagalog) "I-tap ang screen para mag-play ulit" else "Tap screen to resume",
-                        fontSize = 13.sp,
-                        color = Color.White.copy(alpha = 0.90f),
+                        text = if (isTagalog) "O i-tap kahit saan sa screen para mag-play" else "Or tap anywhere on screen to resume",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.88f),
                         style = TextStyle(
                             shadow = androidx.compose.ui.graphics.Shadow(
                                 color = Color.Black.copy(alpha = 0.95f),
@@ -16109,7 +16129,7 @@ fun KaraokeLyricLine(
                             with(density) { targetXPx.toDp() }
                         }
                         LyricCountdownMode.PHOTO_BADGE -> {
-                            val badgeSizeDp = if (isLandscape) 34.dp else 28.dp
+                            val badgeSizeDp = if (isLandscape) 52.dp else 44.dp
                             val halfBadgePx = with(density) { (badgeSizeDp / 2f).toPx() }
                             val targetXPx = (letterCenterPx - halfBadgePx).coerceAtLeast(0f)
                             with(density) { targetXPx.toDp() }
@@ -16227,7 +16247,11 @@ fun KaraokeLyricLine(
                         start = 4.dp,
                         end = 4.dp,
                         top = if (countdownNumber in 1..5 && lyricConfig.countdownMode != LyricCountdownMode.OFF) {
-                            if (isLandscape) 32.dp else 28.dp
+                            if (lyricConfig.countdownMode == LyricCountdownMode.PHOTO_BADGE) {
+                                if (isLandscape) 54.dp else 46.dp
+                            } else {
+                                if (isLandscape) 32.dp else 28.dp
+                            }
                         } else 2.dp,
                         bottom = 2.dp
                     ),
@@ -33834,18 +33858,7 @@ private fun LyricControlsInner(
                             fontWeight = FontWeight.Black,
                             color = Color(0xFFFDE047)
                         )
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFFFFD700).copy(alpha = 0.2f)
-                        ) {
-                            Text(
-                                text = "VIP CUSTOM",
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFFFD700),
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                            )
-                        }
+
                     }
 
                     Text(

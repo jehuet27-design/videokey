@@ -1205,17 +1205,22 @@ class SoundEngine(
         }
 
         try {
-            fallbackPlayer?.let {
-                if (it.isPlaying) it.stop()
-                it.reset()
-                it.release()
-            }
-            try { fallbackBassBoost?.release() } catch (_: Exception) {}
+            try { fallbackBassBoost?.enabled = false } catch (_: Throwable) {}
+            try { fallbackBassBoost?.release() } catch (_: Throwable) {}
             fallbackBassBoost = null
-            try { fallbackEqualizer?.release() } catch (_: Exception) {}
+            try { fallbackEqualizer?.enabled = false } catch (_: Throwable) {}
+            try { fallbackEqualizer?.release() } catch (_: Throwable) {}
             fallbackEqualizer = null
             fallbackStartTimeMs = 0L
-        } catch (_: Exception) {
+
+            fallbackPlayer?.let {
+                try {
+                    if (it.isPlaying) it.stop()
+                } catch (_: Throwable) {}
+                try { it.reset() } catch (_: Throwable) {}
+                try { it.release() } catch (_: Throwable) {}
+            }
+        } catch (_: Throwable) {
         } finally {
             fallbackPlayer = null
         }
@@ -1248,10 +1253,12 @@ class SoundEngine(
                     lastKnownPositionMs
                 }
             } else {
-                val mpPos = try { fallbackPlayer?.currentPosition?.toLong() ?: 0L } catch (_: Exception) { 0L }
+                val mp = fallbackPlayer
+                val mpPos = try { mp?.currentPosition?.toLong() ?: 0L } catch (_: Throwable) { 0L }
+                val isMpPlaying = try { mp?.isPlaying == true } catch (_: Throwable) { false }
                 if (mpPos > 0L) {
                     mpPos
-                } else if (fallbackPlayer?.isPlaying == true && fallbackStartTimeMs > 0L) {
+                } else if (isMpPlaying && fallbackStartTimeMs > 0L) {
                     (System.currentTimeMillis() - fallbackStartTimeMs).coerceAtLeast(0L)
                 } else {
                     0L

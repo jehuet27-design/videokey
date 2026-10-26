@@ -3946,59 +3946,36 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
     fun onStop() {
-
-        if (_uiState.value.isRecording || karaokeRecorder.isRecording) {
-
-            stopAndSaveRecording()
-
-        }
-
-        val queue = _uiState.value.reserveQueue
-
-        if (queue.isNotEmpty()) {
-
-            onNext()
-
-        } else {
-
-            soundEngine.stop()
-
-            micScorer.stopScoring()
-
-            stopScoringFanfareAudio()
-
-            playbackJob?.cancel()
-
-            _uiState.update {
-
-                it.copy(
-
-                    isPlaying = false,
-
-                    isPlaybackPaused = false,
-
-                    isVideoSong = false,
-
-                    isPlayingYouTubeStream = false,
-
-                    activeYouTubeStreamVideoId = null,
-
-                    activeYouTubeStreamTitle = null,
-
-                    wipePercent = 0f,
-
-                    countdownDots = 0,
-
-                    showSongTitleIntro = false,
-
-                    isInstrumental = false
-
-                )
-
+        try {
+            if (_uiState.value.isRecording || karaokeRecorder.isRecording) {
+                stopAndSaveRecording()
             }
-
+            val queue = _uiState.value.reserveQueue
+            if (queue.isNotEmpty()) {
+                onNext()
+            } else {
+                try { soundEngine.stop() } catch (e: Throwable) { android.util.Log.e("VideoKeyViewModel", "Error stopping sound engine", e) }
+                try { micScorer.stopScoring() } catch (_: Throwable) {}
+                try { stopScoringFanfareAudio() } catch (_: Throwable) {}
+                playbackJob?.cancel()
+                _uiState.update {
+                    it.copy(
+                        isPlaying = false,
+                        isPlaybackPaused = false,
+                        isVideoSong = false,
+                        isPlayingYouTubeStream = false,
+                        activeYouTubeStreamVideoId = null,
+                        activeYouTubeStreamTitle = null,
+                        wipePercent = 0f,
+                        countdownDots = 0,
+                        showSongTitleIntro = false,
+                        isInstrumental = false
+                    )
+                }
+            }
+        } catch (e: Throwable) {
+            android.util.Log.e("VideoKeyViewModel", "Error in onStop()", e)
         }
-
     }
 
 
@@ -6835,8 +6812,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             customScoringMediaPlayer?.stop()
             customScoringMediaPlayer?.release()
             customScoringMediaPlayer = null
-        } catch (_: Exception) {}
-        stopScoringFanfareAudio()
+        } catch (_: Throwable) {}
+        try {
+            com.example.videokey.data.VideokeSoundEffects.stop()
+        } catch (_: Throwable) {}
     }
 
     fun setScoringSoundStyle(style: com.example.videokey.data.ScoringSoundStyle) {
