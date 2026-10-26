@@ -3050,21 +3050,17 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
         viewModelScope.launch {
-
-            if (showModal) {
-
-                delay(2800)
-
-                closeScoreModal()
-
-            } else {
-
-                delay(300)
-
+            try {
+                if (showModal) {
+                    delay(2800)
+                    try { closeScoreModal() } catch (_: Throwable) {}
+                } else {
+                    delay(300)
+                }
+                onNext()
+            } catch (e: Throwable) {
+                android.util.Log.e("VideoKeyViewModel", "Error in onSongCompleted coroutine", e)
             }
-
-            onNext()
-
         }
 
     }
@@ -3848,99 +3844,63 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
     fun onPlay() {
-
-        cancelDigitInactivityTimer()
-
-        val code = _uiState.value.enteredCode
-
-        if (code.isNotBlank()) {
-
-            val padded = code.padStart(6, '0')
-
-            val song = _uiState.value.matchedEnteredSong ?: repository.findByCode(padded) ?: repository.findByCode(code) ?: Song(padded, "Track $padded", "Videoke Song", "")
-
-            _uiState.update { it.copy(enteredCode = "", matchedEnteredSong = null) }
-
-            playSong(song)
-
-        } else if (_uiState.value.reserveQueue.isNotEmpty()) {
-
-            val nextSong = _uiState.value.reserveQueue.first()
-
-            _uiState.update { it.copy(reserveQueue = it.reserveQueue.drop(1)) }
-
-            playSong(nextSong)
-
-        } else if (!_uiState.value.isPlaying) {
-
-            playSong(_uiState.value.currentSong)
-
-        } else {
-
-            playSong(_uiState.value.currentSong)
-
+        try {
+            cancelDigitInactivityTimer()
+            val code = _uiState.value.enteredCode
+            if (code.isNotBlank()) {
+                val padded = code.padStart(6, '0')
+                val song = _uiState.value.matchedEnteredSong ?: repository.findByCode(padded) ?: repository.findByCode(code) ?: Song(padded, "Track $padded", "Videoke Song", "")
+                _uiState.update { it.copy(enteredCode = "", matchedEnteredSong = null) }
+                playSong(song)
+            } else if (_uiState.value.isPlaying) {
+                // When already playing and no new code is entered, alternate between PAUSE and RESUME on the same button!
+                togglePlaybackPause()
+            } else if (_uiState.value.reserveQueue.isNotEmpty()) {
+                val nextSong = _uiState.value.reserveQueue.first()
+                _uiState.update { it.copy(reserveQueue = it.reserveQueue.drop(1)) }
+                playSong(nextSong)
+            } else {
+                playSong(_uiState.value.currentSong)
+            }
+        } catch (e: Throwable) {
+            android.util.Log.e("VideoKeyViewModel", "Error in onPlay()", e)
         }
-
     }
 
 
 
     fun onNext() {
-
-        if (_uiState.value.isRecording || karaokeRecorder.isRecording) {
-
-            stopAndSaveRecording()
-
-        }
-
-        val queue = _uiState.value.reserveQueue
-
-        if (queue.isNotEmpty()) {
-
-            val nextSong = queue.first()
-
-            _uiState.update {
-
-                it.copy(
-
-                    reserveQueue = queue.drop(1),
-
-                    enteredCode = "",
-
-                    matchedEnteredSong = null
-
-                )
-
+        try {
+            if (_uiState.value.isRecording || karaokeRecorder.isRecording) {
+                stopAndSaveRecording()
             }
-
-            playSong(nextSong)
-
-        } else {
-
-            soundEngine.stop()
-
-            _uiState.update {
-
-                it.copy(
-
-                    isPlaying = false,
-
-                    isVideoSong = false,
-
-                    enteredCode = "",
-
-                    matchedEnteredSong = null,
-
-                    wipePercent = 0f,
-
-                    countdownDots = 0
-
-                )
-
+            val queue = _uiState.value.reserveQueue
+            if (queue.isNotEmpty()) {
+                val nextSong = queue.first()
+                _uiState.update {
+                    it.copy(
+                        reserveQueue = queue.drop(1),
+                        enteredCode = "",
+                        matchedEnteredSong = null
+                    )
+                }
+                playSong(nextSong)
+            } else {
+                try { soundEngine.stop() } catch (_: Throwable) {}
+                _uiState.update {
+                    it.copy(
+                        isPlaying = false,
+                        isVideoSong = false,
+                        enteredCode = "",
+                        matchedEnteredSong = null,
+                        wipePercent = 0f,
+                        countdownDots = 0
+                    )
+                }
             }
-
+        } catch (e: Throwable) {
+            android.util.Log.e("VideoKeyViewModel", "Error in onNext()", e)
         }
-
     }
 
 

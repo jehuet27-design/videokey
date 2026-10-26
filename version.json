@@ -3,5 +3,5 @@
   "versionName": "2.8.1",
   "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.8.1/VideoKey-v2.8.1.apk",
   "forceUpdate": true,
-  "releaseNotes": "🎉 VIDEOKEY V2.8.1 UPDATE:\n• Inayos ang stop crash / force close bug (100% stable)\n• Tinanggal ang VIP tag sa 5 Countdown Images (bukas na para sa lahat)\n• Mas malaking countdown images (kitang-kita ang mga anime/custom pictures)\n• Nilagyan ng on-screen RESUME / MAG-PLAY button kapag naka-pause\n• Front at Back camera background toggle\n• Resilient lyric highlight at pinatinding VIP Bass & Treble"
+  "releaseNotes": "🎉 VIDEOKEY V2.8.1 UPDATE:\n• Alternate Play at Pause sa iisang button (nagiging Pause kapag nag-play, at Play/Resume kapag naka-pause)\n• Inalis ang pause box sa screen at screen tap pause para malinis at hindi ma-pause nang aksidente\n• 100% Fixed ang force close bug kapag natapos ang kanta at may reserved song\n• Mas malaking countdown images (kitang-kita ang anime at custom photos)\n• Libre at bukas para sa lahat ang 5 Countdown Custom Images (tinanggal ang VIP requirement)\n• Front at Back camera background toggle\n• Mas malakas at rinig na Bass Boost at Treble Equalizer"
 }

@@ -6330,11 +6330,8 @@ fun VideokeTvScreen(
 
 
 
-            .pointerInput(isLandscape, state.isPlaying) {
+            .pointerInput(isLandscape) {
                 detectTapGestures {
-                    if (state.isPlaying) {
-                        onTogglePause()
-                    }
                     if (isLandscape) {
                         showLandscapeControls = true
                         interactionTick++
@@ -9987,66 +9984,22 @@ fun VideokeTvScreen(
 
 
 
+                            val isPlayingActive = state.isPlaying && !state.isPlaybackPaused
                             Box(
-
-
-
                                 modifier = Modifier
-
-
-
                                     .clip(RoundedCornerShape(6.dp))
-
-
-
-                                    .background(Color(theme.primaryColor))
-
-
-
-                                    .border(1.dp, Color(theme.primaryColor), RoundedCornerShape(6.dp))
-
-
-
+                                    .background(if (isPlayingActive) Color(0xFFF59E0B) else Color(theme.primaryColor))
+                                    .border(1.dp, if (isPlayingActive) Color(0xFFD97706) else Color(theme.primaryColor), RoundedCornerShape(6.dp))
                                     .clickable { onPlay() }
-
-
-
                                     .padding(horizontal = 8.dp, vertical = 6.dp),
-
-
-
                                 contentAlignment = Alignment.Center
-
-
-
                             ) {
-
-
-
                                 Text(
-
-
-
-                                    text = "▶",
-
-
-
-                                    color = playTextColor,
-
-
-
+                                    text = if (isPlayingActive) "⏸" else "▶",
+                                    color = if (isPlayingActive) Color.White else playTextColor,
                                     fontWeight = FontWeight.Black,
-
-
-
                                     fontSize = if (isTvMode) 12.sp else 10.5.sp
-
-
-
                                 )
-
-
-
                             }
 
 
@@ -10217,85 +10170,7 @@ fun VideokeTvScreen(
             }
         }
 
-        if (state.isPlaying && state.isPlaybackPaused) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                        indication = null
-                    ) { onTogglePause() },
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "⏸",
-                        fontSize = 58.sp,
-                        color = Color.White,
-                        style = TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = Color.Black.copy(alpha = 0.95f),
-                                offset = androidx.compose.ui.geometry.Offset(3f, 3f),
-                                blurRadius = 14f
-                            )
-                        )
-                    )
-                    Text(
-                        text = if (isTagalog) "NAKA-PAUSE" else "PAUSED",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color.White,
-                        letterSpacing = 3.sp,
-                        style = TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = Color.Black.copy(alpha = 0.95f),
-                                offset = androidx.compose.ui.geometry.Offset(2f, 2f),
-                                blurRadius = 10f
-                            )
-                        )
-                    )
-                    // On-screen RESUME Button
-                    Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = Color(0xFF0284C7).copy(alpha = 0.92f),
-                        border = BorderStroke(1.5.dp, Color(0xFF38BDF8)),
-                        shadowElevation = 8.dp,
-                        modifier = Modifier
-                            .clickable { onTogglePause() }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp)
-                        ) {
-                            Text(text = "▶", fontSize = 16.sp, color = Color.White)
-                            Text(
-                                text = if (isTagalog) "RESUME (MAG-PLAY)" else "RESUME PLAYING",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White,
-                                letterSpacing = 1.sp
-                            )
-                        }
-                    }
-                    Text(
-                        text = if (isTagalog) "O i-tap kahit saan sa screen para mag-play" else "Or tap anywhere on screen to resume",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.88f),
-                        style = TextStyle(
-                            shadow = androidx.compose.ui.graphics.Shadow(
-                                color = Color.Black.copy(alpha = 0.95f),
-                                offset = androidx.compose.ui.geometry.Offset(1f, 1f),
-                                blurRadius = 8f
-                            )
-                        )
-                    )
-                }
-            }
-        }
+
 
 
 
@@ -12227,6 +12102,13 @@ fun VideokeRemoteConsole(
         listOf(Color(theme.primaryColor), Color(theme.secondaryColor))
 
     )
+    val isKeypadPlayingActive = state.isPlaying && !state.isPlaybackPaused
+    val pauseBtnBrush = Brush.horizontalGradient(
+        listOf(Color(0xFFF59E0B), Color(0xFFD97706))
+    )
+    val pauseBorderBrush = Brush.horizontalGradient(
+        listOf(Color(0xFFFDE68A), Color(0xFFF59E0B))
+    )
 
 
 
@@ -12569,37 +12451,13 @@ fun VideokeRemoteConsole(
 
 
                 ActionButton(
-
-
-
                     text = "",
-
-
-
-                    icon = "▶",
-
-
-
-                    bgBrush = playBtnBrush,
-
-
-
-                    borderBrush = playBorderBrush,
-
-
-
-                    textColor = playTextColor,
-
-
-
+                    icon = if (isKeypadPlayingActive) "⏸" else "▶",
+                    bgBrush = if (isKeypadPlayingActive) pauseBtnBrush else playBtnBrush,
+                    borderBrush = if (isKeypadPlayingActive) pauseBorderBrush else playBorderBrush,
+                    textColor = if (isKeypadPlayingActive) Color.White else playTextColor,
                     onClick = onPlay,
-
-
-
                     modifier = Modifier.height(50.dp)
-
-
-
                 )
 
 
@@ -17460,11 +17318,11 @@ fun TvControlDock(
 
 
 
-                    .background(btnBg)
+                    .background(if (state.isPlaying && !state.isPlaybackPaused) Color(0xFFF59E0B) else btnBg)
 
 
 
-                    .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
+                    .border(1.dp, if (state.isPlaying && !state.isPlaybackPaused) Color(0xFFD97706) else btnBorder, RoundedCornerShape(8.dp))
 
 
 
@@ -17484,7 +17342,7 @@ fun TvControlDock(
 
 
 
-                Text(text = "▶ PLAY", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                Text(text = if (state.isPlaying && !state.isPlaybackPaused) "⏸ PAUSE" else "▶ PLAY", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
 
 
 
