@@ -546,49 +546,24 @@ class KaraokeRecorder {
     }
 
     fun listSavedRecordings(): List<RecordedPerformance> {
-        val collected = mutableListOf<File>()
-
-        // 1. Primary VideoKey recordings folder (/sdcard/VideoKey/recordings)
         val dir = getRecordingsFolder()
-        dir.listFiles { f -> f.isFile && (f.extension.equals("wav", ignoreCase = true) || f.extension.equals("mp4", ignoreCase = true)) && f.length() > 44L }?.let {
-            collected.addAll(it)
-        }
+        // ONLY files inside /sdcard/VideoKey/recordings that were recorded by VideoKey!
+        val files = dir.listFiles { f ->
+            f.isFile && (
+                (f.extension.equals("wav", ignoreCase = true) && f.length() > 44L) ||
+                (f.extension.equals("mp4", ignoreCase = true) && f.name.startsWith("VideoKey_Screen_", ignoreCase = true) && f.length() > 1024L)
+            )
+        } ?: return emptyList()
 
-        // 2. Movies / ScreenRecord folder (/sdcard/Movies/ScreenRecord)
-        val candidateDirs = listOf(
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "ScreenRecord"),
-            File("/storage/emulated/0/Movies/ScreenRecord"),
-            File("/sdcard/Movies/ScreenRecord"),
-            File("/storage/emulated/0/VideoKey/recordings")
-        )
-        for (cDir in candidateDirs) {
-            if (cDir.exists() && cDir.isDirectory) {
-                cDir.listFiles { f -> f.isFile && f.extension.equals("mp4", ignoreCase = true) && f.length() > 1024L }?.let {
-                    collected.addAll(it)
-                }
-            }
-        }
-
-        val uniqueFiles = collected.distinctBy { it.absolutePath }
-        return uniqueFiles.sortedByDescending { it.lastModified() }.map { toRecordedPerformance(it) }
+        return files.sortedByDescending { it.lastModified() }.map { toRecordedPerformance(it) }
     }
 
     private fun toRecordedPerformance(file: File): RecordedPerformance {
         val isMp4 = file.extension.equals("mp4", ignoreCase = true)
         val durLabel = if (isMp4) {
-            try {
-                val mmr = android.media.MediaMetadataRetriever()
-                mmr.setDataSource(file.absolutePath)
-                val durStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
-                mmr.release()
-                val totalMs = durStr?.toLongOrNull() ?: 0L
-                val totalSec = (totalMs / 1000).toInt()
-                val mins = totalSec / 60
-                val secs = totalSec % 60
-                String.format(Locale.US, "%02d:%02d", mins, secs)
-            } catch (_: Exception) {
-                "--:--"
-            }
+            // Fast calculation from 6Mbps H264 bit rate (0ms UI latency, no native OOM/ANR)
+            val approxSec = (file.length() / 780_000L).coerceAtLeast(1L).toInt()
+            String.format(Locale.US, "%02d:%02d", approxSec / 60, approxSec % 60)
         } else {
             val pcmBytes = (file.length() - 44L).coerceAtLeast(0L)
             val byteRate = readWavByteRate(file).coerceAtLeast(1)
@@ -601,19 +576,17 @@ class KaraokeRecorder {
         val dateLabel = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.US).format(Date(file.lastModified()))
 
         val parsedTitle = if (isMp4) {
-            val raw = file.nameWithoutExtension
-                .removePrefix("VideoKey_Screen_")
-                .removePrefix("Screen_Recording_")
-            "🎥 Screen Record ($raw)"
+            val raw = file.nameWithoutExtension.removePrefix("VideoKey_Screen_")
+            "Screen Record ($raw)"
         } else {
             // Parse friendly song title from VK_<code>_<title>_<timestamp>.wav
             val parts = file.nameWithoutExtension.split("_")
             if (parts.size >= 4 && parts[0] == "VK") {
                 val code = parts[1]
                 val titlePart = parts.subList(2, parts.size - 2).joinToString(" ")
-                "🎤 [$code] $titlePart"
+                "[$code] $titlePart"
             } else {
-                "🎤 " + file.nameWithoutExtension
+                file.nameWithoutExtension
             }
         }
 

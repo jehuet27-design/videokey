@@ -1099,6 +1099,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val initialSensitivity = prefs.getFloat("mic_sensitivity", 1.0f)
 
         micScorer.micSensitivity = initialSensitivity
+        soundEngine.microphoneScorer = micScorer
 
 
 
@@ -3599,19 +3600,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
     fun openRecordingsDialog() {
-
-        _uiState.update {
-
-            it.copy(
-
-                isRecordingsDialogOpen = true,
-
-                savedRecordings = karaokeRecorder.listSavedRecordings()
-
-            )
-
+        _uiState.update { it.copy(isRecordingsDialogOpen = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = karaokeRecorder.listSavedRecordings()
+            _uiState.update { it.copy(savedRecordings = list) }
         }
-
     }
 
 
@@ -3659,31 +3652,37 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
     fun playSavedRecording(path: String) {
-
         if (_uiState.value.playingRecordingPath == path) {
-
             karaokeRecorder.stopPlayingRecording()
-
             _uiState.update { it.copy(playingRecordingPath = null) }
-
         } else {
-
             if (_uiState.value.isPlaying) {
-
                 soundEngine.pause()
-
             }
-
+            if (path.endsWith(".mp4", ignoreCase = true)) {
+                try {
+                    val file = java.io.File(path)
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        getApplication(),
+                        "${getApplication<Application>().packageName}.fileprovider",
+                        file
+                    )
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "video/mp4")
+                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    getApplication<Application>().startActivity(intent)
+                    return
+                } catch (e: Exception) {
+                    android.util.Log.e("VideoKeyViewModel", "Failed to launch video player intent", e)
+                }
+            }
             _uiState.update { it.copy(playingRecordingPath = path) }
-
             karaokeRecorder.playRecording(path) {
-
                 _uiState.update { it.copy(playingRecordingPath = null) }
-
             }
-
         }
-
     }
 
 
