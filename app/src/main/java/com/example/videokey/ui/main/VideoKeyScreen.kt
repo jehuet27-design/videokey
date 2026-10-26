@@ -7305,113 +7305,18 @@ fun VideokeTvScreen(
 
 
                         if (!showLandscapeControls && !isTvMode) {
-
-
-
-                            Row(
-
-
-
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-
-
-
-                                verticalAlignment = Alignment.CenterVertically,
-
-
-
-                                modifier = Modifier.padding(start = 10.dp, end = 4.dp)
-
-
-
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 10.dp, top = 4.dp)
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.30f))
+                                    .border(0.8.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                                    .clickable { onToggleTvMode() },
+                                contentAlignment = Alignment.Center
                             ) {
-
-
-
-                                Surface(
-
-
-
-                                    onClick = onToggleTvMode,
-
-
-
-                                    shape = RoundedCornerShape(6.dp),
-
-
-
-                                    color = Color.Black.copy(alpha = 0.7f),
-
-
-
-                                    border = BorderStroke(1.dp, uniformBorder)
-
-
-
-                                ) {
-
-
-
-                                    Row(
-
-
-
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-
-
-
-                                        verticalAlignment = Alignment.CenterVertically,
-
-
-
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-
-
-
-                                    ) {
-
-
-
-                                        Text("📱", fontSize = 11.sp)
-
-
-
-                                        Text(
-
-
-
-                                            "PORTRAIT",
-
-
-
-                                            color = Color.White,
-
-
-
-                                            fontSize = 10.sp,
-
-
-
-                                            fontWeight = FontWeight.Bold
-
-
-
-                                        )
-
-
-
-                                    }
-
-
-
-                                }
-
-
-
+                                Text("📱", fontSize = 11.sp, modifier = Modifier.alpha(0.6f))
                             }
-
-
-
                         }
 
 
@@ -24755,828 +24660,267 @@ fun LiveCameraBackground(
     onToggleFacing: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-
-
-
     val context = LocalContext.current
-
-
-
     var hasPermission by remember {
-
-
-
         mutableStateOf(
-
-
-
             androidx.core.content.ContextCompat.checkSelfPermission(
-
-
-
                 context,
-
-
-
                 android.Manifest.permission.CAMERA
-
-
-
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-
-
         )
-
-
-
     }
-
-
-
-
-
-
 
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-
-
-
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-
-
-
     ) { granted ->
-
-
-
         hasPermission = granted
-
-
-
     }
 
-
-
-
-
-
-
     if (!hasPermission) {
-
-
-
         Box(
-
-
-
             modifier = modifier
-
-
-
                 .fillMaxSize()
-
-
-
                 .background(Color(0xFF0F172A)),
-
-
-
             contentAlignment = Alignment.Center
-
-
-
         ) {
-
-
-
             Column(
-
-
-
                 horizontalAlignment = Alignment.CenterHorizontally,
-
-
-
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-
-
-
                 modifier = Modifier.padding(20.dp)
-
-
-
             ) {
-
-
-
-                Text(text = "📷", fontSize = 42.sp)
-
-
-
                 Text(
-
-
-
-                    text = "Live Camera Background",
-
-
-
+                    text = "📷",
+                    fontSize = 44.sp
+                )
+                Text(
+                    text = "Kailangan ng Camera Permission",
                     color = Color.White,
-
-
-
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-
-
-
-                    fontSize = 16.sp
-
-
-
+                    fontFamily = CleanFont
                 )
-
-
-
                 Text(
-
-
-
-                    text = "Kailangan ng Camera permission upang makita ang sarili habang kumakanta.",
-
-
-
+                    text = "I-allow ang camera para makita ang sarili habang kumakanta",
                     color = Color(0xFF94A3B8),
-
-
-
                     fontSize = 12.sp,
-
-
-
-                    textAlign = TextAlign.Center
-
-
-
+                    fontFamily = CleanFont,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-
-
-
                 Button(
-
-
-
                     onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
-
-
-
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-
-
-
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF06B6D4)),
                     shape = RoundedCornerShape(10.dp)
-
-
-
                 ) {
-
-
-
-                    Text(text = "📸 Buksan ang Camera", fontWeight = FontWeight.Bold, color = Color.White)
-
-
-
+                    Text("I-ALLOW ANG CAMERA", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.sp)
                 }
-
-
-
             }
-
-
-
         }
-
-
-
     } else {
-
-
-
-        var cameraInstance by remember { mutableStateOf<android.hardware.Camera?>(null) }
-
-
-
         val activity = context as? android.app.Activity
+        val cameraExecutor = remember { java.util.concurrent.Executors.newSingleThreadExecutor() }
+        var cameraInstance by remember { mutableStateOf<android.hardware.Camera?>(null) }
+        var activeTextureView by remember { mutableStateOf<TextureView?>(null) }
+        var activeSurfaceTexture by remember { mutableStateOf<SurfaceTexture?>(null) }
+        var viewWidth by remember { mutableStateOf(0) }
+        var viewHeight by remember { mutableStateOf(0) }
 
+        fun applyAspect(view: TextureView, vW: Int, vH: Int, camW: Int, camH: Int, isPortrait: Boolean, facingFront: Boolean) {
+            if (vW == 0 || vH == 0 || camW == 0 || camH == 0) return
+            val matrix = android.graphics.Matrix()
+            val effectiveW = if (isPortrait) camH else camW
+            val effectiveH = if (isPortrait) camW else camH
+            val viewRatio = vW.toFloat() / vH.toFloat()
+            val videoRatio = effectiveW.toFloat() / effectiveH.toFloat()
+            var scaleX = 1.0f
+            var scaleY = 1.0f
+            if (viewRatio > videoRatio) {
+                scaleY = (vW.toFloat() / effectiveW.toFloat()) / (vH.toFloat() / effectiveH.toFloat())
+            } else {
+                scaleX = (vH.toFloat() / effectiveH.toFloat()) / (vW.toFloat() / effectiveH.toFloat())
+            }
+            val pivotX = vW / 2.0f
+            val pivotY = vH / 2.0f
+            matrix.setScale(scaleX, scaleY, pivotX, pivotY)
+            if (facingFront) {
+                matrix.postScale(-1.0f, 1.0f, pivotX, pivotY)
+            }
+            view.setTransform(matrix)
+        }
 
-
-
-
-
-
-        DisposableEffect(isFrontFacing) {
-            onDispose {
-                val camToRelease = cameraInstance
-                cameraInstance = null
-                if (camToRelease != null) {
-                    Thread {
+        fun switchCameraSafe(facingFront: Boolean, surface: SurfaceTexture, vW: Int, vH: Int, tView: TextureView) {
+            cameraExecutor.execute {
+                try {
+                    cameraInstance?.let { cam ->
                         try {
-                            camToRelease.stopPreview()
-                            camToRelease.release()
+                            cam.stopPreview()
+                            cam.setPreviewTexture(null)
+                            cam.release()
                         } catch (_: Exception) {}
-                    }.start()
+                    }
+                    cameraInstance = null
+
+                    // Small hardware settle delay to prevent daemon busy deadlock
+                    Thread.sleep(60)
+
+                    val count = android.hardware.Camera.getNumberOfCameras()
+                    var targetCamId = 0
+                    val camInfo = android.hardware.Camera.CameraInfo()
+                    for (i in 0 until count) {
+                        android.hardware.Camera.getCameraInfo(i, camInfo)
+                        if (facingFront && camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                            targetCamId = i
+                            break
+                        } else if (!facingFront && camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_BACK) {
+                            targetCamId = i
+                            break
+                        }
+                    }
+                    android.hardware.Camera.getCameraInfo(targetCamId, camInfo)
+
+                    val cam = android.hardware.Camera.open(targetCamId)
+
+                    val rotation = activity?.windowManager?.defaultDisplay?.rotation ?: android.view.Surface.ROTATION_0
+                    var degrees = 0
+                    when (rotation) {
+                        android.view.Surface.ROTATION_0 -> degrees = 0
+                        android.view.Surface.ROTATION_90 -> degrees = 90
+                        android.view.Surface.ROTATION_180 -> degrees = 180
+                        android.view.Surface.ROTATION_270 -> degrees = 270
+                    }
+                    val displayOrientation = if (camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                        val result = (camInfo.orientation + degrees) % 360
+                        (360 - result) % 360
+                    } else {
+                        (camInfo.orientation - degrees + 360) % 360
+                    }
+                    cam.setDisplayOrientation(displayOrientation)
+
+                    val isPortrait = (displayOrientation == 90 || displayOrientation == 270)
+                    val params = cam.parameters
+                    val supportedSizes = params.supportedPreviewSizes
+                    var camW = 1280
+                    var camH = 720
+                    if (!supportedSizes.isNullOrEmpty()) {
+                        val targetAspect = if (isPortrait) vH.toFloat() / vW.coerceAtLeast(1).toFloat() else vW.toFloat() / vH.coerceAtLeast(1).toFloat()
+                        val bestSize = supportedSizes.minByOrNull { size ->
+                            val r = size.width.toFloat() / size.height.toFloat()
+                            Math.abs(r - targetAspect) * 1000 + if (size.width in 1280..1920) 0 else 500
+                        } ?: supportedSizes.first()
+                        params.setPreviewSize(bestSize.width, bestSize.height)
+                        camW = bestSize.width
+                        camH = bestSize.height
+                    }
+
+                    val focusModes = params.supportedFocusModes
+                    if (focusModes?.contains(android.hardware.Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO) == true) {
+                        params.focusMode = android.hardware.Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO
+                    }
+
+                    cam.parameters = params
+                    cam.setPreviewTexture(surface)
+                    cam.startPreview()
+                    cameraInstance = cam
+
+                    tView.post {
+                        applyAspect(tView, vW, vH, camW, camH, isPortrait, facingFront)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("CameraBg", "Camera switch error: ${e.message}", e)
                 }
             }
         }
 
+        // React when isFrontFacing changes while view is already available
+        LaunchedEffect(isFrontFacing) {
+            val surf = activeSurfaceTexture
+            val tv = activeTextureView
+            if (surf != null && tv != null && viewWidth > 0 && viewHeight > 0) {
+                switchCameraSafe(isFrontFacing, surf, viewWidth, viewHeight, tv)
+            }
+        }
 
-
-
-
-
+        DisposableEffect(Unit) {
+            onDispose {
+                cameraExecutor.execute {
+                    try {
+                        cameraInstance?.stopPreview()
+                        cameraInstance?.setPreviewTexture(null)
+                        cameraInstance?.release()
+                    } catch (_: Exception) {}
+                    cameraInstance = null
+                }
+                cameraExecutor.shutdown()
+            }
+        }
 
         Box(modifier = modifier.fillMaxSize()) {
-
-
-
-            key(isFrontFacing) {
             AndroidView(
-
-
-
                 factory = { ctx ->
-
-
-
                     TextureView(ctx).apply {
-
-
-
                         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-
-
-
-                            var currentCamWidth = 1280
-
-
-
-                            var currentCamHeight = 720
-
-
-
-                            var isPortraitOrientation = false
-
-
-
-
-
-
-
-                            fun applyNaturalAspectTransform(viewW: Int, viewH: Int) {
-
-
-
-                                if (viewW == 0 || viewH == 0 || currentCamWidth == 0 || currentCamHeight == 0) return
-
-
-
-                                val matrix = android.graphics.Matrix()
-
-
-
-
-
-
-
-                                val effectiveW = if (isPortraitOrientation) currentCamHeight else currentCamWidth
-
-
-
-                                val effectiveH = if (isPortraitOrientation) currentCamWidth else currentCamHeight
-
-
-
-
-
-
-
-                                val viewRatio = viewW.toFloat() / viewH.toFloat()
-
-
-
-                                val videoRatio = effectiveW.toFloat() / effectiveH.toFloat()
-
-
-
-
-
-
-
-                                var scaleX = 1.0f
-
-
-
-                                var scaleY = 1.0f
-
-
-
-
-
-
-
-                                // Center crop: Preserve natural proportions without stretching or letterboxing
-
-
-
-                                if (viewRatio > videoRatio) {
-
-
-
-                                    scaleY = (viewW.toFloat() / effectiveW.toFloat()) / (viewH.toFloat() / effectiveH.toFloat())
-
-
-
-                                } else {
-
-
-
-                                    scaleX = (viewH.toFloat() / effectiveH.toFloat()) / (viewW.toFloat() / effectiveW.toFloat())
-
-
-
-                                }
-
-
-
-
-
-
-
-                                val pivotX = viewW / 2.0f
-
-
-
-                                val pivotY = viewH / 2.0f
-
-
-
-                                matrix.setScale(scaleX, scaleY, pivotX, pivotY)
-
-
-
-
-
-
-
-                                // Mirror horizontally for front-facing camera like a natural mirror
-
-
-
-                                if (isFrontFacing) {
-
-
-
-                                    matrix.postScale(-1.0f, 1.0f, pivotX, pivotY)
-
-
-
-                                }
-
-
-
-
-
-
-
-                                setTransform(matrix)
-
-
-
-                            }
-
-
-
-
-
-
-
                             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-
-
-
-                                try {
-
-
-
-                                    val count = android.hardware.Camera.getNumberOfCameras()
-
-
-
-                                    var targetCamId = 0
-
-
-
-                                    val camInfo = android.hardware.Camera.CameraInfo()
-
-
-
-                                    for (i in 0 until count) {
-
-
-
-                                        android.hardware.Camera.getCameraInfo(i, camInfo)
-
-
-
-                                        if (isFrontFacing && camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT) {
-
-
-
-                                            targetCamId = i
-
-
-
-                                            break
-
-
-
-                                        } else if (!isFrontFacing && camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_BACK) {
-
-
-
-                                            targetCamId = i
-
-
-
-                                            break
-
-
-
-                                        }
-
-
-
-                                    }
-
-
-
-
-
-
-
-                                    val cam = android.hardware.Camera.open(targetCamId)
-
-
-
-
-
-
-
-                                    // 1. Calculate proper display orientation based on device rotation
-
-
-
-                                    val rotation = activity?.windowManager?.defaultDisplay?.rotation ?: android.view.Surface.ROTATION_0
-
-
-
-                                    var degrees = 0
-
-
-
-                                    when (rotation) {
-
-
-
-                                        android.view.Surface.ROTATION_0 -> degrees = 0
-
-
-
-                                        android.view.Surface.ROTATION_90 -> degrees = 90
-
-
-
-                                        android.view.Surface.ROTATION_180 -> degrees = 180
-
-
-
-                                        android.view.Surface.ROTATION_270 -> degrees = 270
-
-
-
-                                    }
-
-
-
-
-
-
-
-                                    val displayOrientation = if (camInfo.facing == android.hardware.Camera.CameraInfo.CAMERA_FACING_FRONT) {
-
-
-
-                                        val result = (camInfo.orientation + degrees) % 360
-
-
-
-                                        (360 - result) % 360
-
-
-
-                                    } else {
-
-
-
-                                        (camInfo.orientation - degrees + 360) % 360
-
-
-
-                                    }
-
-
-
-                                    cam.setDisplayOrientation(displayOrientation)
-
-
-
-                                    isPortraitOrientation = (displayOrientation == 90 || displayOrientation == 270)
-
-
-
-
-
-
-
-                                    // 2. Select best preview size that closely matches view aspect ratio
-
-
-
-                                    val params = cam.parameters
-
-
-
-                                    val supportedSizes = params.supportedPreviewSizes
-
-
-
-                                    if (!supportedSizes.isNullOrEmpty()) {
-
-
-
-                                        val targetAspect = if (isPortraitOrientation) {
-
-
-
-                                            height.toFloat() / width.toFloat()
-
-
-
-                                        } else {
-
-
-
-                                            width.toFloat() / height.toFloat()
-
-
-
-                                        }
-
-
-
-
-
-
-
-                                        val bestSize = supportedSizes.minByOrNull { size ->
-
-
-
-                                            val r = size.width.toFloat() / size.height.toFloat()
-
-
-
-                                            val aspectDiff = Math.abs(r - targetAspect)
-
-
-
-                                            val prefPenalty = if (size.width in 1280..1920) 0 else 500
-
-
-
-                                            aspectDiff * 1000 + prefPenalty
-
-
-
-                                        } ?: supportedSizes.first()
-
-
-
-
-
-
-
-                                        params.setPreviewSize(bestSize.width, bestSize.height)
-
-
-
-                                        currentCamWidth = bestSize.width
-
-
-
-                                        currentCamHeight = bestSize.height
-
-
-
-                                    }
-
-
-
-
-
-
-
-                                    // 3. Continuous video focus if available
-
-
-
-                                    val focusModes = params.supportedFocusModes
-
-
-
-                                    if (focusModes?.contains(android.hardware.Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO) == true) {
-
-
-
-                                        params.focusMode = android.hardware.Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO
-
-
-
-                                    }
-
-
-
-
-
-
-
-                                    cam.parameters = params
-
-
-
-                                    cam.setPreviewTexture(surface)
-
-
-
-                                    cam.startPreview()
-
-
-
-                                    cameraInstance = cam
-
-
-
-
-
-
-
-                                    // 4. Apply natural non-stretch transform
-
-
-
-                                    post {
-
-
-
-                                        applyNaturalAspectTransform(width, height)
-
-
-
-                                    }
-
-
-
-                                } catch (e: Exception) {
-
-
-
-                                    Log.w("CameraBg", "Failed to start camera preview: ${e.message}")
-
-
-
-                                }
-
-
-
+                                activeTextureView = this@apply
+                                activeSurfaceTexture = surface
+                                viewWidth = width
+                                viewHeight = height
+                                switchCameraSafe(isFrontFacing, surface, width, height, this@apply)
                             }
-
-
-
-
-
-
 
                             override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-
-
-
-                                applyNaturalAspectTransform(width, height)
-
-
-
+                                viewWidth = width
+                                viewHeight = height
                             }
 
-
-
-
-
-
-
                             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-                                val camToRelease = cameraInstance
-                                cameraInstance = null
-                                if (camToRelease != null) {
-                                    Thread {
-                                        try {
-                                            camToRelease.stopPreview()
-                                            camToRelease.release()
-                                        } catch (_: Exception) {}
-                                    }.start()
+                                activeSurfaceTexture = null
+                                activeTextureView = null
+                                cameraExecutor.execute {
+                                    try {
+                                        cameraInstance?.stopPreview()
+                                        cameraInstance?.setPreviewTexture(null)
+                                        cameraInstance?.release()
+                                    } catch (_: Exception) {}
+                                    cameraInstance = null
                                 }
                                 return true
                             }
 
-
-
-
-
-
-
                             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
-
-
-
                         }
-
-
-
                     }
-
-
-
                 },
-
-
-
                 modifier = Modifier.fillMaxSize()
-
-
-
             )
-            }
 
-
-
-
-
-
-
-            // Camera flip switch (Front / Back camera)
-
-
-
+            // Camera flip switch (Front / Back camera) with status bar padding so notch / icons never block it
             Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(12.dp)
+                    .statusBarsPadding()
+                    .padding(top = 16.dp, end = 16.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color.Black.copy(alpha = 0.65f))
-                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    .background(Color.Black.copy(alpha = 0.70f))
+                    .border(1.2.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
                     .clickable { onToggleFacing() }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(text = "🔄", fontSize = 13.sp)
+                Text(text = "🔄", fontSize = 14.sp)
                 Text(
                     text = if (isFrontFacing) "Harap (Front)" else "Likod (Back)",
                     color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = CleanFont
                 )
             }
-
-
-
         }
-
-
-
     }
-
-
-
 }
+
+
+
 
 
 
@@ -43918,7 +43262,7 @@ fun FloatingLyricsOverlay(
                 }
             }
 
-            // Row 2: Live Synchronized Lyrics Line
+            // Row 2: Live Synchronized Lyrics Line (Auto-adjusting font size & multi-line wrapping so lyrics never get cut off)
             HorizontalDivider(color = Color(theme.primaryColor).copy(alpha = 0.25f), thickness = 1.dp)
 
             Row(
@@ -43927,23 +43271,38 @@ fun FloatingLyricsOverlay(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(text = "🎤", fontSize = 13.sp)
+                val lineLen = activeLineText.length
+                val activeFontSize = when {
+                    lineLen > 45 -> 10.sp
+                    lineLen > 30 -> 11.5.sp
+                    lineLen > 20 -> 12.5.sp
+                    else -> 13.5.sp
+                }
                 Text(
                     text = activeLineText.ifBlank { "..." },
                     color = Color(0xFF38BDF8),
-                    fontSize = 12.5.sp,
+                    fontSize = activeFontSize,
+                    lineHeight = (activeFontSize.value * 1.25f).sp,
                     fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2,
+                    softWrap = true,
                     modifier = Modifier.weight(1f)
                 )
             }
             if (nextLineText.isNotBlank() && nextLineText != activeLineText) {
+                val nextLen = nextLineText.length
+                val nextFontSize = when {
+                    nextLen > 45 -> 9.sp
+                    nextLen > 30 -> 10.sp
+                    else -> 11.sp
+                }
                 Text(
                     text = nextLineText,
                     color = Color.White.copy(alpha = 0.60f),
-                    fontSize = 10.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    fontSize = nextFontSize,
+                    lineHeight = (nextFontSize.value * 1.2f).sp,
+                    maxLines = 2,
+                    softWrap = true,
                     modifier = Modifier.padding(start = 22.dp)
                 )
             }
