@@ -236,6 +236,27 @@ class MainActivity : ComponentActivity() {
 
 
 
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (viewModel.uiState.value.isPlaying && !viewModel.uiState.value.isPlaybackPaused) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                try {
+                    val params = android.app.PictureInPictureParams.Builder()
+                        .setAspectRatio(android.util.Rational(16, 9))
+                        .build()
+                    enterPictureInPictureMode(params)
+                } catch (e: Exception) {
+                    android.util.Log.w("MainActivity", "Picture-in-picture error: ${e.message}")
+                }
+            }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        viewModel.setPictureInPictureMode(isInPictureInPictureMode)
+    }
+
     override fun onPause() {
 
         super.onPause()

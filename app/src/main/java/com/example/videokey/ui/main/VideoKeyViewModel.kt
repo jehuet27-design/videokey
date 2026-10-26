@@ -697,6 +697,7 @@ data class VideoKeyUiState(
     val reserveQueue: List<Song> = emptyList(),
 
     val isPlaying: Boolean = false,
+    val isPictureInPicture: Boolean = false,
 
     val showSongTitleIntro: Boolean = false,
 
@@ -3705,36 +3706,8 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun selectBottomNavTab(tab: Int) {
 
-        val prevTab = _uiState.value.selectedBottomNavTab
-
-        if (prevTab == 1 && tab != 1) {
-
-            // Auto-pause when navigating away from Sing player screen
-
-            if (_uiState.value.isPlaying && !_uiState.value.isPlaybackPaused) {
-
-                wasAutoPausedByScreenChange = true
-
-                pausePlayback()
-
-            }
-
-        } else if (prevTab != 1 && tab == 1) {
-
-            // Auto-resume when navigating back to Sing player screen
-
-            if (wasAutoPausedByScreenChange && _uiState.value.isPlaying) {
-
-                wasAutoPausedByScreenChange = false
-
-                resumePlayback()
-
-            }
-
-        }
-
-
-
+        // Tuloy-tuloy ang pag-awit: Hindi nag-a-autopause kapag lumipat ng tab,
+        // sa halip ay mananatiling live ang Floating Lyrics screen!
         _uiState.update { state ->
 
             if (tab == 0 && state.songbookQuery.isBlank()) {
@@ -4875,18 +4848,16 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
     fun onAppPause() {
-
-        if (_uiState.value.isPlaying && !_uiState.value.isPlaybackPaused) {
-
-            wasPlayingBeforePause = true
-
-            pausePlayback()
-
-        }
-
+        // Tuloy-tuloy ang pag-awit: Hindi nagpo-pause kapag natakpan ang screen,
+        // mananatiling tumutugtog nang live sa Picture-in-Picture at background!
     }
 
 
+
+
+    fun setPictureInPictureMode(inPip: Boolean) {
+        _uiState.update { it.copy(isPictureInPicture = inPip) }
+    }
 
     fun onAppResume() {
 

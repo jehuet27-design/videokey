@@ -1364,6 +1364,16 @@ fun VideoKeyScreen(
 
 
 
+                // Floating Live Lyrics Mini-Player (Shows when navigating away from player screen while playing)
+                if (state.isPlaying && state.selectedBottomNavTab != 1) {
+                    FloatingLyricsOverlay(
+                        state = state,
+                        onExpandToPlayer = { viewModel.selectBottomNavTab(1) },
+                        onTogglePause = { viewModel.togglePlaybackPause() },
+                        onNext = { viewModel.onNext() }
+                    )
+                }
+
                 SingPulseBottomNavBar(
 
 
@@ -24965,37 +24975,18 @@ fun LiveCameraBackground(
 
 
         DisposableEffect(isFrontFacing) {
-
-
-
             onDispose {
-
-
-
-                try {
-
-
-
-                    cameraInstance?.stopPreview()
-
-
-
-                    cameraInstance?.release()
-
-
-
-                } catch (_: Exception) {}
-
-
-
+                val camToRelease = cameraInstance
                 cameraInstance = null
-
-
-
+                if (camToRelease != null) {
+                    Thread {
+                        try {
+                            camToRelease.stopPreview()
+                            camToRelease.release()
+                        } catch (_: Exception) {}
+                    }.start()
+                }
             }
-
-
-
         }
 
 
@@ -25008,6 +24999,7 @@ fun LiveCameraBackground(
 
 
 
+            key(isFrontFacing) {
             AndroidView(
 
 
@@ -25501,33 +25493,17 @@ fun LiveCameraBackground(
 
 
                             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-
-
-
-                                try {
-
-
-
-                                    cameraInstance?.stopPreview()
-
-
-
-                                    cameraInstance?.release()
-
-
-
-                                } catch (_: Exception) {}
-
-
-
+                                val camToRelease = cameraInstance
                                 cameraInstance = null
-
-
-
+                                if (camToRelease != null) {
+                                    Thread {
+                                        try {
+                                            camToRelease.stopPreview()
+                                            camToRelease.release()
+                                        } catch (_: Exception) {}
+                                    }.start()
+                                }
                                 return true
-
-
-
                             }
 
 
@@ -25557,6 +25533,7 @@ fun LiveCameraBackground(
 
 
             )
+            }
 
 
 
@@ -43812,3 +43789,164 @@ fun MinimizedDownloadFloatingPill(
 
 
 
+
+
+@Composable
+fun FloatingLyricsOverlay(
+    state: VideoKeyUiState,
+    onExpandToPlayer: () -> Unit,
+    onTogglePause: () -> Unit,
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val theme = state.appTheme
+    val activeLineText = when (state.activeLineNumber) {
+        1 -> state.line1
+        2 -> state.line2
+        3 -> state.line3
+        4 -> state.line4
+        else -> state.line1
+    }.trim()
+
+    val nextLineText = when (state.activeLineNumber) {
+        1 -> state.line2
+        2 -> state.line3
+        3 -> state.line4
+        else -> state.line1
+    }.trim()
+
+    val isPlayingActive = state.isPlaying && !state.isPlaybackPaused
+
+    Surface(
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        color = Color(0xFF0F172A).copy(alpha = 0.98f),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(theme.primaryColor).copy(alpha = 0.85f)),
+        shadowElevation = 14.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onExpandToPlayer() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Row 1: Song Info & Quick Transport
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "🎵", fontSize = 16.sp)
+                    Column {
+                        Text(
+                            text = "${state.currentSong.code} • ${state.currentSong.title}",
+                            color = Color(0xFFFDE047),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = state.currentSong.artist,
+                            color = Color(0xFF94A3B8),
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Play / Pause Toggle
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(if (isPlayingActive) Color(0xFFF59E0B) else Color(theme.primaryColor))
+                            .clickable { onTogglePause() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isPlayingActive) "⏸" else "▶",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Next Song
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF334155))
+                            .clickable { onNext() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "⏭",
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    // Expand to full player button
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(theme.primaryColor).copy(alpha = 0.25f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(theme.primaryColor)),
+                        modifier = Modifier.clickable { onExpandToPlayer() }
+                    ) {
+                        Text(
+                            text = "EXPAND ⤢",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            // Row 2: Live Synchronized Lyrics Line
+            HorizontalDivider(color = Color(theme.primaryColor).copy(alpha = 0.25f), thickness = 1.dp)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(text = "🎤", fontSize = 13.sp)
+                Text(
+                    text = activeLineText.ifBlank { "..." },
+                    color = Color(0xFF38BDF8),
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (nextLineText.isNotBlank() && nextLineText != activeLineText) {
+                Text(
+                    text = nextLineText,
+                    color = Color.White.copy(alpha = 0.60f),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 22.dp)
+                )
+            }
+        }
+    }
+}

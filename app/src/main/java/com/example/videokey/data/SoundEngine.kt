@@ -38,74 +38,25 @@ class SoundEngine(
 
     val availableSoundFonts = listOf(
         SoundFontPreset(
-            id = "auto_genre",
-            displayName = "✨ Awtomatiko (Depende sa Genre)",
-            fileName = "auto",
-            description = "Matalinong pagpili ng SoundFont batay sa genre ng kanta (Rock, Ballad, Pop, Disco, atbp.)",
-            genreTag = "AUTO"
+            id = "yamaha_videokey",
+            displayName = "🎹 Yamaha VideoKey Studio (Default)",
+            fileName = "Yamaha Videokey.sf2",
+            description = "905MB Yamaha Multi-Sampled Studio SoundFont (Malakas na Live Band at Instruments)",
+            genreTag = "YAMAHA"
         ),
         SoundFontPreset(
-            id = "videokey_pop",
-            displayName = "🎵 VideoKey OPM & Pop Studio",
-            fileName = "VideoKey_Studio_Minus1.sf2",
-            description = "Balanced Studio Minus-One para sa OPM, Pop, at Billboard charts",
-            genreTag = "POP"
-        ),
-        SoundFontPreset(
-            id = "videokey_rock",
-            displayName = "🎸 VideoKey Rock & Band Studio",
-            fileName = "VideoKey_Studio_Minus1.sf2",
-            description = "Lakas ng live rock band: malutong na electric guitar, driving bass, at punchy snare",
-            genreTag = "ROCK"
-        ),
-        SoundFontPreset(
-            id = "videokey_acoustic",
-            displayName = "🎹 VideoKey Acoustic & Ballad Studio",
-            fileName = "VideoKey_Studio_Minus1.sf2",
-            description = "Concert Grand Piano, Nylon Guitar, at lush warm strings para sa Love Songs",
-            genreTag = "BALLAD"
-        ),
-        SoundFontPreset(
-            id = "videokey_disco",
-            displayName = "🪩 VideoKey Disco & 80s/90s Synth",
-            fileName = "Dream SAM2634 (ver. 2.1).sf2",
-            description = "Classic hardware videoke synthesizer soundchip, bouncy dance beat, at synth bass",
-            genreTag = "DANCE"
-        ),
-        SoundFontPreset(
-            id = "videokey_chacha",
-            displayName = "🎺 VideoKey Cha-Cha & Ballroom",
-            fileName = "Dream SAM2634 (ver. 2.1).sf2",
-            description = "Crisp Latin percussion, lively brass section, at classic ballroom videoke groove",
-            genreTag = "BALLROOM"
-        ),
-        SoundFontPreset(
-            id = "videokey_party",
-            displayName = "🥁 VideoKey Party & Mega Beat",
-            fileName = "mega.sf2",
-            description = "High-energy party sound, dynamic brass section, at punchy sub-bass",
-            genreTag = "PARTY"
-        ),
-        SoundFontPreset(
-            id = "yamaha_korg_ketron",
-            displayName = "Yamaha x Korg x Ketron Studio",
-            fileName = "yamaha x korg x ketron x dream sam (custom made by jc).sf2",
-            description = "905MB Multi-Sampled Live Acoustic & Electric Band",
+            id = "videokey_studio",
+            displayName = "🎵 VideoKey Studio",
+            fileName = "VideoKey Studio.sf2",
+            description = "141MB Studio Minus-One Audio para sa OPM, Pop, at Billboard Hits",
             genreTag = "STUDIO"
         ),
         SoundFontPreset(
-            id = "dreamsam",
-            displayName = "Dream SAM2634 v2.1",
-            fileName = "Dream SAM2634 (ver. 2.1).sf2",
-            description = "Dream Hardware Synthesizer Soundchip",
-            genreTag = "SYNTH"
-        ),
-        SoundFontPreset(
-            id = "mega",
-            displayName = "MegaPro Sound",
-            fileName = "mega.sf2",
-            description = "MegaPro Karaoke Player SoundFont",
-            genreTag = "MEGAPRO"
+            id = "dream_sam",
+            displayName = "✨ Dream Sam",
+            fileName = "Dream Sam.sf2",
+            description = "141MB Classic Hardware Dream SAM Synthesizer Soundchip",
+            genreTag = "DREAM"
         )
     )
 
@@ -491,7 +442,7 @@ class SoundEngine(
             }
         }
         if (lowerQuery.contains("minus") || lowerQuery.contains("studio") || lowerQuery.contains("videokey")) {
-            allSf2Files.firstOrNull { it.name.lowercase().contains("minus1") || it.name.lowercase().contains("studio") }?.let {
+            allSf2Files.firstOrNull { it.name.lowercase().contains("minus1") || it.name.lowercase().contains("studio") || it.name.lowercase().contains("videokey") }?.let {
                 sfFileCache[cacheKey] = it
                 return it
             }
@@ -797,14 +748,17 @@ class SoundEngine(
             // Hardware MIDI instrument volume multiplier for VIP Bass Boost & Treble
             val extraMultiplier = when (category) {
                 MidiMelodyScaler.InstrumentCategory.BASS -> {
-                    1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 0.50f
+                    // Up to 2.25x volume boost for Bass guitar & Synth bass like a live subwoofer!
+                    1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 1.25f
                 }
                 MidiMelodyScaler.InstrumentCategory.DRUMS -> {
-                    1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 0.25f + (treblePercent.coerceIn(0, 100) / 100.0f) * 0.25f
+                    // Massive kick thump from bass boost + razor-sharp hi-hat & snare crack from treble
+                    1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 0.75f + (treblePercent.coerceIn(0, 100) / 100.0f) * 0.75f
                 }
                 MidiMelodyScaler.InstrumentCategory.GUITAR_PIANO,
                 MidiMelodyScaler.InstrumentCategory.STRINGS_BRASS -> {
-                    1.0f + (treblePercent.coerceIn(0, 100) / 100.0f) * 0.35f
+                    // Crisp bright acoustic guitar, piano, and brass
+                    1.0f + (treblePercent.coerceIn(0, 100) / 100.0f) * 0.75f
                 }
                 else -> 1.0f
             }
@@ -986,11 +940,31 @@ class SoundEngine(
             currentAnalysis = null
         }
 
-        // 1. Acquire Android Audio Focus on STREAM_MUSIC to ensure sound is not muted by other apps
+        // 1. Acquire Android Audio Focus on STREAM_MUSIC with NO-DUCKING protection
         try {
             val audioManager = context.getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
-            @Suppress("DEPRECATION")
-            audioManager?.requestAudioFocus(null, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val focusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(
+                        android.media.AudioAttributes.Builder()
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                            .build()
+                    )
+                    .setWillPauseWhenDucked(false)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener { focusChange ->
+                        // Prevent phone notifications from lowering / ducking karaoke sound!
+                        // Maintain full volume output during playback
+                    }
+                    .build()
+                audioManager?.requestAudioFocus(focusRequest)
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.requestAudioFocus({ _ ->
+                    // Keep 100% volume
+                }, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.AUDIOFOCUS_GAIN)
+            }
         } catch (_: Exception) {}
 
         if (initBassEngine()) {
@@ -1466,24 +1440,25 @@ class SoundEngine(
         if (fx != 0) {
             for (i in 0 until 10) {
                 val baseGain = targetEqGains.getOrElse(i) { 0.0f }
+                // SUBWOOFER BASS BOOST & RAZOR-SHARP TREBLE
                 val extraGain = when (i) {
-                    0 -> bassFactor * 8.0f   // 31 Hz (Deep Sub-Bass for subwoofers/soundbars)
-                    1 -> bassFactor * 14.0f  // 62 Hz (Punch Kick thump)
-                    2 -> bassFactor * 14.0f  // 125 Hz (Warm Bass Guitar - loud & clear on mobile speakers)
-                    3 -> bassFactor * 10.0f  // 250 Hz (Low-Mid punch definition on phones/tablets)
-                    4 -> bassFactor * 4.0f   // 500 Hz (Harmonic warmth)
-                    6 -> trebleFactor * 4.0f // 2 kHz (Mid-High bite)
-                    7 -> trebleFactor * 8.0f // 4 kHz (Presence & clarity)
-                    8 -> trebleFactor * 14.0f// 8 kHz (Crisp cymbals & acoustic snap / Tremble)
-                    9 -> trebleFactor * 16.0f// 16 kHz (Studio air & shimmer sparkle)
+                    0 -> bassFactor * 18.0f  // 31 Hz: True deep Subwoofer sub-bass rumble (+18dB)
+                    1 -> bassFactor * 22.0f  // 62 Hz: Massive kick drum punch & chest-thump (+22dB)
+                    2 -> bassFactor * 16.0f  // 125 Hz: Rich solid Bass Guitar body (+16dB)
+                    3 -> bassFactor * 12.0f  // 250 Hz: Punchy low-mid definition (+12dB)
+                    4 -> bassFactor * 4.0f   // 500 Hz: Harmonic low warmth
+                    6 -> trebleFactor * 6.0f // 2 kHz: Vocal & guitar presence
+                    7 -> trebleFactor * 12.0f// 4 kHz: Sharp vocal & snare bite
+                    8 -> trebleFactor * 18.0f// 8 kHz: Crisp cymbals & acoustic snap (+18dB)
+                    9 -> trebleFactor * 22.0f// 16 kHz: Studio air & crystal shimmer sparkle (+22dB)
                     else -> 0.0f
                 }
                 val eq = BASS_FX.BASS_BFX_PEAKEQ().apply {
                     lBand = i
-                    fBandwidth = 1.0f
+                    fBandwidth = if (i in 0..1) 0.85f else 1.0f // Tighter bandwidth for pure subwoofer impact
                     fQ = 0.0f
                     fCenter = EQ_FREQUENCIES[i]
-                    fGain = (baseGain + extraGain).coerceIn(-15.0f, 18.0f)
+                    fGain = (baseGain + extraGain).coerceIn(-15.0f, 24.0f)
                     lChannel = BASS_FX.BASS_BFX_CHANALL
                 }
                 BASS.BASS_FXSetParameters(fx, eq)

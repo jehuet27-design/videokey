@@ -1042,6 +1042,57 @@ private fun VipActivationCard(
                     }
                 }
             }
+
+            // Direktang Numero ng GCash (Manual Send)
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFF0F172A).copy(alpha = 0.85f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E676).copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isTagalog) "📱 GCash Account (Manual Send Money):" else "📱 GCash Account (Manual Send Money):",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "09203732202",
+                            color = Color(0xFF00E676),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString("09203732202"))
+                            android.widget.Toast.makeText(context, if (isTagalog) "✓ Nakopya ang 09203732202!" else "✓ 09203732202 copied!", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00E676),
+                            contentColor = Color(0xFF0F172A)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.defaultMinSize(minHeight = 34.dp)
+                    ) {
+                        Text(
+                            text = if (isTagalog) "KOPYAHIN" else "COPY",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 10.5.sp
+                        )
+                    }
+                }
+            }
         }
 
         // 3. Device ID Box with Copy Button
