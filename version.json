@@ -1,7 +1,7 @@
 {
-  "versionCode": 8,
-  "versionName": "2.7",
-  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.7/VideoKey-v2.7.apk",
+  "versionCode": 9,
+  "versionName": "2.8",
+  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.8/VideoKey-v2.8.apk",
   "forceUpdate": true,
-  "releaseNotes": "🎉 VIDEOKEY V2.7 UPDATE:\n• ₱110 VIP Access via GCash\n• Button Texture exclusive sa VIP (naka-lock sa non-VIP)\n• Tuloy-tuloy na pag-browse sa 54,000+ na mga kanta\n• Malinis na TV Mode at nakatagong remote QR barcode toggle\n• Inayos ang number code box (hindi nahahati ang numero)\n• Default SoundFonts (DreamSAM para sa free, Automatic para sa VIP)\n• Iwas-white screen at mas matatag na TV box performance"
+  "releaseNotes": "🎉 VIDEOKEY V2.8 MAJOR UPDATE:\n• Harap at Likod na Camera Background (Front & Back Cam toggle)\n• I-tap ang screen para mag-Pause at Resume (malinis at walang sagabal na kahon)\n• 100% Lyric highlight fix sa lahat ng phones at tablets (resilient audio clock)\n• Pinatinding VIP Bass Boost at Treble Boost (dinig na dinig sa cellphone speakers)\n• Customizable 5-image countdown (4, 3, 2, 1, GO)\n• Customizable scoring fanfare sounds\n• Mas mabilis, matatag, at super smooth na videoke experience"
 }
