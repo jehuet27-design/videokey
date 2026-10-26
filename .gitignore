@@ -25,3 +25,6 @@ admin/
 
 
 *.class
+
+*.pdf
+songs_*.json

@@ -20,13 +20,27 @@ import kotlin.math.sin
  * Generates celebratory brass fanfare chords, crowd cheering/applause,
  * or comedic sad-trombone fail sounds dynamically tailored to the achieved score.
  */
+enum class ScoringSoundStyle(
+    val id: String,
+    val displayNameTagalog: String,
+    val displayNameEnglish: String,
+    val icon: String
+) {
+    CLASSIC_ARCADE("classic_arcade", "Klasikong Arcade Brass", "Classic Arcade Brass", "🎺"),
+    STADIUM_APPLAUSE("stadium_applause", "Stadium Palakpakan at Hiyawan", "Stadium Applause and Cheers", "👏"),
+    PARTY_HORNS("party_horns", "Party Torotot at Pito", "Party Horns and Whistles", "🎉"),
+    RETRO_8BIT("retro_8bit", "Retro 8-Bit Chime", "Retro 8-Bit Chime", "🎮"),
+    COMEDY_TROMBONE("comedy_fail", "Komedyang Trombone", "Comedy Trombone", "🎭"),
+    CUSTOM_AUDIO("custom_audio", "Sariling Audio File (.mp3/.wav)", "Custom Audio File (.mp3/.wav)", "📁")
+}
+
 object VideokeSoundEffects {
 
     private var activeJob: Job? = null
     private var activeTrack: AudioTrack? = null
     private val scope = CoroutineScope(Dispatchers.Default)
 
-    fun playScoringFanfare(score: Int, volumeMultiplier: Float = 1.0f) {
+    fun playScoringFanfare(score: Int, volumeMultiplier: Float = 1.0f, style: ScoringSoundStyle = ScoringSoundStyle.CLASSIC_ARCADE) {
         if (volumeMultiplier <= 0.01f) return
         stop()
         activeJob = scope.launch {
@@ -42,6 +56,108 @@ object VideokeSoundEffects {
                 val samples = ShortArray(numSamples)
                 val rng = Random()
 
+                when (style) {
+                    ScoringSoundStyle.STADIUM_APPLAUSE -> {
+                        // High-Energy Stadium Cheering & Continuous Applause
+                        for (i in 0 until numSamples) {
+                            val t = i.toDouble() / sampleRate
+                            val cheerEnv = min(1.0, t / 0.25) * max(0.0, (durationSec - t) / 1.0)
+                            val crowdRoar = (rng.nextDouble() - 0.5) * 0.45
+                            val clap = if ((i % 800) < 70) (rng.nextDouble() - 0.5) * 0.55 else 0.0
+                            val whistle1 = if (t in 0.3..1.5) sin(2.0 * PI * 2400.0 * t + sin(2.0 * PI * 7.0 * t) * 6.0) * 0.12 else 0.0
+                            val whistle2 = if (t in 0.8..2.2) sin(2.0 * PI * 2800.0 * t + sin(2.0 * PI * 9.0 * t) * 5.0) * 0.10 else 0.0
+                            val sample = (crowdRoar + clap + whistle1 + whistle2) * cheerEnv
+                            samples[i] = max(-32767.0, min(32767.0, sample * 25000.0)).toInt().toShort()
+                        }
+                    }
+
+                    ScoringSoundStyle.PARTY_HORNS -> {
+                        // Festive Party Horns, Torotot Glissando & Party Whistle
+                        for (i in 0 until numSamples) {
+                            val t = i.toDouble() / sampleRate
+                            var sample = 0.0
+                            if (t < 0.6) {
+                                val hornFreq = 220.0 + (t * 280.0)
+                                val ph = 2.0 * PI * hornFreq * t
+                                val hornWave = 0.5 * sin(ph) + 0.3 * sin(ph * 2) + 0.2 * sin(ph * 3)
+                                val env = min(1.0, t / 0.03) * max(0.0, (0.6 - t) / 0.1)
+                                sample += hornWave * env * 0.6
+                            }
+                            if (t in 0.5..1.4) {
+                                val localT = t - 0.5
+                                val hornFreq = 440.0 + sin(2.0 * PI * 12.0 * localT) * 40.0
+                                val ph = 2.0 * PI * hornFreq * localT
+                                val hornWave = 0.6 * sin(ph) + 0.25 * sin(ph * 2)
+                                val env = min(1.0, localT / 0.03) * max(0.0, (0.9 - localT) / 0.15)
+                                sample += hornWave * env * 0.65
+                            }
+                            if (t in 0.3..durationSec) {
+                                val cheerEnv = min(1.0, (t - 0.3) / 0.2) * max(0.0, (durationSec - t) / 0.8)
+                                val noise = (rng.nextDouble() - 0.5) * 0.35
+                                val clap = if ((i % 1000) < 60) (rng.nextDouble() - 0.5) * 0.40 else 0.0
+                                sample += (noise + clap) * cheerEnv
+                            }
+                            samples[i] = max(-32767.0, min(32767.0, sample * 25000.0)).toInt().toShort()
+                        }
+                    }
+
+                    ScoringSoundStyle.RETRO_8BIT -> {
+                        // 8-Bit Arcade Victory Chime & Rising Arpeggio
+                        val notes = doubleArrayOf(261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 1046.50, 1318.51)
+                        val noteStep = 0.12
+                        for (i in 0 until numSamples) {
+                            val t = i.toDouble() / sampleRate
+                            val noteIdx = (t / noteStep).toInt().coerceIn(0, notes.size - 1)
+                            val noteFreq = notes[noteIdx]
+                            val ph = (t * noteFreq) % 1.0
+                            val squareWave = if (ph < 0.5) 0.4 else -0.4
+                            val env = exp(-(t % noteStep) * 6.0)
+                            var sample = squareWave * env
+                            if (t > (notes.size * noteStep)) {
+                                val tailT = t - (notes.size * noteStep)
+                                val tailEnv = exp(-tailT * 1.5)
+                                val c1 = if (((t * 1046.5) % 1.0) < 0.5) 0.3 else -0.3
+                                val c2 = if (((t * 1318.5) % 1.0) < 0.5) 0.25 else -0.25
+                                sample += (c1 + c2) * tailEnv
+                            }
+                            samples[i] = max(-32767.0, min(32767.0, sample * 22000.0)).toInt().toShort()
+                        }
+                    }
+
+                    ScoringSoundStyle.COMEDY_TROMBONE -> {
+                        // Comedic Fail / Wah-wah-wah Trombone
+                        for (i in 0 until numSamples) {
+                            val t = i.toDouble() / sampleRate
+                            var sample = 0.0
+                            if (t in 0.00..0.35) {
+                                val env = min(1.0, t / 0.03) * max(0.0, 1.0 - (t - 0.28) / 0.07)
+                                sample += env * brassNote(t, 311.13) * 0.75
+                            } else if (t in 0.38..0.73) {
+                                val localT = t - 0.38
+                                val env = min(1.0, localT / 0.03) * max(0.0, 1.0 - (localT - 0.28) / 0.07)
+                                sample += env * brassNote(t, 293.66) * 0.75
+                            } else if (t in 0.76..1.11) {
+                                val localT = t - 0.76
+                                val env = min(1.0, localT / 0.03) * max(0.0, 1.0 - (localT - 0.28) / 0.07)
+                                sample += env * brassNote(t, 277.18) * 0.75
+                            } else if (t in 1.15..2.40) {
+                                val localT = t - 1.15
+                                val env = min(1.0, localT / 0.04) * exp(-localT * 0.9)
+                                val pitchSlide = 261.63 - (localT * 26.0)
+                                val vibrato = sin(2.0 * PI * 6.5 * localT) * 7.0
+                                sample += env * brassNote(t, max(180.0, pitchSlide + vibrato)) * 0.85
+                            }
+                            if (t in 1.4..2.4) {
+                                val laughEnv = min(1.0, (t - 1.4) / 0.3) * max(0.0, (2.4 - t) / 0.7)
+                                val chuckles = (sin(2.0 * PI * 180.0 * t) * 0.5 + sin(2.0 * PI * 220.0 * t) * 0.5) *
+                                        (if (sin(2.0 * PI * 4.5 * t) > 0.0) 1.0 else 0.0)
+                                sample += chuckles * 0.18 * laughEnv
+                            }
+                            samples[i] = max(-32767.0, min(32767.0, sample * 24000.0)).toInt().toShort()
+                        }
+                    }
+
+                    else -> {
                 when {
                     score >= 95 -> {
                         // TIER 1: Grand Superstar / Perfect Score Fanfare (95 - 100)
@@ -208,6 +324,9 @@ object VideokeSoundEffects {
 
                             samples[i] = max(-32767.0, min(32767.0, sample * 24000.0)).toInt().toShort()
                         }
+                    }
+                }
+
                     }
                 }
 

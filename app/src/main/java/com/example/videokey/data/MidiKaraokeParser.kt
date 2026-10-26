@@ -361,7 +361,11 @@ object MidiKaraokeParser {
             val nextTick = nextToken?.tick ?: (if (i + 1 < tokens.size) tokens[i + 1].tick else tick + ppq)
             val timeToNextMs = (tickToMs(nextTick) - timestampMs).coerceAtLeast(60L)
             val duration = if (noteDurationMs != null && noteDurationMs < timeToNextMs) {
-                noteDurationMs.coerceAtLeast(60L)
+                if (timeToNextMs <= 650L) {
+                    timeToNextMs
+                } else {
+                    noteDurationMs.coerceAtLeast(60L)
+                }
             } else {
                 timeToNextMs.coerceIn(60L, 3500L)
             }

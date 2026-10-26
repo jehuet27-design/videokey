@@ -346,7 +346,17 @@ data class LyricCustomization(
 
     val isWipeHighlightEnabled: Boolean = true,
 
-    val customCountdownPhotoUri: String? = null
+    val customCountdownPhotoUri: String? = null,
+
+    val countdownImg4Uri: String? = null,
+
+    val countdownImg3Uri: String? = null,
+
+    val countdownImg2Uri: String? = null,
+
+    val countdownImg1Uri: String? = null,
+
+    val countdownImgGoUri: String? = null
 
 )
 
@@ -965,6 +975,9 @@ data class VideoKeyUiState(
     val isFpsDroppedTo30: Boolean = false,
 
     val isCheckingVipStatus: Boolean = false,
+    val scoringSoundStyle: com.example.videokey.data.ScoringSoundStyle = com.example.videokey.data.ScoringSoundStyle.CLASSIC_ARCADE,
+    val customScoringSoundUri: String? = null,
+    val isCameraFrontFacing: Boolean = false,
 
     val isInitiatingGcashPayment: Boolean = false
 
@@ -1245,6 +1258,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
         val savedContinuousChange = prefs.getBoolean("continuous_video_change_per_song", false)
+        val savedScoringStyleName = prefs.getString("scoring_sound_style", com.example.videokey.data.ScoringSoundStyle.CLASSIC_ARCADE.name) ?: com.example.videokey.data.ScoringSoundStyle.CLASSIC_ARCADE.name
+        val initialScoringSoundStyle = try { com.example.videokey.data.ScoringSoundStyle.valueOf(savedScoringStyleName) } catch (_: Exception) { com.example.videokey.data.ScoringSoundStyle.CLASSIC_ARCADE }
+        val initialCustomScoringSoundUri = prefs.getString("custom_scoring_sound_uri", null)
+        val initialCameraFrontFacing = prefs.getBoolean("camera_is_front_facing", false)
 
 
 
@@ -1378,6 +1395,12 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
 
+        val savedCountdown4 = prefs.getString("lyric_countdown_img_4_uri", null)
+        val savedCountdown3 = prefs.getString("lyric_countdown_img_3_uri", null)
+        val savedCountdown2 = prefs.getString("lyric_countdown_img_2_uri", null)
+        val savedCountdown1 = prefs.getString("lyric_countdown_img_1_uri", null)
+        val savedCountdownGo = prefs.getString("lyric_countdown_img_go_uri", null)
+        val savedCountdownPhoto = prefs.getString("lyric_countdown_photo_uri", null)
         val savedCountdownModeName = prefs.getString("lyric_countdown_mode", LyricCountdownMode.ARCADE_NUMBER.name) ?: LyricCountdownMode.ARCADE_NUMBER.name
 
         val initialCountdownMode = try { LyricCountdownMode.valueOf(savedCountdownModeName) } catch (_: Exception) { LyricCountdownMode.ARCADE_NUMBER }
@@ -1483,6 +1506,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 bgVisualMode = initialBgVisualMode,
 
                 continuousVideoChangePerSong = savedContinuousChange,
+                scoringSoundStyle = initialScoringSoundStyle,
+                customScoringSoundUri = initialCustomScoringSoundUri,
+                isCameraFrontFacing = initialCameraFrontFacing,
 
                 lyricConfig = it.lyricConfig.copy(
 
@@ -1528,7 +1554,21 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                     countdownMode = initialCountdownMode,
 
-                    timingOffsetMs = initialTimingOffset
+                    customCountdownPhotoUri = savedCountdownPhoto,
+
+                    countdownImg4Uri = savedCountdown4,
+
+                    countdownImg3Uri = savedCountdown3,
+
+                    countdownImg2Uri = savedCountdown2,
+
+                    countdownImg1Uri = savedCountdown1,
+
+                    countdownImgGoUri = savedCountdownGo,
+
+                    timingOffsetMs = initialTimingOffset,
+
+                    isWipeHighlightEnabled = prefs.getBoolean("lyric_wipe_highlight_enabled", true)
 
                 ),
 
@@ -2227,8 +2267,22 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                 val nowElapsed = android.os.SystemClock.elapsedRealtime()
 
-                if (rawPosMs != lastAudioPosMs || !isAudioPlaying) {
-                    lastAudioPosMs = rawPosMs
+                val elapsedSinceStart = (System.currentTimeMillis() - songStartTimeMs).coerceAtLeast(0L)
+
+                // Resilient high-precision audio clock:
+                // If hardware audio position is advancing, use it directly.
+                // If rawPosMs returns 0 or fails to advance while audio is playing (e.g. Android MediaPlayer MIDI bug on other phones/tablets),
+                // smoothly fallback to elapsed wall-clock so lyrics highlight NEVER gets stuck at 0%!
+                val effectiveAudioPos = if (rawPosMs > 0L) {
+                    rawPosMs
+                } else if (isAudioPlaying && elapsedSinceStart > 0L) {
+                    elapsedSinceStart
+                } else {
+                    0L
+                }
+
+                if (effectiveAudioPos != lastAudioPosMs || !isAudioPlaying) {
+                    lastAudioPosMs = effectiveAudioPos
                     lastAudioSystemClockMs = nowElapsed
                 }
 
@@ -2237,7 +2291,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                     val delta = (nowElapsed - lastAudioSystemClockMs).coerceIn(0L, 80L)
                     lastAudioPosMs + delta
                 } else {
-                    rawPosMs
+                    effectiveAudioPos
                 }
 
                 val offset = _uiState.value.lyricConfig.timingOffsetMs
@@ -2245,8 +2299,6 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 val posMs = (extrapolatedMs + offset).coerceAtLeast(0L)
 
                 val durMs = soundEngine.getDurationMs()
-
-                val elapsedSinceStart = System.currentTimeMillis() - songStartTimeMs
 
                 val lines = parsedKaraoke?.lines.orEmpty()
 
@@ -2394,6 +2446,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                     }
 
+                    if (cachedLineIdx >= lines.size || (cachedLineIdx > 0 && lines[cachedLineIdx].startMs > posMs)) {
+                        cachedLineIdx = 0
+                    }
+
                     for (i in cachedLineIdx until lines.size) {
 
                         val cur = lines[i]
@@ -2439,7 +2495,10 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                         // Strictly monotonic: wipe can NEVER move backwards during an active line!
                         val wipe = maxWipeForCurrentLine
 
-
+                        val isCountdownEligible = (activeIndex == 0 && currentLine.startMs >= 7000L) ||
+                            (activeIndex > 0 && (currentLine.startMs - (lines.getOrNull(activeIndex - 1)?.endMs ?: 0L)) >= 7000L)
+                        val showGoBadge = isCountdownEligible && (posMs - currentLine.startMs) in 0L..450L
+                        val currentDots = if (showGoBadge) 5 else 0
 
                         val wipeDelta = kotlin.math.abs(wipe - lastEmittedWipe)
 
@@ -2449,9 +2508,9 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                         val instChanged = lastEmittedInst
 
+                        val dotsChanged = currentDots != lastEmittedDots
 
-
-                        if (lineChanged || introChanged || instChanged || wipeDelta >= 0.0001f) {
+                        if (lineChanged || introChanged || instChanged || dotsChanged || wipeDelta >= 0.0001f) {
 
                             lastEmittedWipe = wipe
 
@@ -2461,7 +2520,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                             lastEmittedInst = false
 
-                            lastEmittedDots = 0
+                            lastEmittedDots = currentDots
 
 
 
@@ -2507,7 +2566,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                                     wipePercent = wipe,
 
-                                    countdownDots = 0,
+                                    countdownDots = currentDots,
 
                                     isInstrumental = false
 
@@ -2787,46 +2846,61 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val syllables = line.syllables
         if (syllables.isEmpty()) return 0f
         if (posMs < syllables.first().timestampMs) return 0f
+        val cleanLineText = line.fullText.trimEnd('-', ' ')
+        val totalChars = cleanLineText.length.coerceAtLeast(1)
+
         val lastSyl = syllables.last()
-        val lineEnd = lastSyl.timestampMs + lastSyl.durationMs
+        val lineEnd = maxOf(lastSyl.timestampMs + lastSyl.durationMs, line.endMs)
         if (posMs >= lineEnd) return 1f
 
-        val totalChars = syllables.sumOf { it.text.length }.coerceAtLeast(1)
-        var charsPassed = 0
+        var charAccumulator = 0
+        val sylCharRanges = Array(syllables.size) { i ->
+            val startChar = charAccumulator
+            val sylLen = syllables[i].text.length
+            val endChar = if (i == syllables.lastIndex) {
+                totalChars
+            } else {
+                (charAccumulator + sylLen).coerceAtMost(totalChars)
+            }
+            charAccumulator = endChar
+            Pair(startChar, endChar)
+        }
 
         for (i in syllables.indices) {
             val syl = syllables[i]
-            val sylLen = syl.text.length
             val sylStart = syl.timestampMs
             val rawSylEnd = sylStart + syl.durationMs
             val nextSylStart = syllables.getOrNull(i + 1)?.timestampMs
 
-            // Continuous handoff: in fast songs or contiguous syllables (gap <= 300ms or overlapping),
-            // the syllable wipes smoothly from sylStart to nextSylStart without any gap or drop.
-            // For longer pauses / rests (gap > 300ms), it wipes during rawSylEnd and holds steady at 100%.
+            // Continuous natural singing bridge:
+            // In singing, notes sustain until the next syllable or rest.
+            // Bridging gaps up to 1200ms ensures uninterrupted, butter-smooth wipe
+            // without freezing or rushing across every song tempo!
             val handoffEnd = if (nextSylStart != null && nextSylStart > sylStart) {
-                if (nextSylStart <= rawSylEnd || (nextSylStart - rawSylEnd) <= 300L) {
+                val gap = nextSylStart - rawSylEnd
+                if (gap <= 1200L) {
                     nextSylStart
                 } else {
-                    rawSylEnd
+                    minOf(rawSylEnd + 500L, sylStart + ((nextSylStart - sylStart) * 0.7f).toLong())
                 }
             } else {
-                rawSylEnd
+                maxOf(rawSylEnd, line.endMs)
             }
+
+            val (startChar, endChar) = sylCharRanges[i]
+            val sylCharCount = (endChar - startChar).coerceAtLeast(1)
 
             if (posMs < sylStart) {
                 break
             } else if (posMs in sylStart..handoffEnd) {
                 val dur = (handoffEnd - sylStart).coerceAtLeast(1L)
                 val frac = ((posMs - sylStart).toFloat() / dur.toFloat()).coerceIn(0f, 1f)
-                val activeChars = charsPassed + (frac * sylLen)
-                return (activeChars / totalChars.toFloat()).coerceIn(0f, 1f)
-            } else {
-                charsPassed += sylLen
+                val activeChar = startChar + (frac * sylCharCount)
+                return (activeChar / totalChars.toFloat()).coerceIn(0f, 1f)
             }
         }
 
-        return (charsPassed.toFloat() / totalChars.toFloat()).coerceIn(0f, 1f)
+        return (charAccumulator.toFloat() / totalChars.toFloat()).coerceIn(0f, 1f)
     }
 
     private fun computeRollingLyrics4(lines: List<KaraokeLine>, currIdx: Int): List<String> {
@@ -2941,7 +3015,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         if (showModal && fanfareVol > 0.01f) {
 
-            com.example.videokey.data.VideokeSoundEffects.playScoringFanfare(finalScore, fanfareVol)
+            playScoringFanfareAudio(finalScore)
 
             voiceManager.speakScoreFeedback(finalScore, _uiState.value.appLanguage == AppLanguage.TAGALOG)
 
@@ -3891,7 +3965,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             micScorer.stopScoring()
 
-            com.example.videokey.data.VideokeSoundEffects.stop()
+            stopScoringFanfareAudio()
 
             playbackJob?.cancel()
 
@@ -4687,7 +4761,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
     fun closeScoreModal() {
 
-        com.example.videokey.data.VideokeSoundEffects.stop()
+        stopScoringFanfareAudio()
 
         _uiState.update { it.copy(showScoreModal = false) }
 
@@ -6695,7 +6769,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             micScorer.stopScoring()
 
-            com.example.videokey.data.VideokeSoundEffects.stop()
+            stopScoringFanfareAudio()
 
         } else if (_uiState.value.isPlaying && mode == ScoreMode.MICROPHONE) {
 
@@ -6727,19 +6801,66 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
 
-    fun testScoringFanfare() {
+    private var customScoringMediaPlayer: android.media.MediaPlayer? = null
 
-        val vol = _uiState.value.fanfareSoundLevel.volume
+    fun playScoringFanfareAudio(score: Int) {
+        val fanfareVol = _uiState.value.fanfareSoundLevel.volume
+        if (fanfareVol <= 0.01f) return
+        val style = _uiState.value.scoringSoundStyle
+        val customUri = _uiState.value.customScoringSoundUri
 
-        if (vol > 0.01f) {
-
-            com.example.videokey.data.VideokeSoundEffects.playScoringFanfare(95, vol)
-
+        if (style == com.example.videokey.data.ScoringSoundStyle.CUSTOM_AUDIO && !customUri.isNullOrBlank()) {
+            try {
+                customScoringMediaPlayer?.release()
+                customScoringMediaPlayer = android.media.MediaPlayer().apply {
+                    setDataSource(getApplication(), android.net.Uri.parse(customUri))
+                    setVolume(fanfareVol, fanfareVol)
+                    setOnCompletionListener { mp ->
+                        try { mp.release() } catch (_: Exception) {}
+                        customScoringMediaPlayer = null
+                    }
+                    prepare()
+                    start()
+                }
+                return
+            } catch (e: Exception) {
+                Log.w("VideoKeyViewModel", "Failed to play custom scoring audio, falling back to fanfare: ${e.message}")
+            }
         }
-
+        com.example.videokey.data.VideokeSoundEffects.playScoringFanfare(score, fanfareVol, style)
     }
 
+    fun stopScoringFanfareAudio() {
+        try {
+            customScoringMediaPlayer?.stop()
+            customScoringMediaPlayer?.release()
+            customScoringMediaPlayer = null
+        } catch (_: Exception) {}
+        stopScoringFanfareAudio()
+    }
 
+    fun setScoringSoundStyle(style: com.example.videokey.data.ScoringSoundStyle) {
+        prefs.edit().putString("scoring_sound_style", style.name).apply()
+        _uiState.update { it.copy(scoringSoundStyle = style) }
+    }
+
+    fun setCustomScoringSoundUri(uri: String?) {
+        prefs.edit().putString("custom_scoring_sound_uri", uri).apply()
+        _uiState.update { it.copy(customScoringSoundUri = uri) }
+    }
+
+    fun setCameraFrontFacing(isFront: Boolean) {
+        prefs.edit().putBoolean("camera_is_front_facing", isFront).apply()
+        _uiState.update { it.copy(isCameraFrontFacing = isFront) }
+    }
+
+    fun toggleCameraFacing() {
+        setCameraFrontFacing(!_uiState.value.isCameraFrontFacing)
+    }
+
+    fun testScoringFanfare() {
+        playScoringFanfareAudio(95)
+    }
 
     fun setBackgroundVisualMode(mode: BackgroundVisualMode) {
 
@@ -6901,7 +7022,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         if (!enabled) {
 
-            com.example.videokey.data.VideokeSoundEffects.stop()
+            stopScoringFanfareAudio()
 
         }
 
@@ -7937,23 +8058,85 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
     fun setCountdownPhoto(uri: String) {
+        setCountdownAllImages(uri)
+    }
 
-        _uiState.update {
-
-            it.copy(
-
-                lyricConfig = it.lyricConfig.copy(
-
-                    customCountdownPhotoUri = uri,
-
-                    countdownMode = LyricCountdownMode.PHOTO_BADGE
-
-                )
-
-            )
-
+    fun setCountdownStepImage(step: Int, uri: String?) {
+        val key = when (step) {
+            4 -> "lyric_countdown_img_4_uri"
+            3 -> "lyric_countdown_img_3_uri"
+            2 -> "lyric_countdown_img_2_uri"
+            1 -> "lyric_countdown_img_1_uri"
+            5 -> "lyric_countdown_img_go_uri"
+            else -> null
         }
+        if (key != null) {
+            if (uri != null) {
+                prefs.edit().putString(key, uri).putString("lyric_countdown_mode", LyricCountdownMode.PHOTO_BADGE.name).apply()
+            } else {
+                prefs.edit().remove(key).apply()
+            }
+        }
+        _uiState.update { state ->
+            val cfg = state.lyricConfig
+            val updated = when (step) {
+                4 -> cfg.copy(countdownImg4Uri = uri, countdownMode = LyricCountdownMode.PHOTO_BADGE)
+                3 -> cfg.copy(countdownImg3Uri = uri, countdownMode = LyricCountdownMode.PHOTO_BADGE)
+                2 -> cfg.copy(countdownImg2Uri = uri, countdownMode = LyricCountdownMode.PHOTO_BADGE)
+                1 -> cfg.copy(countdownImg1Uri = uri, countdownMode = LyricCountdownMode.PHOTO_BADGE)
+                5 -> cfg.copy(countdownImgGoUri = uri, countdownMode = LyricCountdownMode.PHOTO_BADGE)
+                else -> cfg
+            }
+            state.copy(lyricConfig = updated)
+        }
+    }
 
+    fun setCountdownAllImages(uri: String) {
+        prefs.edit()
+            .putString("lyric_countdown_img_4_uri", uri)
+            .putString("lyric_countdown_img_3_uri", uri)
+            .putString("lyric_countdown_img_2_uri", uri)
+            .putString("lyric_countdown_img_1_uri", uri)
+            .putString("lyric_countdown_img_go_uri", uri)
+            .putString("lyric_countdown_photo_uri", uri)
+            .putString("lyric_countdown_mode", LyricCountdownMode.PHOTO_BADGE.name)
+            .apply()
+        _uiState.update { state ->
+            state.copy(
+                lyricConfig = state.lyricConfig.copy(
+                    customCountdownPhotoUri = uri,
+                    countdownImg4Uri = uri,
+                    countdownImg3Uri = uri,
+                    countdownImg2Uri = uri,
+                    countdownImg1Uri = uri,
+                    countdownImgGoUri = uri,
+                    countdownMode = LyricCountdownMode.PHOTO_BADGE
+                )
+            )
+        }
+    }
+
+    fun clearAllCountdownImages() {
+        prefs.edit()
+            .remove("lyric_countdown_img_4_uri")
+            .remove("lyric_countdown_img_3_uri")
+            .remove("lyric_countdown_img_2_uri")
+            .remove("lyric_countdown_img_1_uri")
+            .remove("lyric_countdown_img_go_uri")
+            .remove("lyric_countdown_photo_uri")
+            .apply()
+        _uiState.update { state ->
+            state.copy(
+                lyricConfig = state.lyricConfig.copy(
+                    customCountdownPhotoUri = null,
+                    countdownImg4Uri = null,
+                    countdownImg3Uri = null,
+                    countdownImg2Uri = null,
+                    countdownImg1Uri = null,
+                    countdownImgGoUri = null
+                )
+            )
+        }
     }
 
 
@@ -8098,7 +8281,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         micScorer.stopScoring()
 
-        com.example.videokey.data.VideokeSoundEffects.stop()
+        stopScoringFanfareAudio()
 
         voiceManager.shutdown()
 

@@ -609,10 +609,9 @@ fun VideoKeyScreen(
 
 
                 onTriggerScore = { viewModel.triggerScoreModal() },
-
-
-
                 onSongCompleted = { viewModel.onSongCompleted() },
+                onTogglePause = { viewModel.togglePlaybackPause() },
+                onToggleCameraFacing = { viewModel.toggleCameraFacing() },
 
 
 
@@ -927,10 +926,9 @@ fun VideoKeyScreen(
 
 
                                         onTriggerScore = { viewModel.triggerScoreModal() },
-
-
-
-                                        onSongCompleted = { viewModel.onSongCompleted() },
+                onSongCompleted = { viewModel.onSongCompleted() },
+                onTogglePause = { viewModel.togglePlaybackPause() },
+                onToggleCameraFacing = { viewModel.toggleCameraFacing() },
 
 
 
@@ -1651,9 +1649,8 @@ fun VideoKeyScreen(
 
 
                 onSelectFanfareSoundLevel = { viewModel.setFanfareSoundLevel(it) },
-
-
-
+                onSelectScoringSoundStyle = { viewModel.setScoringSoundStyle(it) },
+                onPickCustomScoringAudio = { viewModel.setCustomScoringSoundUri(it) },
                 onTestFanfare = { viewModel.testScoringFanfare() },
 
 
@@ -1944,6 +1941,12 @@ fun VideoKeyScreen(
 
                 onSelectCountdownMode = { viewModel.setLyricCountdownMode(it) },
 
+                onSetCountdownStepImage = { step, uri -> viewModel.setCountdownStepImage(step, uri) },
+
+                onSetCountdownAllImages = { uri -> viewModel.setCountdownAllImages(uri) },
+
+                onClearAllCountdownImages = { viewModel.clearAllCountdownImages() },
+
 
 
                 onAdjustTimingOffset = { viewModel.setLyricTimingOffset(it) },
@@ -2003,10 +2006,9 @@ fun VideoKeyScreen(
 
 
                 bgVisualMode = state.bgVisualMode,
-
-
-
                 continuousVideoChangePerSong = state.continuousVideoChangePerSong,
+                isCameraFrontFacing = state.isCameraFrontFacing,
+                onSetCameraFrontFacing = { viewModel.setCameraFrontFacing(it) },
 
 
 
@@ -4193,6 +4195,10 @@ fun SingleCountdownBadge(
 
 
     if (number <= 0) return
+    if (number == 5) {
+        ArcadeGoBadge(isLandscape = isLandscape, modifier = modifier)
+        return
+    }
 
 
 
@@ -4373,156 +4379,169 @@ fun SingleCountdownBadge(
 
 
 @Composable
-
-fun PhotoCountdownBadge(
-
-    number: Int,
-
-    photoUri: String?,
-
+fun ArcadeGoBadge(
     isLandscape: Boolean,
-
     modifier: Modifier = Modifier
-
 ) {
-
-    if (number <= 0) return
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-
-    val infiniteTransition = rememberInfiniteTransition(label = "photoCountdownPulse")
-
+    val infiniteTransition = rememberInfiniteTransition(label = "goPulse")
     val pulseScale by infiniteTransition.animateFloat(
-
         initialValue = 0.95f,
-
-        targetValue = 1.15f,
-
+        targetValue = 1.18f,
         animationSpec = infiniteRepeatable(
-
-            animation = tween(260, easing = FastOutSlowInEasing),
-
+            animation = tween(220, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
-
         ),
-
-        label = "photoPulseScale"
-
+        label = "goPulseScale"
     )
 
-
-
-    val badgeSize = if (isLandscape) 34.dp else 28.dp
-
-
-
-    val photoBitmap = remember(photoUri) {
-
-        if (!photoUri.isNullOrEmpty()) {
-
-            try {
-
-                val uri = android.net.Uri.parse(photoUri)
-
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-
-                    android.graphics.BitmapFactory.decodeStream(stream)
-
-                }
-
-            } catch (e: Exception) {
-
-                null
-
-            }
-
-        } else null
-
-    }
-
-
+    val badgeWidth = if (isLandscape) 44.dp else 34.dp
+    val badgeHeight = if (isLandscape) 26.dp else 22.dp
 
     Box(
-
         modifier = modifier
-
             .scale(pulseScale)
-
-            .size(badgeSize)
-
-            .clip(CircleShape)
-
-            .background(Color(0xFF0F172A))
-
-            .border(2.dp, Brush.sweepGradient(listOf(Color(0xFFFFD700), Color(0xFFFF4081), Color(0xFF00E5FF), Color(0xFFFFD700))), CircleShape),
-
-        contentAlignment = Alignment.Center
-
-    ) {
-
-        if (photoBitmap != null) {
-
-            Image(
-
-                bitmap = photoBitmap.asImageBitmap(),
-
-                contentDescription = "Countdown Photo",
-
-                modifier = Modifier.fillMaxSize().clip(CircleShape),
-
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-
-            )
-
-        } else {
-
-            Text("🌟", fontSize = if (isLandscape) 16.sp else 13.sp)
-
-        }
-
-
-
-        Surface(
-
-            shape = CircleShape,
-
-            color = Color.Black.copy(alpha = 0.65f),
-
-            modifier = Modifier.size(if (isLandscape) 20.dp else 16.dp)
-
-        ) {
-
-            Box(contentAlignment = Alignment.Center) {
-
-                Text(
-
-                    text = "$number",
-
-                    color = Color(0xFFFDE047),
-
-                    fontWeight = FontWeight.Black,
-
-                    fontSize = if (isLandscape) 13.sp else 10.sp,
-
-                    fontFamily = FontFamily.Monospace
-
+            .size(width = badgeWidth, height = badgeHeight)
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFFFF1744), Color(0xFFFF9100))
                 )
-
-            }
-
-        }
-
+            )
+            .border(1.5.dp, Color(0xFFFFEB3B), RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "GO!",
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            fontSize = if (isLandscape) 14.sp else 11.sp,
+            color = Color.White,
+            style = TextStyle(
+                shadow = Shadow(
+                    color = Color(0xFFFF1744),
+                    offset = Offset.Zero,
+                    blurRadius = 6f
+                )
+            )
+        )
     }
-
 }
 
+@Composable
+fun CustomCountdownStepBadge(
+    step: Int,
+    lyricConfig: LyricCustomization,
+    isLandscape: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (step <= 0) return
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val infiniteTransition = rememberInfiniteTransition(label = "stepCountdownPulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(260, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "stepPulseScale"
+    )
 
+    val imgUri = when (step) {
+        4 -> lyricConfig.countdownImg4Uri ?: lyricConfig.customCountdownPhotoUri
+        3 -> lyricConfig.countdownImg3Uri ?: lyricConfig.customCountdownPhotoUri
+        2 -> lyricConfig.countdownImg2Uri ?: lyricConfig.customCountdownPhotoUri
+        1 -> lyricConfig.countdownImg1Uri ?: lyricConfig.customCountdownPhotoUri
+        5 -> lyricConfig.countdownImgGoUri ?: lyricConfig.customCountdownPhotoUri
+        else -> null
+    }
 
+    val bitmap = remember(imgUri) {
+        if (!imgUri.isNullOrEmpty()) {
+            try {
+                val uri = android.net.Uri.parse(imgUri)
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    android.graphics.BitmapFactory.decodeStream(stream)
+                }
+            } catch (_: Exception) {
+                null
+            }
+        } else null
+    }
 
+    val badgeHeight = if (isLandscape) 36.dp else 28.dp
+    val badgeWidth = if (step == 5) (if (isLandscape) 46.dp else 36.dp) else badgeHeight
+    val shape = if (step == 5) RoundedCornerShape(10.dp) else CircleShape
 
+    Box(
+        modifier = modifier
+            .scale(pulseScale)
+            .size(width = badgeWidth, height = badgeHeight)
+            .clip(shape)
+            .background(Color(0xFF0F172A))
+            .border(
+                width = 2.dp,
+                brush = Brush.sweepGradient(
+                    if (step == 5) {
+                        listOf(Color(0xFFFF1744), Color(0xFFFF9100), Color(0xFFFFD700), Color(0xFFFF1744))
+                    } else {
+                        listOf(Color(0xFFFFD700), Color(0xFFFF4081), Color(0xFF00E5FF), Color(0xFFFFD700))
+                    }
+                ),
+                shape = shape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = "Countdown Step $step",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(shape),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+            Surface(
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.65f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(if (isLandscape) 18.dp else 14.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (step == 5) "GO" else "$step",
+                        color = if (step == 5) Color(0xFFFF5252) else Color(0xFFFDE047),
+                        fontWeight = FontWeight.Black,
+                        fontSize = if (isLandscape) 10.sp else 8.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        } else {
+            if (step == 5) {
+                ArcadeGoBadge(isLandscape = isLandscape)
+            } else {
+                SingleCountdownBadge(number = step, isLandscape = isLandscape)
+            }
+        }
+    }
+}
 
-
-
+@Composable
+fun PhotoCountdownBadge(
+    number: Int,
+    photoUri: String?,
+    isLandscape: Boolean,
+    modifier: Modifier = Modifier
+) {
+    CustomCountdownStepBadge(
+        step = number,
+        lyricConfig = LyricCustomization(customCountdownPhotoUri = photoUri),
+        isLandscape = isLandscape,
+        modifier = modifier
+    )
+}
 
 /**
 
@@ -6129,6 +6148,8 @@ fun VideokeTvScreen(
 
 
     onStopYouTubeStream: () -> Unit = {},
+    onTogglePause: () -> Unit = {},
+    onToggleCameraFacing: () -> Unit = {},
 
 
 
@@ -6309,34 +6330,16 @@ fun VideokeTvScreen(
 
 
 
-            .pointerInput(isLandscape) {
-
-
-
-                if (isLandscape) {
-
-
-
-                    detectTapGestures {
-
-
-
-                        showLandscapeControls = true
-
-
-
-                        interactionTick++
-
-
-
+            .pointerInput(isLandscape, state.isPlaying) {
+                detectTapGestures {
+                    if (state.isPlaying) {
+                        onTogglePause()
                     }
-
-
-
+                    if (isLandscape) {
+                        showLandscapeControls = true
+                        interactionTick++
+                    }
                 }
-
-
-
             }
 
 
@@ -6406,9 +6409,8 @@ fun VideokeTvScreen(
 
 
                 bgVisualMode = state.bgVisualMode,
-
-
-
+                isCameraFrontFacing = state.isCameraFrontFacing,
+                onToggleCameraFacing = onToggleCameraFacing,
                 onBackgroundCompleted = {
 
 
@@ -10210,6 +10212,60 @@ fun VideokeTvScreen(
                         ) {
                             Text(text = if (isTagalog) "ISARA" else "CLOSE", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
+                    }
+                }
+            }
+        }
+
+        if (state.isPlaying && state.isPlaybackPaused) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.52f))
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) { onTogglePause() },
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A).copy(alpha = 0.94f)),
+                    border = BorderStroke(2.dp, Color(0xFF38BDF8)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 14.dp),
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .clickable { onTogglePause() }
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 34.dp, vertical = 22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(58.dp)
+                                .background(
+                                    Brush.linearGradient(listOf(Color(0xFF0284C7), Color(0xFF38BDF8))),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "▶", fontSize = 26.sp, color = Color.White)
+                        }
+                        Text(
+                            text = if (isTagalog) "NAKA-PAUSE" else "PAUSED",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White,
+                            letterSpacing = 2.sp
+                        )
+                        Text(
+                            text = if (isTagalog) "I-tap ang screen o button para mag-play ulit" else "Tap screen or button to resume playing",
+                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8),
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
@@ -16164,7 +16220,7 @@ fun KaraokeLyricLine(
                     .padding(
                         start = 4.dp,
                         end = 4.dp,
-                        top = if (countdownNumber in 1..4 && lyricConfig.countdownMode != LyricCountdownMode.OFF) {
+                        top = if (countdownNumber in 1..5 && lyricConfig.countdownMode != LyricCountdownMode.OFF) {
                             if (isLandscape) 32.dp else 28.dp
                         } else 2.dp,
                         bottom = 2.dp
@@ -16219,12 +16275,16 @@ fun KaraokeLyricLine(
                                     if (wipeClamped >= 1f) {
                                         size.width + 20f
                                     } else {
-                                        val totalChars = displayText.length.coerceAtMost(layout.layoutInput.text.length)
-                                        val charProgress = (wipeClamped * totalChars).coerceIn(0f, totalChars.toFloat())
-                                        val charIdx = charProgress.toInt().coerceIn(0, (totalChars - 1).coerceAtLeast(0))
-                                        val charFrac = (charProgress - charIdx).coerceIn(0f, 1f)
-                                        val box = layout.getBoundingBox(charIdx)
-                                        box.left + (box.width * charFrac)
+                                        try {
+                                            val totalChars = displayText.length.coerceAtMost(layout.layoutInput.text.length)
+                                            val charProgress = (wipeClamped * totalChars).coerceIn(0f, totalChars.toFloat())
+                                            val charIdx = charProgress.toInt().coerceIn(0, (totalChars - 1).coerceAtLeast(0))
+                                            val charFrac = (charProgress - charIdx).coerceIn(0f, 1f)
+                                            val box = layout.getBoundingBox(charIdx)
+                                            box.left + (box.width * charFrac)
+                                        } catch (e: Throwable) {
+                                            size.width * wipeClamped
+                                        }
                                     }
                                 } else {
                                     size.width * wipeClamped
@@ -16264,7 +16324,7 @@ fun KaraokeLyricLine(
             }
 
             // Countdown indicator placed cleanly ABOVE the first letter of lyrics without blocking!
-            if (countdownNumber in 1..4 && lyricConfig.countdownMode != LyricCountdownMode.OFF) {
+            if (countdownNumber in 1..5 && lyricConfig.countdownMode != LyricCountdownMode.OFF) {
                 Box(
                     modifier = Modifier
                         .zIndex(10f)
@@ -16282,15 +16342,19 @@ fun KaraokeLyricLine(
                             )
                         }
                         LyricCountdownMode.CLASSIC_DOTS -> {
-                            VideokeDotsCountdownBadge(
-                                number = countdownNumber,
-                                isLandscape = isLandscape
-                            )
+                            if (countdownNumber == 5) {
+                                ArcadeGoBadge(isLandscape = isLandscape)
+                            } else {
+                                VideokeDotsCountdownBadge(
+                                    number = countdownNumber,
+                                    isLandscape = isLandscape
+                                )
+                            }
                         }
                         LyricCountdownMode.PHOTO_BADGE -> {
-                            PhotoCountdownBadge(
-                                number = countdownNumber,
-                                photoUri = lyricConfig.customCountdownPhotoUri,
+                            CustomCountdownStepBadge(
+                                step = countdownNumber,
+                                lyricConfig = lyricConfig,
                                 isLandscape = isLandscape
                             )
                         }
@@ -24788,7 +24852,11 @@ fun SoundFontSelectionDialog(
 
 
 
-fun LiveCameraBackground(modifier: Modifier = Modifier) {
+fun LiveCameraBackground(
+    isFrontFacing: Boolean = true,
+    onToggleFacing: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
 
 
 
@@ -24997,10 +25065,6 @@ fun LiveCameraBackground(modifier: Modifier = Modifier) {
 
 
         var cameraInstance by remember { mutableStateOf<android.hardware.Camera?>(null) }
-
-
-
-        var isFrontFacing by remember { mutableStateOf(true) }
 
 
 
@@ -25616,42 +25680,25 @@ fun LiveCameraBackground(modifier: Modifier = Modifier) {
 
 
 
-            IconButton(
-
-
-
-                onClick = { isFrontFacing = !isFrontFacing },
-
-
-
+            Row(
                 modifier = Modifier
-
-
-
                     .align(Alignment.TopEnd)
-
-
-
                     .padding(12.dp)
-
-
-
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-
-
-
-                    .size(36.dp)
-
-
-
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    .clickable { onToggleFacing() }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-
-
-
-                Text(text = "🔄", fontSize = 16.sp)
-
-
-
+                Text(text = "🔄", fontSize = 13.sp)
+                Text(
+                    text = if (isFrontFacing) "Harap (Front)" else "Likod (Back)",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
 
@@ -25717,9 +25764,8 @@ fun VideokeBackgroundLayer(
 
 
     bgVisualMode: BackgroundVisualMode = BackgroundVisualMode.VIDEOS,
-
-
-
+    isCameraFrontFacing: Boolean = false,
+    onToggleCameraFacing: () -> Unit = {},
     onBackgroundCompleted: () -> Unit = {},
 
 
@@ -25789,13 +25835,11 @@ fun VideokeBackgroundLayer(
 
 
             !isVideoSong && bgVisualMode == BackgroundVisualMode.CAMERA -> {
-
-
-
-                LiveCameraBackground(modifier = Modifier.fillMaxSize())
-
-
-
+                LiveCameraBackground(
+                    isFrontFacing = isCameraFrontFacing,
+                    onToggleFacing = onToggleCameraFacing,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
 
@@ -27376,6 +27420,8 @@ fun BackgroundSelectionDialog(
 
 
 
+    isCameraFrontFacing: Boolean = false,
+    onSetCameraFrontFacing: (Boolean) -> Unit = {},
     onSelectBgVisualMode: (BackgroundVisualMode) -> Unit = {},
 
 
@@ -27689,49 +27735,60 @@ fun BackgroundSelectionDialog(
 
 
                             Text(
-
-
-
                                 text = "$icon ${mode.label(isTagalog)}",
-
-
-
                                 color = if (isModeSel) btnTextClr else Color(theme.textColor),
-
-
-
                                 fontWeight = FontWeight.Bold,
-
-
-
                                 fontFamily = CleanFont,
-
-
-
                                 fontSize = 10.5.sp,
-
-
-
                                 maxLines = 1,
-
-
-
                                 overflow = TextOverflow.Ellipsis
-
-
-
                             )
-
-
-
                         }
-
-
-
                     }
+                }
 
-
-
+                if (bgVisualMode == BackgroundVisualMode.CAMERA) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val isFront = isCameraFrontFacing
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isFront) Color(0xFF0284C7) else Color(theme.buttonBgColor))
+                                .border(1.dp, if (isFront) Color(0xFF38BDF8) else Color(theme.buttonBorderColor), RoundedCornerShape(8.dp))
+                                .clickable { onSetCameraFrontFacing(true) }
+                                .padding(vertical = 7.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isTagalog) "🤳 Harap (Front Cam)" else "🤳 Front Camera",
+                                color = if (isFront) Color.White else Color(theme.textColor),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (!isFront) Color(0xFF0284C7) else Color(theme.buttonBgColor))
+                                .border(1.dp, if (!isFront) Color(0xFF38BDF8) else Color(theme.buttonBorderColor), RoundedCornerShape(8.dp))
+                                .clickable { onSetCameraFrontFacing(false) }
+                                .padding(vertical = 7.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isTagalog) "📷 Likod (Back Cam)" else "📷 Back Camera",
+                                color = if (!isFront) Color.White else Color(theme.textColor),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
                 }
 
 
@@ -28946,6 +29003,12 @@ fun LyricStyleDialog(
 
     onSelectCountdownPhoto: (String) -> Unit = {},
 
+    onSetCountdownStepImage: (Int, String?) -> Unit = { _, _ -> },
+
+    onSetCountdownAllImages: (String) -> Unit = {},
+
+    onClearAllCountdownImages: () -> Unit = {},
+
     onAdjustTimingOffset: (Int) -> Unit = {},
 
 
@@ -29590,7 +29653,11 @@ fun LyricStyleDialog(
 
                             onSelectCountdownMode = onSelectCountdownMode,
 
+                            onSetCountdownStepImage = onSetCountdownStepImage,
 
+                            onSetCountdownAllImages = onSetCountdownAllImages,
+
+                            onClearAllCountdownImages = onClearAllCountdownImages,
 
                             onAdjustTimingOffset = onAdjustTimingOffset,
 
@@ -29754,7 +29821,11 @@ fun LyricStyleDialog(
 
                             onSelectCountdownMode = onSelectCountdownMode,
 
+                            onSetCountdownStepImage = onSetCountdownStepImage,
 
+                            onSetCountdownAllImages = onSetCountdownAllImages,
+
+                            onClearAllCountdownImages = onClearAllCountdownImages,
 
                             onAdjustTimingOffset = onAdjustTimingOffset,
 
@@ -30668,6 +30739,12 @@ private fun LyricControlsScrollable(
 
     onSelectCountdownPhoto: (String) -> Unit = {},
 
+    onSetCountdownStepImage: (Int, String?) -> Unit = { _, _ -> },
+
+    onSetCountdownAllImages: (String) -> Unit = {},
+
+    onClearAllCountdownImages: () -> Unit = {},
+
     onAdjustTimingOffset: (Int) -> Unit = {},
 
 
@@ -30764,6 +30841,12 @@ private fun LyricControlsScrollable(
 
             onSelectCountdownPhoto = onSelectCountdownPhoto,
 
+            onSetCountdownStepImage = onSetCountdownStepImage,
+
+            onSetCountdownAllImages = onSetCountdownAllImages,
+
+            onClearAllCountdownImages = onClearAllCountdownImages,
+
             onAdjustTimingOffset = onAdjustTimingOffset,
 
 
@@ -30855,6 +30938,12 @@ private fun LyricControlsInner(
     onSelectCountdownMode: (LyricCountdownMode) -> Unit = {},
 
     onSelectCountdownPhoto: (String) -> Unit = {},
+
+    onSetCountdownStepImage: (Int, String?) -> Unit = { _, _ -> },
+
+    onSetCountdownAllImages: (String) -> Unit = {},
+
+    onClearAllCountdownImages: () -> Unit = {},
 
     onAdjustTimingOffset: (Int) -> Unit = {},
 
@@ -33701,71 +33790,204 @@ private fun LyricControlsInner(
 
 
         if (config.countdownMode == LyricCountdownMode.PHOTO_BADGE) {
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            val photoLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-
+            var pendingStepSlot by remember { mutableStateOf<Int?>(null) }
+            val singleStepPhotoLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
                 contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
-
             ) { uri: android.net.Uri? ->
-
-                if (uri != null) {
-
-                    onSelectCountdownPhoto(uri.toString())
-
+                val slot = pendingStepSlot
+                if (uri != null && slot != null) {
+                    onSetCountdownStepImage(slot, uri.toString())
                 }
-
             }
 
-
+            val allStepsPhotoLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+            ) { uri: android.net.Uri? ->
+                if (uri != null) {
+                    onSetCountdownAllImages(uri.toString())
+                }
+            }
 
             Surface(
-
-                shape = RoundedCornerShape(8.dp),
-
-                color = Color(0xFFEAB308).copy(alpha = 0.2f),
-
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEAB308)),
-
-                modifier = Modifier.fillMaxWidth().clickable { photoLauncher.launch("image/*") }
-
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF0F172A).copy(alpha = 0.9f),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFEAB308).copy(alpha = 0.8f)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-
-                Row(
-
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-
-                    verticalAlignment = Alignment.CenterVertically,
-
-                    horizontalArrangement = Arrangement.Center
-
-                ) {
-
-                    Text("🖼️ ", fontSize = 12.sp)
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isTagalog) "🖼️ 5 IMAHE NG COUNTDOWN (4, 3, 2, 1, GO!)" else "🖼️ 5 COUNTDOWN IMAGES (4, 3, 2, 1, GO!)",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFFFDE047)
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFFFD700).copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                text = "VIP CUSTOM",
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFFD700),
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
 
                     Text(
-
-                        text = if (config.customCountdownPhotoUri != null)
-
-                            (if (isTagalog) "Palitan ang Photo Countdown" else "Change Countdown Photo")
-
+                        text = if (isTagalog)
+                            "Pindutin ang bawat kahon para mag-upload ng kanya-kanyang larawan. Auto-resize nang maganda at makinis sa screen!"
                         else
-
-                            (if (isTagalog) "Pumili ng Photo para sa Countdown" else "Choose Photo for Countdown"),
-
-                        fontSize = 11.sp,
-
-                        fontWeight = FontWeight.Bold,
-
-                        color = Color(0xFFFDE047)
-
+                            "Tap each slot to upload custom photos for 4, 3, 2, 1, and GO! Auto-resizes smoothly on screen.",
+                        fontSize = 9.5.sp,
+                        color = Color(0xFF94A3B8),
+                        modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
                     )
 
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val stepList = listOf(
+                        Triple(4, "4", config.countdownImg4Uri ?: config.customCountdownPhotoUri),
+                        Triple(3, "3", config.countdownImg3Uri ?: config.customCountdownPhotoUri),
+                        Triple(2, "2", config.countdownImg2Uri ?: config.customCountdownPhotoUri),
+                        Triple(1, "1", config.countdownImg1Uri ?: config.customCountdownPhotoUri),
+                        Triple(5, "GO!", config.countdownImgGoUri ?: config.customCountdownPhotoUri)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        for ((stepNum, stepLabel, stepUri) in stepList) {
+                            val bitmap = remember(stepUri) {
+                                if (!stepUri.isNullOrEmpty()) {
+                                    try {
+                                        val u = android.net.Uri.parse(stepUri)
+                                        context.contentResolver.openInputStream(u)?.use { stream ->
+                                            android.graphics.BitmapFactory.decodeStream(stream)
+                                        }
+                                    } catch (_: Exception) {
+                                        null
+                                    }
+                                } else null
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(0.85f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF1E293B))
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (bitmap != null) Color(0xFF22C55E) else Color(0xFF475569),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable {
+                                        pendingStepSlot = stepNum
+                                        singleStepPhotoLauncher.launch("image/*")
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (bitmap != null) {
+                                    Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = "Step $stepLabel",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 6.dp),
+                                        color = Color.Black.copy(alpha = 0.75f),
+                                        modifier = Modifier.align(Alignment.TopStart)
+                                    ) {
+                                        Text(
+                                            text = stepLabel,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color(0xFFFDE047),
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(18.dp)
+                                            .background(Color.Red.copy(alpha = 0.85f), CircleShape)
+                                            .clickable { onSetCountdownStepImage(stepNum, null) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("✕", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = stepLabel,
+                                            fontSize = if (stepNum == 5) 11.sp else 13.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (stepNum == 5) Color(0xFFFF5252) else Color(0xFF94A3B8)
+                                        )
+                                        Text(
+                                            text = "+ Pili",
+                                            fontSize = 8.sp,
+                                            color = Color(0xFF38BDF8)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF0284C7).copy(alpha = 0.25f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0284C7)),
+                            modifier = Modifier.weight(1f).clickable { allStepsPhotoLauncher.launch("image/*") }
+                        ) {
+                            Text(
+                                text = if (isTagalog) "⚡ 1 Larawan sa Lahat" else "⚡ 1 Photo for All",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF38BDF8),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFDC2626).copy(alpha = 0.2f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDC2626)),
+                            modifier = Modifier.weight(1f).clickable { onClearAllCountdownImages() }
+                        ) {
+                            Text(
+                                text = if (isTagalog) "🗑️ I-reset Lahat" else "🗑️ Reset All",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFCA5A5),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+                        }
+                    }
                 }
-
             }
-
         }
 
     }
@@ -34193,6 +34415,8 @@ fun AppSettingsDialog(
 
 
     onSelectFanfareSoundLevel: (FanfareSoundLevel) -> Unit = {},
+    onSelectScoringSoundStyle: (com.example.videokey.data.ScoringSoundStyle) -> Unit = {},
+    onPickCustomScoringAudio: (String?) -> Unit = {},
 
 
 
@@ -35536,14 +35760,109 @@ fun AppSettingsDialog(
 
 
 
+                        // SCORING FANFARE STYLE CUSTOMIZATION
+                        Text(
+                            text = if (isTagalog) "TUNOG NG SCORING / FANFARE STYLE" else "SCORING SOUND & FANFARE STYLE",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF1F5F9)
+                        )
+
+                        // Sound Style options (Grid / Rows of styles)
+                        val soundStylesList: List<com.example.videokey.data.ScoringSoundStyle> = com.example.videokey.data.ScoringSoundStyle.values().toList()
+                        val soundStyleChunks: List<List<com.example.videokey.data.ScoringSoundStyle>> = soundStylesList.chunked(3)
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            soundStyleChunks.forEach { chunk: List<com.example.videokey.data.ScoringSoundStyle> ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    chunk.forEach { style: com.example.videokey.data.ScoringSoundStyle ->
+                                        val isSelected = state.scoringSoundStyle == style
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = if (isSelected) Color(0xFF2563EB) else Color(0xFF1E293B),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                width = if (isSelected) 1.5.dp else 1.dp,
+                                                color = if (isSelected) Color(0xFF60A5FA) else Color(0xFF334155)
+                                            ),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { onSelectScoringSoundStyle(style) }
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp, horizontal = 2.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "${style.icon} ${if (isTagalog) style.displayNameTagalog else style.displayNameEnglish}",
+                                                    fontSize = 8.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isSelected) Color.White else Color(0xFFCBD5E1),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                    for (emptySlot in chunk.size until 3) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        // If CUSTOM_AUDIO is selected, show file chooser button and selected file path
+                        if (state.scoringSoundStyle == com.example.videokey.data.ScoringSoundStyle.CUSTOM_AUDIO) {
+                            val audioPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                                contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+                            ) { uri: android.net.Uri? ->
+                                if (uri != null) {
+                                    onPickCustomScoringAudio(uri.toString())
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF0F172A))
+                                    .border(1.dp, Color(0xFF3B82F6), RoundedCornerShape(6.dp))
+                                    .clickable { audioPickerLauncher.launch("audio/*") }
+                                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(text = "📁", fontSize = 14.sp)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (isTagalog) "Pumili ng Custom MP3/WAV File..." else "Choose Custom MP3/WAV Audio...",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF60A5FA)
+                                    )
+                                    Text(
+                                        text = state.customScoringSoundUri ?: if (isTagalog) "Walang napiling file (default arcade fanfare)" else "No custom file selected",
+                                        fontSize = 8.5.sp,
+                                        color = Color(0xFF94A3B8),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (state.customScoringSoundUri != null) {
+                                    Text(
+                                        text = "✕",
+                                        color = Color(0xFFEF4444),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.clickable { onPickCustomScoringAudio(null) }
+                                    )
+                                }
+                            }
+                        }
+
                         // Test Fanfare Button
-
-
-
                         Button(
-
-
-
                             onClick = { onTestFanfare() },
 
 
