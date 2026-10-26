@@ -10221,52 +10221,58 @@ fun VideokeTvScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.52f))
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null
                     ) { onTogglePause() },
                 contentAlignment = Alignment.Center
             ) {
-                Card(
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A).copy(alpha = 0.94f)),
-                    border = BorderStroke(2.dp, Color(0xFF38BDF8)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 14.dp),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .clickable { onTogglePause() }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null
+                    ) { onTogglePause() }
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 34.dp, vertical = 22.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(58.dp)
-                                .background(
-                                    Brush.linearGradient(listOf(Color(0xFF0284C7), Color(0xFF38BDF8))),
-                                    CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "▶", fontSize = 26.sp, color = Color.White)
-                        }
-                        Text(
-                            text = if (isTagalog) "NAKA-PAUSE" else "PAUSED",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White,
-                            letterSpacing = 2.sp
+                    Text(
+                        text = "⏸",
+                        fontSize = 64.sp,
+                        color = Color.White,
+                        style = TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = Color.Black.copy(alpha = 0.95f),
+                                offset = androidx.compose.ui.geometry.Offset(3f, 3f),
+                                blurRadius = 14f
+                            )
                         )
-                        Text(
-                            text = if (isTagalog) "I-tap ang screen o button para mag-play ulit" else "Tap screen or button to resume playing",
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8),
-                            textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = if (isTagalog) "NAKA-PAUSE" else "PAUSED",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        letterSpacing = 3.sp,
+                        style = TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = Color.Black.copy(alpha = 0.95f),
+                                offset = androidx.compose.ui.geometry.Offset(2f, 2f),
+                                blurRadius = 10f
+                            )
                         )
-                    }
+                    )
+                    Text(
+                        text = if (isTagalog) "I-tap ang screen para mag-play ulit" else "Tap screen to resume",
+                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.90f),
+                        style = TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = Color.Black.copy(alpha = 0.95f),
+                                offset = androidx.compose.ui.geometry.Offset(1f, 1f),
+                                blurRadius = 8f
+                            )
+                        )
+                    )
                 }
             }
         }
