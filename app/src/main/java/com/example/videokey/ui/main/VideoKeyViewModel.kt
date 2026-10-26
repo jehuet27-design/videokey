@@ -965,6 +965,11 @@ data class VideoKeyUiState(
     val isCheckingVipStatus: Boolean = false,
     val scoringSoundStyle: com.example.videokey.data.ScoringSoundStyle = com.example.videokey.data.ScoringSoundStyle.CLASSIC_ARCADE,
     val customScoringSoundUri: String? = null,
+    val customScoreSound60_70Uri: String? = null,
+    val customScoreSound71_80Uri: String? = null,
+    val customScoreSound81_90Uri: String? = null,
+    val customScoreSound91_100Uri: String? = null,
+    val bassBoostMode: com.example.videokey.data.BassBoostMode = com.example.videokey.data.BassBoostMode.DEEP,
     val isCameraFrontFacing: Boolean = false,
 
     val isInitiatingGcashPayment: Boolean = false
@@ -1249,6 +1254,13 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val savedScoringStyleName = prefs.getString("scoring_sound_style", com.example.videokey.data.ScoringSoundStyle.CLASSIC_ARCADE.name) ?: com.example.videokey.data.ScoringSoundStyle.CLASSIC_ARCADE.name
         val initialScoringSoundStyle = try { com.example.videokey.data.ScoringSoundStyle.valueOf(savedScoringStyleName) } catch (_: Exception) { com.example.videokey.data.ScoringSoundStyle.CLASSIC_ARCADE }
         val initialCustomScoringSoundUri = prefs.getString("custom_scoring_sound_uri", null)
+        val initialScore60_70 = prefs.getString("custom_score_sound_60_70", null)
+        val initialScore71_80 = prefs.getString("custom_score_sound_71_80", null)
+        val initialScore81_90 = prefs.getString("custom_score_sound_81_90", null)
+        val initialScore91_100 = prefs.getString("custom_score_sound_91_100", null)
+        val savedBassModeName = prefs.getString("bass_boost_mode", com.example.videokey.data.BassBoostMode.DEEP.name)
+        val initialBassMode = try { com.example.videokey.data.BassBoostMode.valueOf(savedBassModeName ?: "DEEP") } catch (_: Exception) { com.example.videokey.data.BassBoostMode.DEEP }
+        soundEngine.setBassBoostMode(initialBassMode)
         val initialCameraFrontFacing = prefs.getBoolean("camera_is_front_facing", false)
 
 
@@ -1496,6 +1508,11 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
                 continuousVideoChangePerSong = savedContinuousChange,
                 scoringSoundStyle = initialScoringSoundStyle,
                 customScoringSoundUri = initialCustomScoringSoundUri,
+                customScoreSound60_70Uri = initialScore60_70,
+                customScoreSound71_80Uri = initialScore71_80,
+                customScoreSound81_90Uri = initialScore81_90,
+                customScoreSound91_100Uri = initialScore91_100,
+                bassBoostMode = initialBassMode,
                 isCameraFrontFacing = initialCameraFrontFacing,
 
                 lyricConfig = it.lyricConfig.copy(
@@ -6702,13 +6719,21 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
         val fanfareVol = _uiState.value.fanfareSoundLevel.volume
         if (fanfareVol <= 0.01f) return
         val style = _uiState.value.scoringSoundStyle
-        val customUri = _uiState.value.customScoringSoundUri
 
-        if (style == com.example.videokey.data.ScoringSoundStyle.CUSTOM_AUDIO && !customUri.isNullOrBlank()) {
+        // Check tier-specific custom sound first based on achieved score
+        val tierUri = when (score) {
+            in 91..100 -> _uiState.value.customScoreSound91_100Uri ?: _uiState.value.customScoringSoundUri
+            in 81..90 -> _uiState.value.customScoreSound81_90Uri ?: _uiState.value.customScoringSoundUri
+            in 71..80 -> _uiState.value.customScoreSound71_80Uri ?: _uiState.value.customScoringSoundUri
+            in 60..70 -> _uiState.value.customScoreSound60_70Uri ?: _uiState.value.customScoringSoundUri
+            else -> _uiState.value.customScoringSoundUri
+        }
+
+        if (!tierUri.isNullOrBlank()) {
             try {
                 customScoringMediaPlayer?.release()
                 customScoringMediaPlayer = android.media.MediaPlayer().apply {
-                    setDataSource(getApplication(), android.net.Uri.parse(customUri))
+                    setDataSource(getApplication(), android.net.Uri.parse(tierUri))
                     setVolume(fanfareVol, fanfareVol)
                     setOnCompletionListener { mp ->
                         try { mp.release() } catch (_: Exception) {}
@@ -6723,6 +6748,47 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
             }
         }
         com.example.videokey.data.VideokeSoundEffects.playScoringFanfare(score, fanfareVol, style)
+    }
+
+    fun setBassBoostMode(mode: com.example.videokey.data.BassBoostMode) {
+        soundEngine.setBassBoostMode(mode)
+        prefs.edit().putString("bass_boost_mode", mode.name).apply()
+        _uiState.update { it.copy(bassBoostMode = mode) }
+    }
+
+    fun setCustomScoreSoundTier(tier: Int, uri: String?) {
+        val key = when (tier) {
+            1 -> "custom_score_sound_60_70"
+            2 -> "custom_score_sound_71_80"
+            3 -> "custom_score_sound_81_90"
+            4 -> "custom_score_sound_91_100"
+            else -> return
+        }
+        if (uri != null) {
+            prefs.edit().putString(key, uri).apply()
+        } else {
+            prefs.edit().remove(key).apply()
+        }
+        _uiState.update {
+            when (tier) {
+                1 -> it.copy(customScoreSound60_70Uri = uri)
+                2 -> it.copy(customScoreSound71_80Uri = uri)
+                3 -> it.copy(customScoreSound81_90Uri = uri)
+                4 -> it.copy(customScoreSound91_100Uri = uri)
+                else -> it
+            }
+        }
+    }
+
+    fun testScoringFanfareTier(tier: Int) {
+        val sampleScore = when (tier) {
+            1 -> 65
+            2 -> 75
+            3 -> 85
+            4 -> 98
+            else -> 95
+        }
+        playScoringFanfareAudio(sampleScore)
     }
 
     fun stopScoringFanfareAudio() {

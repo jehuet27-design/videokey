@@ -179,24 +179,43 @@ class ScreenCaptureService : Service() {
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             currentOutputFile = File(targetDir, "VideoKey_Screen_$timestamp.mp4")
 
-            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(this)
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setVideoSource(MediaRecorder.VideoSource.SURFACE)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setOutputFile(currentOutputFile!!.absolutePath)
-                setVideoSize(width, height)
-                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setVideoEncodingBitRate(6_000_000)
-                setVideoFrameRate(30)
-                setAudioSamplingRate(44100)
-                setAudioEncodingBitRate(192000)
-                prepare()
+            var mrSuccess = false
+            val candidateSources = intArrayOf(
+                MediaRecorder.AudioSource.CAMCORDER,
+                MediaRecorder.AudioSource.MIC,
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                MediaRecorder.AudioSource.DEFAULT
+            )
+            for (source in candidateSources) {
+                try {
+                    val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        MediaRecorder(this)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        MediaRecorder()
+                    }
+                    mr.setAudioSource(source)
+                    mr.setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                    mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    mr.setOutputFile(currentOutputFile!!.absolutePath)
+                    mr.setVideoSize(width, height)
+                    mr.setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                    mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    mr.setVideoEncodingBitRate(6_000_000)
+                    mr.setVideoFrameRate(30)
+                    mr.setAudioSamplingRate(44100)
+                    mr.setAudioEncodingBitRate(256000)
+                    mr.prepare()
+                    mediaRecorder = mr
+                    mrSuccess = true
+                    Log.i(TAG, "MediaRecorder initialized with audio source $source")
+                    break
+                } catch (e: Exception) {
+                    Log.w(TAG, "Audio source $source failed: ${e.message}, trying next...")
+                }
+            }
+            if (!mrSuccess) {
+                throw RuntimeException("Could not initialize MediaRecorder with any audio source")
             }
 
             val surface = mediaRecorder!!.surface

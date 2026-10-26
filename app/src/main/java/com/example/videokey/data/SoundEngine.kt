@@ -23,6 +23,11 @@ import kotlin.math.pow
  * - Studio Mastering 10-band EQ + BASS_BFX_COMPRESSOR2 anti-clipping limiter ("hindi basag kahit malakas")
  * - Zero-latency real-time Key Transpose (-6 to +6 semitones, melodic channels only) & Tempo (70% to 130%)
  */
+enum class BassBoostMode(val id: String, val titleTagalog: String, val titleEnglish: String, val icon: String) {
+    DEEP("deep", "🌊 Deep (Subwoofer)", "🌊 Deep (Subwoofer)", "🌊"),
+    PUNCHY("punchy", "💥 Punchy (Kick-Thump)", "💥 Punchy (Kick-Thump)", "💥")
+}
+
 class SoundEngine(
     private val context: Context,
     private val karaokeRecorder: KaraokeRecorder? = null
@@ -175,7 +180,8 @@ class SoundEngine(
     private var guitarPianoPercent: Int = 100  // 0% to 150% (Guitar, Piano & Organ)
     private var stringsBrassPercent: Int = 100 // 0% to 150% (Strings, Brass, Sax & Synth)
     private var reverbPercent: Int = 50        // 0% to 100% (Studio Reverb / Ambience)
-    private var bassBoostPercent: Int = 0      // 0% to 100% (VIP Bass Boost +0dB to +12dB)
+        private var bassBoostPercent: Int = 0      // 0% to 100% (VIP Bass Boost +0dB to +12dB)
+    private var bassBoostMode: BassBoostMode = BassBoostMode.DEEP
     private var treblePercent: Int = 0         // 0% to 100% (VIP Treble Boost +0dB to +12dB)
     private var isAutoMixerEnabled: Boolean = true // Smart Auto-Mixer based on song analysis
 
@@ -798,11 +804,19 @@ class SoundEngine(
             val extraMultiplier = when (category) {
                 MidiMelodyScaler.InstrumentCategory.BASS -> {
                     // Up to 2.25x volume boost for Bass guitar & Synth bass like a live subwoofer!
-                    1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 1.25f
+                    if (bassBoostMode == BassBoostMode.PUNCHY) {
+                        1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 1.0f
+                    } else {
+                        1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 1.25f
+                    }
                 }
                 MidiMelodyScaler.InstrumentCategory.DRUMS -> {
                     // Massive kick thump from bass boost + razor-sharp hi-hat & snare crack from treble
-                    1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 0.75f + (treblePercent.coerceIn(0, 100) / 100.0f) * 0.75f
+                    if (bassBoostMode == BassBoostMode.PUNCHY) {
+                        1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 1.0f + (treblePercent.coerceIn(0, 100) / 100.0f) * 0.75f
+                    } else {
+                        1.0f + (bassBoostPercent.coerceIn(0, 100) / 100.0f) * 0.75f + (treblePercent.coerceIn(0, 100) / 100.0f) * 0.75f
+                    }
                 }
                 MidiMelodyScaler.InstrumentCategory.GUITAR_PIANO,
                 MidiMelodyScaler.InstrumentCategory.STRINGS_BRASS -> {
@@ -1438,6 +1452,15 @@ class SoundEngine(
 
     fun getBassBoost(): Int = bassBoostPercent
 
+    fun setBassBoostMode(mode: BassBoostMode) {
+        bassBoostMode = mode
+        applyEqualizerGains(midiStream)
+        applyInstrumentMix()
+        applyFallbackAudioFx()
+    }
+
+    fun getBassBoostMode(): BassBoostMode = bassBoostMode
+
     fun setTreble(percent: Int) {
         treblePercent = percent.coerceIn(0, 100)
         applyEqualizerGains(midiStream)
@@ -1481,6 +1504,7 @@ class SoundEngine(
         }
         val bassFactor = (bassBoostPercent.coerceIn(0, 100) / 100.0f)
         val trebleFactor = (treblePercent.coerceIn(0, 100) / 100.0f)
+        val isPunchy = (bassBoostMode == BassBoostMode.PUNCHY)
 
         if (peakEqFxHandle == 0) {
             peakEqFxHandle = BASS.BASS_ChannelSetFX(streamHandle, BASS_FX.BASS_FX_BFX_PEAKEQ, 10)
@@ -1489,12 +1513,12 @@ class SoundEngine(
         if (fx != 0) {
             for (i in 0 until 10) {
                 val baseGain = targetEqGains.getOrElse(i) { 0.0f }
-                // SUBWOOFER BASS BOOST & RAZOR-SHARP TREBLE
+                // SUBWOOFER BASS BOOST & RAZOR-SHARP TREBLE (DEEP vs PUNCHY modes)
                 val extraGain = when (i) {
-                    0 -> bassFactor * 18.0f  // 31 Hz: True deep Subwoofer sub-bass rumble (+18dB)
-                    1 -> bassFactor * 22.0f  // 62 Hz: Massive kick drum punch & chest-thump (+22dB)
-                    2 -> bassFactor * 16.0f  // 125 Hz: Rich solid Bass Guitar body (+16dB)
-                    3 -> bassFactor * 12.0f  // 250 Hz: Punchy low-mid definition (+12dB)
+                    0 -> if (isPunchy) bassFactor * 8.0f else bassFactor * 24.0f  // 31 Hz: Deep Subwoofer rumble
+                    1 -> if (isPunchy) bassFactor * 16.0f else bassFactor * 22.0f // 62 Hz: Deep chest thump
+                    2 -> if (isPunchy) bassFactor * 24.0f else bassFactor * 14.0f // 125 Hz: Punchy kick drum & slap
+                    3 -> if (isPunchy) bassFactor * 20.0f else bassFactor * 8.0f  // 250 Hz: Punchy rhythmic snap
                     4 -> bassFactor * 4.0f   // 500 Hz: Harmonic low warmth
                     6 -> trebleFactor * 6.0f // 2 kHz: Vocal & guitar presence
                     7 -> trebleFactor * 12.0f// 4 kHz: Sharp vocal & snare bite
@@ -1504,10 +1528,10 @@ class SoundEngine(
                 }
                 val eq = BASS_FX.BASS_BFX_PEAKEQ().apply {
                     lBand = i
-                    fBandwidth = if (i in 0..1) 0.85f else 1.0f // Tighter bandwidth for pure subwoofer impact
+                    fBandwidth = if (isPunchy) (if (i in 1..3) 0.75f else 1.0f) else (if (i in 0..1) 0.85f else 1.0f)
                     fQ = 0.0f
                     fCenter = EQ_FREQUENCIES[i]
-                    fGain = (baseGain + extraGain).coerceIn(-15.0f, 24.0f)
+                    fGain = (baseGain + extraGain).coerceIn(-15.0f, 26.0f)
                     lChannel = BASS_FX.BASS_BFX_CHANALL
                 }
                 BASS.BASS_FXSetParameters(fx, eq)

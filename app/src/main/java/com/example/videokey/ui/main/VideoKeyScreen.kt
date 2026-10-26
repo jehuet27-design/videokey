@@ -350,6 +350,13 @@ fun VideoKeyScreen(
 
     val isTagalog = state.appLanguage == AppLanguage.TAGALOG
 
+    if (state.isPictureInPicture) {
+        PictureInPictureVideokeScreen(
+            state = state
+        )
+        return
+    }
+
 
 
 
@@ -1515,6 +1522,7 @@ fun VideoKeyScreen(
 
 
                 onSetBassBoostPercent = { viewModel.setBassBoost(it) },
+                onSetBassBoostMode = { viewModel.setBassBoostMode(it) },
 
 
 
@@ -1661,6 +1669,8 @@ fun VideoKeyScreen(
                 onSelectFanfareSoundLevel = { viewModel.setFanfareSoundLevel(it) },
                 onSelectScoringSoundStyle = { viewModel.setScoringSoundStyle(it) },
                 onPickCustomScoringAudio = { viewModel.setCustomScoringSoundUri(it) },
+                onSetCustomScoreSoundTier = { tier, uri -> viewModel.setCustomScoreSoundTier(tier, uri) },
+                onTestScoringFanfareTier = { tier -> viewModel.testScoringFanfareTier(tier) },
                 onTestFanfare = { viewModel.testScoringFanfare() },
 
 
@@ -12818,6 +12828,7 @@ fun AudioMixerDialog(
 
 
     onSetBassBoostPercent: (Int) -> Unit = {},
+    onSetBassBoostMode: (com.example.videokey.data.BassBoostMode) -> Unit = {},
 
 
 
@@ -14936,37 +14947,101 @@ fun AudioMixerDialog(
                     // 9. Bass Boost (VIP Exclusive)
 
                     item {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            InstrumentSliderRow(
+                                title = if (isTagalog) "🔊 Bass Boost (Dagdag-Baho / Sub-Bass)" else "🔊 Bass Boost (Sub-Bass)",
+                                percent = state.bassBoostPercent,
+                                maxPercent = 100,
+                                accentColor = Color(0xFFFDE047),
+                                btnBg = uniformBtnBg,
+                                btnBorder = uniformBtnBorder,
+                                onStep = onAdjustBassBoost,
+                                onSlide = onSetBassBoostPercent,
+                                isVipOnly = true,
+                                isVipActivated = state.isVipActivated,
+                                onLockedClick = { onAdjustBassBoost(0) }
+                            )
 
-                        InstrumentSliderRow(
+                            // Mode Selector: Deep vs Punchy
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val isDeep = state.bassBoostMode == com.example.videokey.data.BassBoostMode.DEEP
+                                val isPunchy = state.bassBoostMode == com.example.videokey.data.BassBoostMode.PUNCHY
 
-                            title = if (isTagalog) "🔊 Bass Boost (Dagdag-Baho / Sub-Bass)" else "🔊 Bass Boost (Sub-Bass)",
+                                // Deep Button
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isDeep) Color(0xFF3B82F6).copy(alpha = 0.25f) else uniformBtnBg,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.2.dp,
+                                        if (isDeep) Color(0xFF3B82F6) else uniformBtnBorder
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            if (state.isVipActivated) {
+                                                onSetBassBoostMode(com.example.videokey.data.BassBoostMode.DEEP)
+                                            } else {
+                                                onAdjustBassBoost(0)
+                                            }
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text("🌊", fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (isTagalog) "DEEP (Subwoofer)" else "DEEP (Sub-Bass)",
+                                            fontSize = 10.sp,
+                                            fontWeight = if (isDeep) FontWeight.ExtraBold else FontWeight.Medium,
+                                            color = if (isDeep) Color(0xFF60A5FA) else Color.White
+                                        )
+                                    }
+                                }
 
-                            percent = state.bassBoostPercent,
-
-                            maxPercent = 100,
-
-                            accentColor = Color(0xFFFDE047),
-
-                            btnBg = uniformBtnBg,
-
-                            btnBorder = uniformBtnBorder,
-
-                            onStep = onAdjustBassBoost,
-
-                            onSlide = onSetBassBoostPercent,
-
-                            isVipOnly = true,
-
-                            isVipActivated = state.isVipActivated,
-
-                            onLockedClick = { onAdjustBassBoost(0) }
-
-                        )
-
+                                // Punchy Button
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isPunchy) Color(0xFFF59E0B).copy(alpha = 0.25f) else uniformBtnBg,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.2.dp,
+                                        if (isPunchy) Color(0xFFF59E0B) else uniformBtnBorder
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            if (state.isVipActivated) {
+                                                onSetBassBoostMode(com.example.videokey.data.BassBoostMode.PUNCHY)
+                                            } else {
+                                                onAdjustBassBoost(0)
+                                            }
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text("💥", fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (isTagalog) "PUNCHY (Kick-Thump)" else "PUNCHY (Kick-Thump)",
+                                            fontSize = 10.sp,
+                                            fontWeight = if (isPunchy) FontWeight.ExtraBold else FontWeight.Medium,
+                                            color = if (isPunchy) Color(0xFFFBBF24) else Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-
-
-
                     // 10. Treble Boost (VIP Exclusive)
 
                     item {
@@ -33615,6 +33690,8 @@ fun AppSettingsDialog(
     onSelectFanfareSoundLevel: (FanfareSoundLevel) -> Unit = {},
     onSelectScoringSoundStyle: (com.example.videokey.data.ScoringSoundStyle) -> Unit = {},
     onPickCustomScoringAudio: (String?) -> Unit = {},
+    onSetCustomScoreSoundTier: (Int, String?) -> Unit = { _, _ -> },
+    onTestScoringFanfareTier: (Int) -> Unit = {},
 
 
 
@@ -35010,13 +35087,40 @@ fun AppSettingsDialog(
                             }
                         }
 
-                        // If CUSTOM_AUDIO is selected, show file chooser button and selected file path
-                        if (state.scoringSoundStyle == com.example.videokey.data.ScoringSoundStyle.CUSTOM_AUDIO) {
-                            val audioPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                        // 4 CUSTOMIZABLE SCORING SOUND TIERS (60-70, 71-80, 81-90, 91-100)
+                        Text(
+                            text = if (isTagalog) "🎛️ CUSTOM SCORING SOUNDS (4 NA ANTAS NG GRADO)" else "🎛️ CUSTOM SCORING SOUNDS (4 SCORE TIERS)",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFFFDE047),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+
+                        val scoreTiers = listOf(
+                            Triple(1, "Score 60 - 70", state.customScoreSound60_70Uri),
+                            Triple(2, "Score 71 - 80", state.customScoreSound71_80Uri),
+                            Triple(3, "Score 81 - 90", state.customScoreSound81_90Uri),
+                            Triple(4, "Score 91 - 100", state.customScoreSound91_100Uri)
+                        )
+
+                        scoreTiers.forEach { (tierNum, rangeStr, currentUri) ->
+                            val tierIcon = when(tierNum) {
+                                1 -> "🥉"
+                                2 -> "🥈"
+                                3 -> "🥇"
+                                else -> "👑"
+                            }
+                            val tierColor = when(tierNum) {
+                                1 -> Color(0xFFCD7F32)
+                                2 -> Color(0xFFC0C0C0)
+                                3 -> Color(0xFFFBBF24)
+                                else -> Color(0xFF38BDF8)
+                            }
+                            val picker = androidx.activity.compose.rememberLauncherForActivityResult(
                                 contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
                             ) { uri: android.net.Uri? ->
                                 if (uri != null) {
-                                    onPickCustomScoringAudio(uri.toString())
+                                    onSetCustomScoreSoundTier(tierNum, uri.toString())
                                 }
                             }
 
@@ -35025,36 +35129,46 @@ fun AppSettingsDialog(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(6.dp))
                                     .background(Color(0xFF0F172A))
-                                    .border(1.dp, Color(0xFF3B82F6), RoundedCornerShape(6.dp))
-                                    .clickable { audioPickerLauncher.launch("audio/*") }
-                                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                                    .border(1.dp, if (currentUri != null) tierColor else Color(0xFF334155), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 8.dp, vertical = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text(text = "📁", fontSize = 14.sp)
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = if (isTagalog) "Pumili ng Custom MP3/WAV File..." else "Choose Custom MP3/WAV Audio...",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF60A5FA)
-                                    )
-                                    Text(
-                                        text = state.customScoringSoundUri ?: if (isTagalog) "Walang napiling file (default arcade fanfare)" else "No custom file selected",
-                                        fontSize = 8.5.sp,
-                                        color = Color(0xFF94A3B8),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                Text(text = "$tierIcon $rangeStr:", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(
+                                    text = currentUri?.substringAfterLast('/')?.take(20) ?: if (isTagalog) "(Default Fanfare)" else "(Default)",
+                                    fontSize = 8.5.sp,
+                                    color = if (currentUri != null) tierColor else Color(0xFF94A3B8),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                // Pick Audio Button
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFF1E293B),
+                                    border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF3B82F6)),
+                                    modifier = Modifier.clickable { picker.launch("audio/*") }
+                                ) {
+                                    Text("📁 PIPILI", fontSize = 8.sp, color = Color(0xFF60A5FA), fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp))
                                 }
-                                if (state.customScoringSoundUri != null) {
-                                    Text(
-                                        text = "✕",
-                                        color = Color(0xFFEF4444),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.clickable { onPickCustomScoringAudio(null) }
-                                    )
+                                // Test Tier Button
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFF065F46),
+                                    modifier = Modifier.clickable { onTestScoringFanfareTier(tierNum) }
+                                ) {
+                                    Text("▶", fontSize = 8.5.sp, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                                }
+                                // Reset Tier Button
+                                if (currentUri != null) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFF7F1D1D),
+                                        modifier = Modifier.clickable { onSetCustomScoreSoundTier(tierNum, null) }
+                                    ) {
+                                        Text("✕", fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp))
+                                    }
                                 }
                             }
                         }
@@ -43304,6 +43418,141 @@ fun FloatingLyricsOverlay(
                     maxLines = 2,
                     softWrap = true,
                     modifier = Modifier.padding(start = 22.dp)
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+fun PictureInPictureVideokeScreen(
+    state: VideoKeyUiState,
+    modifier: Modifier = Modifier
+) {
+    val activeLineText = when (state.activeLineNumber) {
+        1 -> state.line1
+        2 -> state.line2
+        3 -> state.line3
+        4 -> state.line4
+        else -> state.line1
+    }.trim()
+
+    val nextLineText = when (state.activeLineNumber) {
+        1 -> state.line2
+        2 -> state.line3
+        3 -> state.line4
+        else -> state.line1
+    }.trim()
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        val currentBg = state.selectedBackground
+        val videoSongPath = if (state.isVideoSong) state.currentSong.filePath else null
+        val hasMultipleMedia = state.availableBackgrounds.size > 1
+
+        // 1. Full-screen Video/Stage Background
+        VideokeBackgroundLayer(
+            background = currentBg,
+            hasMultipleMedia = hasMultipleMedia,
+            videoSongPath = videoSongPath,
+            isVideoSong = state.isVideoSong,
+            isPlaying = state.isPlaying,
+            isPlaybackPaused = state.isPlaybackPaused,
+            bgVisualMode = state.bgVisualMode,
+            isCameraFrontFacing = state.isCameraFrontFacing,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Gradient overlay at bottom to ensure lyrics stand out with maximum contrast
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.65f)
+                .align(Alignment.BottomCenter)
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                    )
+                )
+        )
+
+        // Compact Song Title & Code Badge at Top-Left
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .align(Alignment.TopStart),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = Color.Black.copy(alpha = 0.65f)
+            ) {
+                Text(
+                    text = "${state.currentSong.code} • ${state.currentSong.title}",
+                    color = Color(0xFFFDE047),
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = CleanFont,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // 2 Lines of Synchronized Lyrics at the Bottom: 100% visible, centered, clear, never cut off!
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            // Line 1: Active Singing Line
+            val activeLen = activeLineText.length
+            val activeSp = when {
+                activeLen > 40 -> 11.sp
+                activeLen > 25 -> 12.5.sp
+                else -> 14.sp
+            }
+            Text(
+                text = activeLineText.ifBlank { "..." },
+                color = Color(0xFF38BDF8),
+                fontSize = activeSp,
+                fontWeight = FontWeight.Black,
+                fontFamily = CleanFont,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                lineHeight = (activeSp.value * 1.2f).sp,
+                maxLines = 2,
+                softWrap = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Line 2: Next Line Preview
+            if (nextLineText.isNotBlank() && nextLineText != activeLineText) {
+                val nextLen = nextLineText.length
+                val nextSp = when {
+                    nextLen > 40 -> 9.sp
+                    nextLen > 25 -> 10.sp
+                    else -> 11.sp
+                }
+                Text(
+                    text = nextLineText,
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontSize = nextSp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = CleanFont,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = (nextSp.value * 1.2f).sp,
+                    maxLines = 2,
+                    softWrap = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
