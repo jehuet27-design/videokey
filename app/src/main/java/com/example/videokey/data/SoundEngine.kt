@@ -38,11 +38,67 @@ class SoundEngine(
 
     val availableSoundFonts = listOf(
         SoundFontPreset(
+            id = "auto_genre",
+            displayName = "✨ Awtomatiko (Depende sa Genre)",
+            fileName = "auto",
+            description = "Matalinong pagpili ng SoundFont batay sa genre ng kanta (Rock, Ballad, Pop, Disco, atbp.)",
+            genreTag = "AUTO"
+        ),
+        SoundFontPreset(
             id = "yamaha_videokey",
             displayName = "🎹 Yamaha VideoKey Studio (Default)",
             fileName = "Yamaha Videokey.sf2",
-            description = "905MB Yamaha Multi-Sampled Studio SoundFont (Malakas na Live Band at Instruments)",
+            description = "905MB Yamaha Multi-Sampled Studio Band (Malakas na Live Band, Bass, at Instruments)",
             genreTag = "YAMAHA"
+        ),
+        SoundFontPreset(
+            id = "videokey_pop",
+            displayName = "🎵 VideoKey OPM & Pop Studio",
+            fileName = "VideoKey Studio.sf2",
+            description = "Balanced Studio Minus-One para sa OPM, Pop, at Billboard charts",
+            genreTag = "POP"
+        ),
+        SoundFontPreset(
+            id = "videokey_rock",
+            displayName = "🎸 VideoKey Rock & Band Studio",
+            fileName = "VideoKey Studio.sf2",
+            description = "Lakas ng live rock band: malutong na electric guitar, driving bass, at punchy snare",
+            genreTag = "ROCK"
+        ),
+        SoundFontPreset(
+            id = "videokey_acoustic",
+            displayName = "🎹 VideoKey Acoustic & Ballad Studio",
+            fileName = "VideoKey Studio.sf2",
+            description = "Concert Grand Piano, Nylon Guitar, at lush warm strings para sa Love Songs",
+            genreTag = "BALLAD"
+        ),
+        SoundFontPreset(
+            id = "videokey_disco",
+            displayName = "🪩 VideoKey Disco & 80s/90s Synth",
+            fileName = "Dream Sam.sf2",
+            description = "Classic hardware videoke synthesizer soundchip, bouncy dance beat, at synth bass",
+            genreTag = "DANCE"
+        ),
+        SoundFontPreset(
+            id = "videokey_chacha",
+            displayName = "🎺 VideoKey Cha-Cha & Ballroom",
+            fileName = "Dream Sam.sf2",
+            description = "Crisp Latin percussion, lively brass section, at classic ballroom videoke groove",
+            genreTag = "BALLROOM"
+        ),
+        SoundFontPreset(
+            id = "videokey_party",
+            displayName = "🥁 VideoKey Party & Mega Beat",
+            fileName = "Yamaha Videokey.sf2",
+            description = "High-energy party sound, dynamic brass section, at punchy sub-bass",
+            genreTag = "PARTY"
+        ),
+        SoundFontPreset(
+            id = "dreamsam",
+            displayName = "✨ Dream Sam v2.1",
+            fileName = "Dream Sam.sf2",
+            description = "Classic Hardware Dream SAM Synthesizer Soundchip",
+            genreTag = "DREAM"
         ),
         SoundFontPreset(
             id = "videokey_studio",
@@ -50,13 +106,6 @@ class SoundEngine(
             fileName = "VideoKey Studio.sf2",
             description = "141MB Studio Minus-One Audio para sa OPM, Pop, at Billboard Hits",
             genreTag = "STUDIO"
-        ),
-        SoundFontPreset(
-            id = "dream_sam",
-            displayName = "✨ Dream Sam",
-            fileName = "Dream Sam.sf2",
-            description = "141MB Classic Hardware Dream SAM Synthesizer Soundchip",
-            genreTag = "DREAM"
         )
     )
 
@@ -68,7 +117,7 @@ class SoundEngine(
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var activeSoundFont: SoundFontPreset = availableSoundFonts.first()
+    private var activeSoundFont: SoundFontPreset = availableSoundFonts.find { it.id == "yamaha_videokey" } ?: availableSoundFonts.first()
     private var activeSoundFontName: String = activeSoundFont.displayName
 
     // Native BASS / BASSMIDI handles

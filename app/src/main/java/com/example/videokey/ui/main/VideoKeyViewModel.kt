@@ -803,32 +803,19 @@ data class VideoKeyUiState(
 
     val isBgFolderPickerOpen: Boolean = false,
 
-    val activeSoundFontName: String = "Dream SAM2634 v2.1",
-
-    val autoMatchedSoundFontForCurrentSong: String = "Dream SAM2634 v2.1",
-
+    val activeSoundFontName: String = "🎹 Yamaha VideoKey Studio (Default)",
+    val autoMatchedSoundFontForCurrentSong: String = "🎹 Yamaha VideoKey Studio (Default)",
     val availableSoundFonts: List<String> = listOf(
-
         "✨ Awtomatiko (Depende sa Genre)",
-
+        "🎹 Yamaha VideoKey Studio (Default)",
         "🎵 VideoKey OPM & Pop Studio",
-
         "🎸 VideoKey Rock & Band Studio",
-
         "🎹 VideoKey Acoustic & Ballad Studio",
-
         "🪩 VideoKey Disco & 80s/90s Synth",
-
         "🎺 VideoKey Cha-Cha & Ballroom",
-
         "🥁 VideoKey Party & Mega Beat",
-
-        "Yamaha x Korg x Ketron Studio",
-
-        "Dream SAM2634 v2.1",
-
-        "MegaPro Sound"
-
+        "✨ Dream Sam v2.1",
+        "🎵 VideoKey Studio"
     ),
 
     val isSoundFontDialogOpen: Boolean = false,
