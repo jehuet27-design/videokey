@@ -949,7 +949,7 @@ fun SingPulseHomeScreen(
                     letterSpacing = 0.5.sp
                 )
                 Text(
-                    text = "v2.8.1",
+                    text = "v2.8.2",
                     color = textMutedColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
