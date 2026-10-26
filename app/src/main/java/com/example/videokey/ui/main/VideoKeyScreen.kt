@@ -38915,203 +38915,71 @@ fun RecordingsDialog(
 
 
 
-                // Saved Recordings Header
-
-
-
-                Row(
-
-
-
-                    modifier = Modifier.fillMaxWidth(),
-
-
-
-                    horizontalArrangement = Arrangement.SpaceBetween,
-
-
-
-                    verticalAlignment = Alignment.CenterVertically
-
-
-
-                ) {
-
-
-
-                    Text(
-
-
-
-                        text = if (isTagalog) "MGA NAI-SAVE NA RECORDING (${state.savedRecordings.size}):" else "SAVED RECORDINGS (${state.savedRecordings.size}):",
-
-
-
-                        color = Color(state.appTheme.secondaryColor),
-
-
-
-                        fontFamily = CleanFont,
-
-
-
-                        fontSize = 11.sp,
-
-
-
-                        fontWeight = FontWeight.Black
-
-
-
-                    )
-
-
-
-                    Text(
-
-
-
-                        text = "/VideoKey/recordings",
-
-
-
-                        color = Color(state.appTheme.textMutedColor),
-
-
-
-                        fontSize = 9.sp,
-
-
-
-                        fontFamily = CleanFont
-
-
-
-                    )
-
-
-
+                val tabRecordings = remember(state.savedRecordings, recordingTab) {
+                    if (recordingTab == 0) {
+                        state.savedRecordings.filter { it.fileName.endsWith(".wav", ignoreCase = true) }
+                    } else {
+                        state.savedRecordings.filter { it.fileName.endsWith(".mp4", ignoreCase = true) }
+                    }
                 }
 
-
-
-
-
-
+                // Saved Recordings Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (recordingTab == 0) {
+                            if (isTagalog) "MGA AUDIO RECORDING (${tabRecordings.size}):" else "SAVED AUDIO RECORDINGS (${tabRecordings.size}):"
+                        } else {
+                            if (isTagalog) "MGA SCREEN RECORDING (${tabRecordings.size}):" else "SAVED SCREEN RECORDINGS (${tabRecordings.size}):"
+                        },
+                        color = Color(state.appTheme.secondaryColor),
+                        fontFamily = CleanFont,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        text = if (recordingTab == 0) "/VideoKey/recordings" else "/Movies/ScreenRecord",
+                        color = Color(state.appTheme.textMutedColor),
+                        fontSize = 9.sp,
+                        fontFamily = CleanFont
+                    )
+                }
 
                 // Recordings LazyColumn
-
-
-
                 LazyColumn(
-
-
-
                     modifier = Modifier
-
-
-
                         .weight(1f)
-
-
-
                         .fillMaxWidth(),
-
-
-
                     verticalArrangement = Arrangement.spacedBy(4.dp)
-
-
-
                 ) {
-
-
-
-                    if (state.savedRecordings.isEmpty()) {
-
-
-
+                    if (tabRecordings.isEmpty()) {
                         item {
-
-
-
                             Box(
-
-
-
                                 modifier = Modifier
-
-
-
                                     .fillMaxWidth()
-
-
-
                                     .padding(vertical = 24.dp),
-
-
-
                                 contentAlignment = Alignment.Center
-
-
-
                             ) {
-
-
-
                                 Text(
-
-
-
-                                    text = if (isTagalog)
-
-
-
-                                        "Wala pang nai-save na recording.\nPindutin ang 'SIMULAN ANG RECORDING' habang kumakanta!"
-
-
-
-                                    else
-
-
-
-                                        "No saved recordings yet.\nTap 'START RECORDING' while singing!",
-
-
-
+                                    text = if (recordingTab == 0) {
+                                        if (isTagalog) "Wala pang nai-save na Audio Recording.\nPindutin ang 'SIMULANG MAG-RECORD' habang kumakanta!"
+                                        else "No saved audio recordings yet.\nTap 'START RECORDING' while singing!"
+                                    } else {
+                                        if (isTagalog) "Wala pang nai-save na Screen Record.\nPindutin ang 'SIMULANG I-RECORD ANG SCREEN'!"
+                                        else "No saved screen recordings yet.\nTap 'START SCREEN RECORD' while singing!"
+                                    },
                                     color = Color(state.appTheme.textMutedColor),
-
-
-
                                     fontFamily = CleanFont,
-
-
-
                                     fontSize = 11.sp,
-
-
-
                                     textAlign = TextAlign.Center
-
-
-
                                 )
-
-
-
                             }
-
-
-
                         }
-
-
-
                     } else {
-
-
-
-                        items(state.savedRecordings) { rec ->
+                        items(tabRecordings) { rec ->
 
 
 
@@ -43376,75 +43244,53 @@ fun FloatingLyricsOverlay(
                 }
             }
 
-            // Row 2: Live Synchronized Lyrics Line (Auto-adjusting font size & multi-line wrapping so lyrics never get cut off)
+            // Row 2: Live Synchronized Videoke 2-Line Lyrics (Natural Alternating Highlights!)
             HorizontalDivider(color = Color(theme.primaryColor).copy(alpha = 0.25f), thickness = 1.dp)
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Text(text = "🎤", fontSize = 13.sp)
-                val lineLen = activeLineText.length
-                val activeFontSize = when {
-                    lineLen > 45 -> 10.sp
-                    lineLen > 30 -> 11.5.sp
-                    lineLen > 20 -> 12.5.sp
-                    else -> 13.5.sp
-                }
-                Text(
-                    text = activeLineText.ifBlank { "..." },
-                    color = Color(0xFF38BDF8),
-                    fontSize = activeFontSize,
-                    lineHeight = (activeFontSize.value * 1.25f).sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 2,
-                    softWrap = true,
-                    modifier = Modifier.weight(1f)
+                val isTopActive = state.activeLyricPosition == ActiveLyricPosition.TOP
+                val isBottomActive = state.activeLyricPosition == ActiveLyricPosition.BOTTOM
+                val topCountdown = if (isTopActive) state.countdownDots else 0
+                val bottomCountdown = if (isBottomActive) state.countdownDots else 0
+
+                val line1Text = state.landscapeLine1.ifBlank { if (!isTopActive && !isBottomActive) state.currentSong.title else "" }
+                val line2Text = state.landscapeLine2.ifBlank { if (!isTopActive && !isBottomActive) state.currentSong.artist else "" }
+
+                KaraokeLyricLine(
+                    text = line1Text,
+                    isActive = isTopActive,
+                    wipePercent = if (isTopActive) state.wipePercent else (if (isBottomActive) 1f else 0f),
+                    fontSize = 11.sp,
+                    lyricConfig = state.lyricConfig,
+                    countdownNumber = topCountdown,
+                    isLandscape = true
                 )
-            }
-            if (nextLineText.isNotBlank() && nextLineText != activeLineText) {
-                val nextLen = nextLineText.length
-                val nextFontSize = when {
-                    nextLen > 45 -> 9.sp
-                    nextLen > 30 -> 10.sp
-                    else -> 11.sp
-                }
-                Text(
-                    text = nextLineText,
-                    color = Color.White.copy(alpha = 0.60f),
-                    fontSize = nextFontSize,
-                    lineHeight = (nextFontSize.value * 1.2f).sp,
-                    maxLines = 2,
-                    softWrap = true,
-                    modifier = Modifier.padding(start = 22.dp)
+
+                KaraokeLyricLine(
+                    text = line2Text,
+                    isActive = isBottomActive,
+                    wipePercent = if (isBottomActive) state.wipePercent else 0f,
+                    fontSize = 11.sp,
+                    lyricConfig = state.lyricConfig,
+                    countdownNumber = bottomCountdown,
+                    isLandscape = true
                 )
             }
         }
     }
 }
 
-
 @Composable
 fun PictureInPictureVideokeScreen(
     state: VideoKeyUiState,
     modifier: Modifier = Modifier
 ) {
-    val activeLineText = when (state.activeLineNumber) {
-        1 -> state.line1
-        2 -> state.line2
-        3 -> state.line3
-        4 -> state.line4
-        else -> state.line1
-    }.trim()
-
-    val nextLineText = when (state.activeLineNumber) {
-        1 -> state.line2
-        2 -> state.line3
-        3 -> state.line4
-        else -> state.line1
-    }.trim()
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -43505,56 +43351,42 @@ fun PictureInPictureVideokeScreen(
             }
         }
 
-        // 2 Lines of Synchronized Lyrics at the Bottom: 100% visible, centered, clear, never cut off!
+        // 2 Lines of Synchronized Videoke Lyrics at Bottom: Natural Alternating Highlights!
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            // Line 1: Active Singing Line
-            val activeLen = activeLineText.length
-            val activeSp = when {
-                activeLen > 40 -> 11.sp
-                activeLen > 25 -> 12.5.sp
-                else -> 14.sp
-            }
-            Text(
-                text = activeLineText.ifBlank { "..." },
-                color = Color(0xFF38BDF8),
-                fontSize = activeSp,
-                fontWeight = FontWeight.Black,
-                fontFamily = CleanFont,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = (activeSp.value * 1.2f).sp,
-                maxLines = 2,
-                softWrap = true,
-                modifier = Modifier.fillMaxWidth()
+            val isTopActive = state.activeLyricPosition == ActiveLyricPosition.TOP
+            val isBottomActive = state.activeLyricPosition == ActiveLyricPosition.BOTTOM
+            val topCountdown = if (isTopActive) state.countdownDots else 0
+            val bottomCountdown = if (isBottomActive) state.countdownDots else 0
+
+            val line1Text = state.landscapeLine1.ifBlank { if (!isTopActive && !isBottomActive) state.currentSong.title else "" }
+            val line2Text = state.landscapeLine2.ifBlank { if (!isTopActive && !isBottomActive) state.currentSong.artist else "" }
+
+            KaraokeLyricLine(
+                text = line1Text,
+                isActive = isTopActive,
+                wipePercent = if (isTopActive) state.wipePercent else (if (isBottomActive) 1f else 0f),
+                fontSize = 11.5.sp,
+                lyricConfig = state.lyricConfig,
+                countdownNumber = topCountdown,
+                isLandscape = true
             )
 
-            // Line 2: Next Line Preview
-            if (nextLineText.isNotBlank() && nextLineText != activeLineText) {
-                val nextLen = nextLineText.length
-                val nextSp = when {
-                    nextLen > 40 -> 9.sp
-                    nextLen > 25 -> 10.sp
-                    else -> 11.sp
-                }
-                Text(
-                    text = nextLineText,
-                    color = Color.White.copy(alpha = 0.75f),
-                    fontSize = nextSp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = CleanFont,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    lineHeight = (nextSp.value * 1.2f).sp,
-                    maxLines = 2,
-                    softWrap = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            KaraokeLyricLine(
+                text = line2Text,
+                isActive = isBottomActive,
+                wipePercent = if (isBottomActive) state.wipePercent else 0f,
+                fontSize = 11.5.sp,
+                lyricConfig = state.lyricConfig,
+                countdownNumber = bottomCountdown,
+                isLandscape = true
+            )
         }
     }
 }

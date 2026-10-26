@@ -184,6 +184,7 @@ class SoundEngine(
     private var bassBoostMode: BassBoostMode = BassBoostMode.DEEP
     private var treblePercent: Int = 0         // 0% to 100% (VIP Treble Boost +0dB to +12dB)
     private var isAutoMixerEnabled: Boolean = true // Smart Auto-Mixer based on song analysis
+    var microphoneScorer: MicrophoneScorer? = null
 
     // Real-time BASSMIDI event filter to keep custom instrument mix & drum preset fallbacks locked
     private val midiFilterProc = BASSMIDI.MIDIFILTERPROC { handle, track, event, _, _ ->
@@ -226,12 +227,16 @@ class SoundEngine(
                         (analysis.numTracks <= 1 && analysis.melodyChannels.contains(ch))
                     )
                     if (isMelody) {
+                        val noteNum = event.param and 0x7F
+                        val velocity = (event.param shr 8) and 0xFF
+                        if (velocity > 0) {
+                            microphoneScorer?.updateTargetMelody(true, noteNum)
+                        } else {
+                            microphoneScorer?.updateTargetMelody(false, -1)
+                        }
                         if (isMelodyMuted || melodyPercent <= 0) {
                             return@MIDIFILTERPROC false // Clean minus-one vocal guide mute (drops all melody notes)
                         }
-                        // Note: Keep original note velocity untouched to preserve
-                        // authentic SoundFont instrument dynamics, multi-sample layers,
-                        // and acoustic expression ("kuha ang original na kanta").
                     }
                 }
             }

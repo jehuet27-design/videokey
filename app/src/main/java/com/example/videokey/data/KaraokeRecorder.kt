@@ -546,29 +546,75 @@ class KaraokeRecorder {
     }
 
     fun listSavedRecordings(): List<RecordedPerformance> {
+        val collected = mutableListOf<File>()
+
+        // 1. Primary VideoKey recordings folder (/sdcard/VideoKey/recordings)
         val dir = getRecordingsFolder()
-        val files = dir.listFiles { f -> f.isFile && f.extension.equals("wav", ignoreCase = true) && f.length() > 44L }
-            ?: return emptyList()
-        return files.sortedByDescending { it.lastModified() }.map { toRecordedPerformance(it) }
+        dir.listFiles { f -> f.isFile && (f.extension.equals("wav", ignoreCase = true) || f.extension.equals("mp4", ignoreCase = true)) && f.length() > 44L }?.let {
+            collected.addAll(it)
+        }
+
+        // 2. Movies / ScreenRecord folder (/sdcard/Movies/ScreenRecord)
+        val candidateDirs = listOf(
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES), "ScreenRecord"),
+            File("/storage/emulated/0/Movies/ScreenRecord"),
+            File("/sdcard/Movies/ScreenRecord"),
+            File("/storage/emulated/0/VideoKey/recordings")
+        )
+        for (cDir in candidateDirs) {
+            if (cDir.exists() && cDir.isDirectory) {
+                cDir.listFiles { f -> f.isFile && f.extension.equals("mp4", ignoreCase = true) && f.length() > 1024L }?.let {
+                    collected.addAll(it)
+                }
+            }
+        }
+
+        val uniqueFiles = collected.distinctBy { it.absolutePath }
+        return uniqueFiles.sortedByDescending { it.lastModified() }.map { toRecordedPerformance(it) }
     }
 
     private fun toRecordedPerformance(file: File): RecordedPerformance {
-        val pcmBytes = (file.length() - 44L).coerceAtLeast(0L)
-        val byteRate = readWavByteRate(file).coerceAtLeast(1)
-        val totalSec = (pcmBytes / byteRate).toInt()
-        val mins = totalSec / 60
-        val secs = totalSec % 60
-        val durLabel = String.format(Locale.US, "%02d:%02d", mins, secs)
+        val isMp4 = file.extension.equals("mp4", ignoreCase = true)
+        val durLabel = if (isMp4) {
+            try {
+                val mmr = android.media.MediaMetadataRetriever()
+                mmr.setDataSource(file.absolutePath)
+                val durStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                mmr.release()
+                val totalMs = durStr?.toLongOrNull() ?: 0L
+                val totalSec = (totalMs / 1000).toInt()
+                val mins = totalSec / 60
+                val secs = totalSec % 60
+                String.format(Locale.US, "%02d:%02d", mins, secs)
+            } catch (_: Exception) {
+                "--:--"
+            }
+        } else {
+            val pcmBytes = (file.length() - 44L).coerceAtLeast(0L)
+            val byteRate = readWavByteRate(file).coerceAtLeast(1)
+            val totalSec = (pcmBytes / byteRate).toInt()
+            val mins = totalSec / 60
+            val secs = totalSec % 60
+            String.format(Locale.US, "%02d:%02d", mins, secs)
+        }
+
         val dateLabel = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.US).format(Date(file.lastModified()))
 
-        // Parse friendly song title from VK_<code>_<title>_<timestamp>.wav
-        val parts = file.nameWithoutExtension.split("_")
-        val parsedTitle = if (parts.size >= 4 && parts[0] == "VK") {
-            val code = parts[1]
-            val titlePart = parts.subList(2, parts.size - 2).joinToString(" ")
-            "[$code] $titlePart"
+        val parsedTitle = if (isMp4) {
+            val raw = file.nameWithoutExtension
+                .removePrefix("VideoKey_Screen_")
+                .removePrefix("Screen_Recording_")
+            "🎥 Screen Record ($raw)"
         } else {
-            file.nameWithoutExtension
+            // Parse friendly song title from VK_<code>_<title>_<timestamp>.wav
+            val parts = file.nameWithoutExtension.split("_")
+            if (parts.size >= 4 && parts[0] == "VK") {
+                val code = parts[1]
+                val titlePart = parts.subList(2, parts.size - 2).joinToString(" ")
+                "🎤 [$code] $titlePart"
+            } else {
+                "🎤 " + file.nameWithoutExtension
+            }
         }
 
         return RecordedPerformance(

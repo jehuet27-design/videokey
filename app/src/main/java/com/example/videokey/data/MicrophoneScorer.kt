@@ -265,13 +265,9 @@ class MicrophoneScorer(
      * 3. Difficulty Mode: EASY (generous), MEDIUM (standard balanced), HARD (strict pitch precision)
      */
     fun calculateFinalScore(difficulty: String = "MEDIUM"): Int {
-        // If no voice was detected at all during the song, return low score (do not fake a high score!)
-        if (anyVocalChunksCount < 4) {
-            return when (difficulty) {
-                "EASY" -> (70..75).random()
-                "HARD" -> (50..58).random()
-                else -> (60..64).random()
-            }
+        // If no voice or barely any voice was detected at all, return base 60 score
+        if (anyVocalChunksCount < 5) {
+            return (60..63).random()
         }
 
         val effectiveTotalPhrase = if (totalVocalPhraseChunks >= 15) totalVocalPhraseChunks else totalChunksProcessed.coerceAtLeast(1)
@@ -281,42 +277,32 @@ class MicrophoneScorer(
         val pitchQualityRatio = if (sungPhraseChunks > 0) {
             (melodyPitchPoints / sungPhraseChunks.toFloat()).coerceIn(0f, 1f)
         } else {
-            0.55f
+            0.30f
         }
 
         return when (difficulty) {
             "EASY" -> {
-                val timingComponent = (participationRatio / 0.45f).coerceIn(0f, 1f) * 10f
-                val melodyComponent = pitchQualityRatio * 14f
-                val computed = (78f + timingComponent + melodyComponent).roundToInt()
-                computed.coerceIn(80, 99)
+                val timingComponent = (participationRatio / 0.40f).coerceIn(0f, 1f) * 15f
+                val melodyComponent = pitchQualityRatio * 25f
+                val computed = (60f + timingComponent + melodyComponent + 5f).roundToInt()
+                computed.coerceIn(65, 100)
             }
             "HARD" -> {
-                val timingComponent = (participationRatio / 0.80f).coerceIn(0f, 1f) * 12f
-                val melodyComponent = pitchQualityRatio * 22f
-                val computed = (64f + timingComponent + melodyComponent).roundToInt()
-                computed.coerceIn(65, 99)
+                val timingComponent = (participationRatio / 0.70f).coerceIn(0f, 1f) * 12f
+                val melodyComponent = pitchQualityRatio * 28f
+                val computed = (60f + timingComponent + melodyComponent).roundToInt()
+                computed.coerceIn(60, 100)
             }
             else -> {
-                // MEDIUM
-                when {
-                    participationRatio < 0.05f -> {
-                        // Halos walang kanta sa mic
-                        (62..68).random()
-                    }
-                    participationRatio < 0.22f -> {
-                        // Kaunting bahagi lang ang kinanta, base sa tama ng tono
-                        val score = 69 + (participationRatio * 25f).roundToInt() + (pitchQualityRatio * 8f).roundToInt()
-                        score.coerceIn(69, 81)
-                    }
-                    else -> {
-                        // Kinanta nang tuloy-tuloy: 45% participation timing + 55% melody pitch accuracy
-                        val timingComponent = (participationRatio / 0.65f).coerceIn(0f, 1f) * 11f
-                        val melodyComponent = pitchQualityRatio * 16f
-                        val computed = (72f + timingComponent + melodyComponent).roundToInt()
-                        computed.coerceIn(74, 99)
-                    }
-                }
+                // MEDIUM: Dynamic real-time scoring based on vocal alignment with melody notes
+                // Tier 1 (60-70): Out of tune or low participation
+                // Tier 2 (71-80): Fair timing but noticeable pitch misses
+                // Tier 3 (81-90): Solid singing following melody notes
+                // Tier 4 (91-100): High pitch accuracy & synchronized performance
+                val timingComponent = (participationRatio / 0.50f).coerceIn(0f, 1f) * 15f
+                val melodyComponent = pitchQualityRatio * 25f
+                val computed = (60f + timingComponent + melodyComponent).roundToInt()
+                computed.coerceIn(60, 100)
             }
         }
     }

@@ -1102,13 +1102,13 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
 
 
-        val savedLang = prefs.getString("app_language", "en") ?: "en"
+        val savedLang = prefs.getString("app_language", "tl") ?: "tl"
 
         val initialLang = if (savedLang == "tl") AppLanguage.TAGALOG else AppLanguage.ENGLISH
 
         val isLocalSecureVip = VipSecureStorage.isVipActive(application)
 
-        val isVip = prefs.getBoolean("is_vip_activated", false) || isLocalSecureVip
+        val isVip = prefs.getBoolean("is_vip_activated", true) || isLocalSecureVip
 
         val devId = SupabaseVipManager.getHardwareDeviceId(application)
 
