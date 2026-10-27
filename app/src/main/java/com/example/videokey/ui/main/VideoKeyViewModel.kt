@@ -1107,11 +1107,13 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         val initialLang = if (savedLang == "tl") AppLanguage.TAGALOG else AppLanguage.ENGLISH
 
-        val isLocalSecureVip = VipSecureStorage.isVipActive(application)
-
-        val isVip = prefs.getBoolean("is_vip_activated", true) || isLocalSecureVip
-
         val devId = SupabaseVipManager.getHardwareDeviceId(application)
+
+        val isLocalSecureVip = VipSecureStorage.isVipActive(application) &&
+                VipSecureStorage.getStoredDeviceId(application) == devId &&
+                !VipSecureStorage.getStoredLicenseKey(application).isNullOrBlank()
+
+        val isVip = prefs.getBoolean("is_vip_activated", false) && isLocalSecureVip
 
 
 
@@ -1750,11 +1752,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
         // Automatic silent online VIP license verification
 
-        if (!isVip) {
-
-            checkOnlineVipStatus(showMessage = false)
-
-        }
+        checkOnlineVipStatus(showMessage = false)
 
     }
 
@@ -5782,27 +5780,7 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
             }
 
-            viewModelScope.launch(Dispatchers.IO) {
-
-                try {
-
-                    val deleteUrl = java.net.URL("${SupabaseVipManager.SUPABASE_URL}/rest/v1/vip_licenses?device_id=eq.${android.net.Uri.encode(devId)}")
-
-                    val conn = deleteUrl.openConnection() as java.net.HttpURLConnection
-
-                    conn.requestMethod = "DELETE"
-
-                    val activeKey = if (SupabaseVipManager.SUPABASE_SERVICE_KEY.isNotBlank()) SupabaseVipManager.SUPABASE_SERVICE_KEY else SupabaseVipManager.SUPABASE_ANON_KEY
-
-                    conn.setRequestProperty("apikey", activeKey)
-
-                    conn.setRequestProperty("Authorization", "Bearer $activeKey")
-
-                    conn.responseCode
-
-                } catch (_: Exception) {}
-
-            }
+            // Clean local VIP only, do not delete remote Supabase registration
 
         }
 
@@ -8193,24 +8171,20 @@ class VideoKeyViewModel(application: Application) : AndroidViewModel(application
 
                 }
 
-            } else if (showMessage) {
-
-                _uiState.update {
-
-                    it.copy(
-
-                        alertMessage = if (isTl) "ℹ️ Hindi pa aktibo ang VIP para sa Device: $devId"
-
-                                       else "ℹ️ VIP is not active yet for Device: $devId"
-
-                    )
-
+            } else {
+                if (_uiState.value.isVipActivated) {
+                    setVipActivated(false)
                 }
-
+                if (showMessage) {
+                    _uiState.update {
+                        it.copy(
+                            alertMessage = if (isTl) "ℹ️ Hindi pa aktibo ang VIP para sa Device: $devId"
+                                           else "ℹ️ VIP is not active yet for Device: $devId"
+                        )
+                    }
+                }
             }
-
         }
-
     }
 
 

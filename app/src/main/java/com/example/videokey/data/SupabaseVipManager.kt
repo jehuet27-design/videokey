@@ -265,18 +265,7 @@ object SupabaseVipManager {
     ): VipVerificationResult = withContext(Dispatchers.IO) {
         val cleanDevId = deviceId.trim()
         try {
-            // 1. First check hardware-backed secure local cache
-            if (VipSecureStorage.isVipActive(context) && VipSecureStorage.getStoredDeviceId(context) == cleanDevId) {
-                val storedKey = VipSecureStorage.getStoredLicenseKey(context)
-                if (!storedKey.isNullOrBlank()) {
-                    return@withContext VipVerificationResult(
-                        isVip = true,
-                        deviceId = cleanDevId,
-                        licenseKey = storedKey,
-                        message = "VIP Active (Secure Local Verified)"
-                    )
-                }
-            }
+            // 1. Verify directly against Supabase first to enforce real paid status
 
             // 2. Call Supabase RPC
             try {
@@ -376,6 +365,8 @@ object SupabaseVipManager {
                 }
             }
 
+            // Not found in Supabase -> clear local VIP cache
+            VipSecureStorage.clearVip(context)
             VipVerificationResult(
                 isVip = false,
                 deviceId = cleanDevId,
