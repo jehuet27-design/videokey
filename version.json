@@ -1,7 +1,7 @@
 {
-  "versionCode": 12,
-  "versionName": "2.8.3",
-  "apkUrl": "https://github.com/jehuet27-design/videokey/releases/download/v2.8.3/VideoKey-v2.8.3.apk",
+  "versionCode": 13,
+  "versionName": "2.8.4",
+  "apkUrl": "https://github.com/jehuet27-design/videokey-app/releases/download/v2.8.4/VideoKey-v2.8.4.apk",
   "forceUpdate": true,
-  "releaseNotes": "🎉 VIDEOKEY V2.8.3 SECURITY & VIP UPDATE:\n• Alternate Play at Pause sa iisang button (nagiging Pause kapag nag-play, at Play/Resume kapag naka-pause)\n• Inalis ang pause box sa screen at screen tap pause para malinis at hindi ma-pause nang aksidente\n• 100% Fixed ang force close bug kapag natapos ang kanta at may reserved song\n• Mas malaking countdown images (kitang-kita ang anime at custom photos)\n• Libre at bukas para sa lahat ang 5 Countdown Custom Images (tinanggal ang VIP requirement)\n• Front at Back camera background toggle\n• Mas malakas at rinig na Bass Boost at Treble Equalizer"
+  "releaseNotes": "🎉 VIDEOKEY V2.8.4 UPDATE:\n• Mas maayos na lyrics spacing at automatic 2-line layout habang nagpi-play\n• Smooth highlights ng lyrics sa TV Mode at hindi natatakpan ng songbook o dialogs\n• Compact TV keypad sa top-right corner na hindi humaharang sa lyrics\n• Download Center: 'Song Pack' label at may gumaganang stop/cancel download\n• Dedicated public release channel"
 }
